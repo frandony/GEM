@@ -225,20 +225,44 @@ async function distribuicao(
   const semanaInicio = corpo.semana_inicio as string;
   const horizonteSemanas = (corpo.horizonte_semanas as number) ?? 6;
 
-  const [grade, limites, materias, semanasOff, pendentes] = await Promise.all([
+  const [grade, limites, materiasResp, semanasOff, pendentes] = await Promise.all([
     supabase.from("grade_slots").select("dia_semana,hora,duracao_min").eq("user_id", userId).eq("ativo", true),
     supabase.from("limites_estudo").select("*").eq("user_id", userId).maybeSingle(),
     supabase
       .from("materias")
-      .select(
-        "id,nome,topicos(id,nome,ordem,blocos_estimados,exige_exercicios,dificuldade,compreendido)," +
-          "eventos(id,tipo,data,descricao,evento_topicos(topico_id))",
-      )
+      // Literal ÚNICO de propósito: o supabase-js analisa esta string em
+      // tempo de tipo para inferir o formato do retorno. Montada por
+      // concatenação, ele não consegue ler e devolve GenericStringError —
+      // que foi exatamente o erro que o `deno check` pegou aqui.
+      .select("id,nome,topicos(id,nome,ordem,blocos_estimados,exige_exercicios,dificuldade,compreendido),eventos(id,tipo,data,descricao,evento_topicos(topico_id))")
       .eq("user_id", userId)
       .eq("ativa", true),
     supabase.from("semanas_off").select("semana_inicio").eq("user_id", userId).gte("semana_inicio", semanaInicio),
     supabase.from("topicos_pendentes").select("topico_id").eq("user_id", userId),
   ]);
+
+  if (materiasResp.error) {
+    throw new Error(`falha ao ler matérias: ${materiasResp.error.message}`);
+  }
+
+  // Formato do que a query devolve. Explícito porque o contexto inteiro é
+  // serializado para o prompt e validado contra os ids — se mudar aqui,
+  // a validação precisa mudar junto.
+  interface MateriaCompleta extends Record<string, unknown> {
+    id: string;
+    nome: string;
+    topicos: Array<{
+      id: string; nome: string; ordem: number;
+      blocos_estimados: number | null; exige_exercicios: boolean;
+      dificuldade: string | null; compreendido: boolean | null;
+    }>;
+    eventos: Array<{
+      id: string; tipo: string; data: string; descricao: string | null;
+      evento_topicos: Array<{ topico_id: string }>;
+    }>;
+  }
+
+  const materias = (materiasResp.data ?? []) as unknown as MateriaCompleta[];
 
   const slots = grade.data ?? [];
   if (slots.length === 0) {
@@ -251,22 +275,15 @@ async function distribuicao(
     grade: slots,
     limites: limites.data ?? { max_blocos_dia: 2, max_minutos_dia: 180, dia_leve: null },
     semanas_off: (semanasOff.data ?? []).map((s) => s.semana_inicio),
-    materias: materias.data ?? [],
+    materias,
     topicos_pendentes: (pendentes.data ?? []).map((p) => p.topico_id),
   };
 
+  // Os ids válidos que a validação usa para pegar alucinação da IA.
   const idsValidos = {
-    materias: new Set((materias.data ?? []).map((m) => m.id as string)),
-    topicos: new Set(
-      (materias.data ?? []).flatMap((m) =>
-        ((m.topicos ?? []) as Array<{ id: string }>).map((t) => t.id),
-      ),
-    ),
-    eventos: new Set(
-      (materias.data ?? []).flatMap((m) =>
-        ((m.eventos ?? []) as Array<{ id: string }>).map((e) => e.id),
-      ),
-    ),
+    materias: new Set(materias.map((m) => m.id)),
+    topicos: new Set(materias.flatMap((m) => (m.topicos ?? []).map((t) => t.id))),
+    eventos: new Set(materias.flatMap((m) => (m.eventos ?? []).map((e) => e.id))),
   };
 
   try {
@@ -282,7 +299,7 @@ async function distribuicao(
       (blocos) => validarDistribuicao(blocos, contexto, idsValidos),
     );
 
-    const salvos = await persistir(supabase, userId, semanaInicio, resultado.dados);
+    const salvos = await persistir(supabase, semanaInicio, resultado.dados);
     return json(req, {
       origem: "ia",
       ...salvos,
@@ -309,7 +326,7 @@ async function distribuicao(
     // últimos 20% dos blocos marcados como revisão.
     console.error("montar-estudo caiu no fallback:", e);
     const plano = distribuicaoRoundRobin(contexto);
-    const salvos = await persistir(supabase, userId, semanaInicio, plano);
+    const salvos = await persistir(supabase, semanaInicio, plano);
     return json(req, {
       origem: "fallback",
       ...salvos,
@@ -321,9 +338,13 @@ async function distribuicao(
   }
 }
 
+/**
+ * Grava os blocos. Não recebe userId de propósito: quem identifica o dono
+ * é o `auth.uid()` dentro da RPC, sob a RLS do próprio usuário. Passar o
+ * id por fora abriria espaço para gravar no calendário de outra pessoa.
+ */
 async function persistir(
   supabase: ReturnType<typeof clienteDoUsuario>,
-  userId: string,
   semanaInicio: string,
   plano: BlocosGerados,
 ) {

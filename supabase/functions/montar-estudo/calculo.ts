@@ -118,7 +118,7 @@ function formatarHoras(minutos: number): string {
 }
 
 function formatarData(iso: string): string {
-  const [ano, mes, dia] = iso.split("-");
+  const [, mes, dia] = iso.split("-");
   const meses = [
     "jan", "fev", "mar", "abr", "mai", "jun",
     "jul", "ago", "set", "out", "nov", "dez",

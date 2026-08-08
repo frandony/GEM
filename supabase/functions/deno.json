@@ -4,6 +4,10 @@
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2.112.2",
     "web-push": "npm:web-push@3.6.7"
   },
+  // Sem isto, `deno check` local falha com "Could not find a matching
+  // package" — o runtime das Edge Functions resolve npm: sozinho, mas a
+  // checagem local precisa de node_modules de verdade.
+  "nodeModulesDir": "auto",
   "lint": {
     "rules": {
       "tags": ["recommended"]

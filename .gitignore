@@ -20,3 +20,7 @@ dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# Deno
+supabase/functions/node_modules/
+supabase/functions/deno.lock
