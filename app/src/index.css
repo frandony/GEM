@@ -1,0 +1,286 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+/* =====================================================================
+   Base
+   ===================================================================== */
+
+@layer base {
+  /* As três famílias do site, servidas localmente — 72 KB no total.
+     Subconjunto `latin` (U+0000–00FF) basta para português: á, ê, ã, ç
+     e õ estão todos no Latin-1. O `latin-ext` é para tcheco e polonês,
+     e seriam 40 KB a mais sem um caractere usado.
+
+     `swap` de propósito: na academia com 4G ruim, ver o treino importa
+     mais que ver a tipografia certa. */
+  @font-face {
+    font-family: "IBM Plex Sans";
+    src: url("/fontes/plex-sans.woff2") format("woff2-variations");
+    /* Fonte VARIÁVEL: um arquivo cobre 400 e 600. Declarar dois pesos
+       apontando para o mesmo arquivo faria o navegador baixar duas vezes. */
+    font-weight: 100 700;
+    font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F, U+20AC;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("/fontes/plex-mono.woff2") format("woff2");
+    font-weight: 500; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+  }
+  @font-face {
+    font-family: "Instrument Serif";
+    src: url("/fontes/instrument-serif.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+  }
+
+  html {
+    background: var(--bg);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    /* Sem scroll elástico horizontal — em PWA standalone ele parece bug. */
+    overscroll-behavior-x: none;
+  }
+
+  body {
+    font-family: var(--fonte-ui);
+    font-size: var(--t-base);
+    line-height: var(--lh-normal);
+    color: var(--ink);
+    /* dvh, não vh: no mobile a barra do navegador entra e sai, e `vh`
+       congela no maior valor — o rodapé fica escondido atrás dela. */
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Número nunca dança. Registrar série troca 8 por 10 dezenas de vezes
+     por treino; sem largura tabular a linha inteira pula a cada toque. */
+  .num, input[type="number"], time, [data-num] {
+    font-family: var(--fonte-num);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Serifada SÓ em número grande de display — streak, volume da semana.
+     Nunca em rótulo pequeno: linda em hero, ilegível a 12px na academia. */
+  .display {
+    font-family: var(--fonte-display);
+    font-weight: 400;
+    line-height: var(--lh-tight);
+    letter-spacing: -0.01em;
+  }
+
+  /* 16px de mínimo em campo: abaixo disso o Safari do iPhone dá zoom
+     ao focar e o layout salta. É a causa nº 1 de "o app pula sozinho". */
+  input, select, textarea, button {
+    font: inherit;
+    font-size: max(var(--t-base), 1rem);
+    color: inherit;
+  }
+
+  /* Foco visível só para teclado — mostrar anel a cada toque na tela
+     polui, mas remover de vez quebra a navegação por teclado. */
+  :focus-visible {
+    outline: 2px solid var(--treino-ink);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* Quem pediu menos movimento recebe menos movimento. Não é detalhe:
+     parte das pessoas sente enjoo com transição, e o sistema já sabe. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* =====================================================================
+   Componentes — o mínimo que se repete em toda tela.
+   Organização de produto, não de portfólio: alvo grande, uma decisão
+   por vez, estado sempre visível.
+   ===================================================================== */
+
+@layer components {
+  /* ---- Estrutura da tela -------------------------------------------
+     Coluna única no celular; a partir de `md` ganha respiro lateral em
+     vez de esticar a linha — texto com mais de ~70 caracteres cansa. */
+  .tela {
+    padding-inline: var(--e-4);
+    padding-top: calc(var(--safe-t) + var(--e-4));
+    /* Espaço para a barra inferior + indicador de home do iPhone. */
+    padding-bottom: calc(var(--nav-h) + var(--safe-b) + var(--e-6));
+    max-width: 40rem;
+    margin-inline: auto;
+  }
+
+  @media (min-width: 64rem) {
+    /* No desktop a barra vira lateral e o padding inferior some. */
+    .tela {
+      padding-bottom: var(--e-10);
+      padding-inline: var(--e-8);
+      max-width: 56rem;
+    }
+  }
+
+  /* ---- Card --------------------------------------------------------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: var(--e-4);
+  }
+  .card-alta { background: var(--surface-alta); }
+
+  /* Card com faixa de módulo à esquerda. Diz "isto é treino" ou "isto é
+     estudo" sem gastar uma linha de texto — a home tem os dois lado a
+     lado e a pessoa precisa distinguir de relance. */
+  .card-treino { border-left: 3px solid var(--treino); }
+  .card-estudo { border-left: 3px solid var(--estudo); }
+
+  /* ---- Botões ------------------------------------------------------
+     Altura mínima de toque em todos. O `active:` em vez de `hover:`
+     como estado principal: no celular hover não existe, e o retorno
+     tátil de escala é o que confirma que o toque pegou. */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: var(--e-2);
+    min-height: var(--toque-min);
+    padding-inline: var(--e-5);
+    border-radius: var(--r-md);
+    font-weight: 600;
+    transition: background var(--d-entrar) var(--ease-out),
+                transform var(--d-sair) var(--ease-out),
+                opacity var(--d-entrar) var(--ease-out);
+    touch-action: manipulation;  /* mata o atraso de 300ms do duplo-toque */
+    user-select: none;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; pointer-events: none; }
+
+  .btn-treino { background: var(--treino); color: var(--bg); }
+  .btn-estudo { background: var(--estudo); color: var(--ink); }
+  .btn-neutro {
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--hairline-forte);
+  }
+  .btn-perigo { background: transparent; color: var(--perigo-ink);
+                border: 1px solid var(--perigo); }
+
+  /* Botão que ocupa a largura da tela. No celular, ação primária é
+     sempre assim — alcance do polegar, sem mira. */
+  .btn-bloco { display: flex; width: 100%; }
+
+  /* ---- Chip de estado ---------------------------------------------- */
+  .chip {
+    display: inline-flex; align-items: center; gap: var(--e-1);
+    padding: var(--e-1) var(--e-2);
+    border-radius: var(--r-sm);
+    font-size: var(--t-xs);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .chip-ok      { background: var(--ok-fraco);      color: var(--ok-ink); }
+  .chip-atencao { background: var(--atencao-fraco); color: var(--atencao-ink); }
+  .chip-treino  { background: var(--treino-fraco);  color: var(--treino-ink); }
+  .chip-estudo  { background: var(--estudo-fraco);  color: var(--estudo-ink); }
+
+  /* ---- Campo -------------------------------------------------------- */
+  .campo {
+    width: 100%;
+    min-height: var(--toque-min);
+    padding: var(--e-3) var(--e-4);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    transition: border-color var(--d-entrar) var(--ease-out);
+  }
+  .campo::placeholder { color: var(--ink-fraco); }
+  .campo:focus { border-color: var(--hairline-forte); outline: none; }
+  .campo:focus-visible { border-color: var(--treino-ink); }
+
+  /* Campo de carga e reps. Grande, monoespaçado, centralizado — é o que
+     mais se toca no app inteiro, entre uma série e outra. */
+  .campo-num {
+    font-family: var(--fonte-num);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--t-2xl);
+    text-align: center;
+    min-height: 64px;
+    padding-inline: var(--e-2);
+  }
+
+  /* ---- Barra de navegação inferior ---------------------------------
+     Fixa no celular porque em PWA standalone no iPhone não há gesto de
+     voltar confiável. Vira lateral no desktop. */
+  .nav {
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 50;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    height: calc(var(--nav-h) + var(--safe-b));
+    padding-bottom: var(--safe-b);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--hairline);
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px;
+    font-size: var(--t-xs);
+    color: var(--ink-muted);
+    transition: color var(--d-entrar) var(--ease-out);
+  }
+  .nav-item[aria-current="page"] { color: var(--ink); }
+
+  @media (min-width: 64rem) {
+    .nav {
+      inset-inline: 0 auto; inset-block: 0;
+      width: 12rem; height: 100dvh;
+      grid-auto-flow: row; grid-auto-rows: max-content;
+      gap: var(--e-1);
+      padding: var(--e-6) var(--e-3);
+      border-top: 0; border-right: 1px solid var(--hairline);
+    }
+    .nav-item {
+      flex-direction: row; justify-content: flex-start;
+      gap: var(--e-3);
+      min-height: var(--toque-min);
+      padding-inline: var(--e-3);
+      border-radius: var(--r-md);
+      font-size: var(--t-sm);
+    }
+  }
+
+  /* ---- Estado vazio ------------------------------------------------
+     Tem componente próprio porque no dia 1 TODA tela está vazia (§9 do
+     plano). Tratar isso como caso de exceção é o erro clássico. */
+  .vazio {
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--e-3);
+    padding: var(--e-10) var(--e-4);
+    text-align: center;
+    color: var(--ink-muted);
+    border: 1px dashed var(--hairline-forte);
+    border-radius: var(--r-lg);
+  }
+
+  /* ---- Indicador de sincronização pendente -------------------------
+     No iOS não existe background sync (§2). A pessoa precisa ver que
+     algo ainda não subiu — senão fecha o app achando que salvou. */
+  .pendente {
+    display: inline-flex; align-items: center; gap: var(--e-2);
+    font-size: var(--t-xs);
+    color: var(--atencao-ink);
+  }
+  .pendente::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor;
+    animation: pulsar 2s var(--ease-mover) infinite;
+  }
+  @keyframes pulsar { 50% { opacity: 0.25; } }
+}

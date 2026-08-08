@@ -1,0 +1,50 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: "prompt",
+      // `prompt` e não `autoUpdate`: trocar o app por baixo no meio de um
+      // treino perde o estado da tela. A pessoa decide quando atualizar.
+      includeAssets: ["fontes/*.woff2", "icones/*.png"],
+      manifest: {
+        name: "Estudo + Treino",
+        short_name: "Treino",
+        description: "Treino e estudo, no mesmo lugar",
+        lang: "pt-BR",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#0a0c10",
+        theme_color: "#0a0c10",
+        orientation: "portrait",
+        icons: [
+          { src: "/icones/192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icones/512.png", sizes: "512x512", type: "image/png" },
+          { src: "/icones/512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
+        // O catálogo de exercícios é global e quase imutável — vale cache
+        // longo. Já as chamadas de dado do usuário nunca são cacheadas:
+        // servir treino velho é pior que não servir.
+        runtimeCaching: [
+          {
+            urlPattern: /\/rest\/v1\/exercicios/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "catalogo",
+              expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
+      },
+    }),
+  ],
+  server: { port: 5173 },
+});

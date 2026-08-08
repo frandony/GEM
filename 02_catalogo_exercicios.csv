@@ -1,0 +1,164 @@
+id,nome,grupo_primario,grupos_secundarios,padrao_movimento,equipamento,incremento_kg,unilateral,medida,comum
+1,Abdução miniband,abdutores,glúteo,isolamento de perna,elástico,,False,reps,3
+2,Abdução na máquina,abdutores,,isolamento de perna,máquina,5.0,False,reps,1
+3,Abdução na polia,abdutores,,isolamento de perna,polia,2.5,True,reps,2
+4,Monster Walk,abdutores,glúteo,isolamento de perna,elástico,,False,reps,3
+5,Dead Bug,abdômen,,antiextensão,peso corporal,,False,reps,2
+6,Dragon Flag,abdômen,,antiextensão,peso corporal,,False,reps,3
+7,Hollow Hold,abdômen,,antiextensão,peso corporal,,False,tempo,3
+8,Mountain Climbers,abdômen,,antiextensão,peso corporal,,False,tempo,2
+9,Prancha isométrica,abdômen,lombar,antiextensão,peso corporal,,False,tempo,1
+10,Prancha lateral,abdômen,,antiextensão,peso corporal,,True,tempo,2
+11,Roda abdominal,abdômen,,antiextensão,peso corporal,,False,reps,3
+12,Abdominal infra no solo,abdômen,,flexão de tronco,peso corporal,,False,reps,2
+13,Abdominal na máquina,abdômen,,flexão de tronco,máquina,5.0,False,reps,1
+14,Abdominal na polia alta,abdômen,,flexão de tronco,polia,2.5,False,reps,1
+15,Abdominal supra no solo,abdômen,,flexão de tronco,peso corporal,,False,reps,1
+16,Elevação de pernas no banco,abdômen,,flexão de tronco,peso corporal,,False,reps,2
+17,Elevação de pernas suspenso,abdômen,,flexão de tronco,peso corporal,,False,reps,1
+18,Toes to Bar,abdômen,,flexão de tronco,peso corporal,,False,reps,3
+19,V-Up,abdômen,,flexão de tronco,peso corporal,,False,reps,2
+20,Abdominal bicicleta,abdômen,,rotação,peso corporal,,False,reps,2
+21,Lenhador na polia,abdômen,,rotação,polia,2.5,True,reps,3
+22,Pallof press na polia,abdômen,,rotação,polia,2.5,True,reps,3
+23,Rotação russa com anilha,abdômen,,rotação,anilha,2.5,False,reps,2
+24,Adução na máquina,adutores,,isolamento de perna,máquina,5.0,False,reps,1
+25,Adução polia,adutores,,isolamento de perna,polia,2.5,True,reps,2
+26,Copenhagen Plank,adutores,,isolamento de perna,peso corporal,,True,tempo,3
+27,Farmer Walk,bíceps,ombro;abdômen,carregamento,halter,2.0,False,tempo,3
+28,Rosca de punho,bíceps,,isolamento de antebraço,halter,2.0,False,reps,2
+29,Rosca de punho inversa,bíceps,,isolamento de antebraço,halter,2.0,False,reps,2
+30,Wrist Roller,bíceps,,isolamento de antebraço,anilha,2.5,False,reps,3
+31,Rosca 21,bíceps,,isolamento de braço,barra,2.5,False,reps,3
+32,Rosca Bayesian,bíceps,,isolamento de braço,polia,2.5,True,reps,3
+33,Rosca Drag,bíceps,,isolamento de braço,barra,2.5,False,reps,3
+34,Rosca Scott unilateral,bíceps,,isolamento de braço,halter,2.0,True,reps,2
+35,Rosca Spider,bíceps,,isolamento de braço,halter,2.0,False,reps,3
+36,Rosca alternada com halteres,bíceps,,isolamento de braço,halter,2.0,True,reps,1
+37,Rosca concentrada,bíceps,,isolamento de braço,halter,2.0,True,reps,2
+38,Rosca direta com barra,bíceps,,isolamento de braço,barra,2.5,False,reps,1
+39,Rosca direta com barra W,bíceps,,isolamento de braço,barra,2.5,False,reps,2
+40,Rosca inversa,bíceps,,isolamento de braço,barra,2.5,False,reps,2
+41,Rosca martelo,bíceps,,isolamento de braço,halter,2.0,True,reps,1
+42,Rosca na polia baixa,bíceps,,isolamento de braço,polia,2.5,False,reps,1
+43,Rosca scott,bíceps,,isolamento de braço,barra,2.5,False,reps,1
+44,Rack Pull,costas,posterior;glúteo,dominante de quadril,barra,2.5,False,reps,3
+45,Pull-over máquina,costas,,isolamento de costas,máquina,5.0,False,reps,3
+46,Pullover com halter,costas,peito,isolamento de costas,halter,2.0,False,reps,2
+47,Pullover na polia alta,costas,,isolamento de costas,polia,2.5,False,reps,2
+48,Remada Meadows,costas,bíceps,puxar horizontal,barra,2.5,True,reps,3
+49,Remada T-Bar,costas,bíceps,puxar horizontal,barra,2.5,False,reps,2
+50,Remada baixa na polia,costas,bíceps,puxar horizontal,polia,2.5,False,reps,1
+51,Remada cavalinho,costas,bíceps,puxar horizontal,barra,2.5,False,reps,3
+52,Remada curvada com barra,costas,bíceps,puxar horizontal,barra,2.5,False,reps,1
+53,Remada curvada pronada,costas,bíceps,puxar horizontal,barra,2.5,False,reps,2
+54,Remada máquina,costas,bíceps,puxar horizontal,máquina,5.0,False,reps,1
+55,Remada serrote com halter,costas,bíceps,puxar horizontal,halter,2.0,True,reps,1
+56,Remada unilateral na polia,costas,bíceps,puxar horizontal,polia,2.5,True,reps,2
+57,Barra fixa pronada,costas,bíceps,puxar vertical,peso corporal,,False,reps,1
+58,Barra fixa supinada,costas,bíceps,puxar vertical,peso corporal,,False,reps,2
+59,Pulldown unilateral,costas,bíceps,puxar vertical,polia,2.5,True,reps,2
+60,Puxada com pegada neutra,costas,bíceps,puxar vertical,polia,2.5,False,reps,2
+61,Puxada com triângulo,costas,bíceps,puxar vertical,polia,2.5,False,reps,1
+62,Puxada frontal na polia,costas,bíceps,puxar vertical,polia,2.5,False,reps,1
+63,Puxada supinada na polia,costas,bíceps,puxar vertical,polia,2.5,False,reps,2
+64,Cable Pull Through,glúteo,posterior,dominante de quadril,polia,2.5,False,reps,3
+65,Elevação pélvica com barra,glúteo,posterior,dominante de quadril,barra,2.5,False,reps,1
+66,Elevação pélvica na máquina,glúteo,posterior,dominante de quadril,máquina,5.0,False,reps,1
+67,Frog Pump,glúteo,posterior,dominante de quadril,halter,2.0,False,reps,3
+68,Hip Thrust unilateral,glúteo,posterior,dominante de quadril,halter,2.0,True,reps,2
+69,Ponte de glúteo,glúteo,posterior,dominante de quadril,peso corporal,,False,reps,1
+70,Reverse Hyper,glúteo,posterior,dominante de quadril,máquina,5.0,False,reps,3
+71,Coice na máquina,glúteo,,isolamento de perna,máquina,5.0,True,reps,2
+72,Coice na polia,glúteo,,isolamento de perna,polia,2.5,True,reps,1
+73,Bird Dog,lombar,abdômen,antiextensão,peso corporal,,False,reps,2
+74,Hiperextensão com anilha,lombar,glúteo;posterior,extensão de tronco,anilha,2.5,False,reps,2
+75,Hiperextensão lombar,lombar,glúteo;posterior,extensão de tronco,peso corporal,,False,reps,1
+76,Jefferson Curl,lombar,posterior,extensão de tronco,halter,2.0,False,reps,3
+77,Superman no solo,lombar,,extensão de tronco,peso corporal,,False,reps,2
+78,Desenvolvimento Arnold,ombro,tríceps,empurrar vertical,halter,2.0,False,reps,2
+79,Desenvolvimento Smith,ombro,tríceps,empurrar vertical,máquina,5.0,False,reps,2
+80,Desenvolvimento com halteres,ombro,tríceps,empurrar vertical,halter,2.0,False,reps,1
+81,Desenvolvimento militar com barra,ombro,tríceps,empurrar vertical,barra,2.5,False,reps,1
+82,Desenvolvimento máquina,ombro,tríceps,empurrar vertical,máquina,5.0,False,reps,1
+83,Crucifixo inverso com halteres,ombro,costas,isolamento de ombro,halter,2.0,False,reps,1
+84,Crucifixo inverso na máquina,ombro,costas,isolamento de ombro,máquina,5.0,False,reps,1
+85,Crucifixo inverso polia,ombro,costas,isolamento de ombro,polia,2.5,True,reps,2
+86,Cuban Press,ombro,,isolamento de ombro,halter,2.0,False,reps,3
+87,Elevação Y,ombro,,isolamento de ombro,halter,2.0,False,reps,3
+88,Elevação frontal com anilha,ombro,,isolamento de ombro,anilha,2.5,False,reps,2
+89,Elevação frontal com halteres,ombro,,isolamento de ombro,halter,2.0,False,reps,1
+90,Elevação lateral com halteres,ombro,,isolamento de ombro,halter,2.0,False,reps,1
+91,Elevação lateral na máquina,ombro,,isolamento de ombro,máquina,5.0,False,reps,1
+92,Elevação lateral na polia,ombro,,isolamento de ombro,polia,2.5,True,reps,2
+93,Encolhimento com barra,ombro,,isolamento de ombro,barra,2.5,False,reps,2
+94,Encolhimento com halteres,ombro,,isolamento de ombro,halter,2.0,False,reps,1
+95,Face pull na polia,ombro,costas,isolamento de ombro,polia,2.5,False,reps,1
+96,High Pull,ombro,costas,isolamento de ombro,barra,2.5,False,reps,3
+97,Remada alta com barra,ombro,costas,isolamento de ombro,barra,2.5,False,reps,1
+98,Donkey Calf Raise,panturrilha,,panturrilha,máquina,5.0,False,reps,3
+99,Panturrilha Smith,panturrilha,,panturrilha,máquina,5.0,False,reps,2
+100,Panturrilha em pé na máquina,panturrilha,,panturrilha,máquina,5.0,False,reps,1
+101,Panturrilha no leg press,panturrilha,,panturrilha,máquina,5.0,False,reps,2
+102,Panturrilha sentado na máquina,panturrilha,,panturrilha,máquina,5.0,False,reps,1
+103,Panturrilha sentado unilateral,panturrilha,,panturrilha,máquina,5.0,True,reps,2
+104,Panturrilha unilateral com halter,panturrilha,,panturrilha,halter,2.0,True,reps,2
+105,Tibial Raise,panturrilha,,panturrilha,peso corporal,,False,reps,3
+106,Chest Press convergente,peito,tríceps;ombro,empurrar horizontal,máquina,5.0,False,reps,2
+107,Flexão de braço,peito,tríceps;ombro,empurrar horizontal,peso corporal,,False,reps,1
+108,Paralelas,peito,tríceps,empurrar horizontal,peso corporal,,False,reps,2
+109,Supino declinado com barra,peito,tríceps,empurrar horizontal,barra,2.5,False,reps,2
+110,Supino inclinado com barra,peito,ombro;tríceps,empurrar horizontal,barra,2.5,False,reps,1
+111,Supino inclinado com halteres,peito,ombro;tríceps,empurrar horizontal,halter,2.0,False,reps,1
+112,Supino máquina,peito,tríceps;ombro,empurrar horizontal,máquina,5.0,False,reps,1
+113,Supino pegada neutra,peito,tríceps;ombro,empurrar horizontal,halter,2.0,False,reps,2
+114,Supino reto com barra,peito,tríceps;ombro,empurrar horizontal,barra,2.5,False,reps,1
+115,Supino reto com halteres,peito,tríceps;ombro,empurrar horizontal,halter,2.0,False,reps,1
+116,Crossover baixo para cima,peito,,isolamento de peito,polia,2.5,False,reps,2
+117,Crossover cima para baixo,peito,,isolamento de peito,polia,2.5,False,reps,2
+118,Crossover na polia,peito,,isolamento de peito,polia,2.5,False,reps,1
+119,Crucifixo com halteres,peito,,isolamento de peito,halter,2.0,False,reps,1
+120,Crucifixo inclinado com halteres,peito,,isolamento de peito,halter,2.0,False,reps,2
+121,Svend Press,peito,,isolamento de peito,anilha,2.5,False,reps,3
+122,Voador (peck deck),peito,,isolamento de peito,máquina,5.0,False,reps,1
+123,Bom dia com barra,posterior,glúteo;lombar,dominante de quadril,barra,2.5,False,reps,3
+124,Good Morning Smith,posterior,glúteo;lombar,dominante de quadril,máquina,5.0,False,reps,3
+125,Levantamento terra,posterior,glúteo;costas,dominante de quadril,barra,2.5,False,reps,1
+126,Levantamento terra romeno,posterior,glúteo,dominante de quadril,barra,2.5,False,reps,1
+127,Levantamento terra sumô,posterior,glúteo;quadríceps,dominante de quadril,barra,2.5,False,reps,3
+128,Stiff com halteres,posterior,glúteo,dominante de quadril,halter,2.0,False,reps,1
+129,Cadeira flexora,posterior,,isolamento de perna,máquina,5.0,False,reps,1
+130,Flexora unilateral em pé,posterior,,isolamento de perna,máquina,5.0,True,reps,2
+131,Glute Ham Raise,posterior,glúteo,isolamento de perna,peso corporal,,False,reps,3
+132,Mesa flexora,posterior,,isolamento de perna,máquina,5.0,False,reps,1
+133,Nordic Curl,posterior,,isolamento de perna,peso corporal,,False,reps,3
+134,Agachamento frontal,quadríceps,glúteo,dominante de joelho,barra,2.5,False,reps,2
+135,Agachamento goblet,quadríceps,glúteo,dominante de joelho,halter,2.0,False,reps,1
+136,Agachamento livre,quadríceps,glúteo;posterior,dominante de joelho,barra,2.5,False,reps,1
+137,Agachamento no Smith,quadríceps,glúteo,dominante de joelho,máquina,5.0,False,reps,1
+138,Agachamento sumô com halter,quadríceps,glúteo,dominante de joelho,halter,2.0,False,reps,2
+139,Belt Squat,quadríceps,glúteo,dominante de joelho,máquina,5.0,False,reps,3
+140,Hack machine,quadríceps,glúteo,dominante de joelho,máquina,5.0,False,reps,1
+141,Landmine Squat,quadríceps,glúteo,dominante de joelho,barra,2.5,False,reps,3
+142,Leg press 45,quadríceps,glúteo,dominante de joelho,máquina,5.0,False,reps,1
+143,Sissy Squat,quadríceps,,dominante de joelho,peso corporal,,False,reps,3
+144,Spanish Squat,quadríceps,,dominante de joelho,peso corporal,,False,reps,3
+145,Cadeira extensora,quadríceps,,isolamento de perna,máquina,5.0,False,reps,1
+146,Extensora unilateral,quadríceps,,isolamento de perna,máquina,5.0,True,reps,2
+147,Afundo com halteres,quadríceps,glúteo,unilateral,halter,2.0,True,reps,1
+148,Agachamento búlgaro,quadríceps,glúteo,unilateral,halter,2.0,True,reps,2
+149,Avanço no Smith,quadríceps,glúteo,unilateral,máquina,5.0,True,reps,2
+150,Passada,quadríceps,glúteo,unilateral,halter,2.0,True,reps,2
+151,Step-up no banco,quadríceps,glúteo,unilateral,halter,2.0,True,reps,2
+152,Supino fechado,tríceps,peito,empurrar horizontal,barra,2.5,False,reps,2
+153,Extensão acima cabeça polia,tríceps,,isolamento de braço,polia,2.5,False,reps,2
+154,JM Press,tríceps,peito,isolamento de braço,barra,2.5,False,reps,3
+155,Kickback polia,tríceps,,isolamento de braço,polia,2.5,True,reps,2
+156,Mergulho no banco,tríceps,,isolamento de braço,peso corporal,,False,reps,2
+157,Tríceps coice,tríceps,,isolamento de braço,halter,2.0,True,reps,2
+158,Tríceps francês com halter,tríceps,,isolamento de braço,halter,2.0,False,reps,2
+159,Tríceps máquina,tríceps,,isolamento de braço,máquina,5.0,False,reps,2
+160,Tríceps na polia com barra,tríceps,,isolamento de braço,polia,2.5,False,reps,1
+161,Tríceps na polia com corda,tríceps,,isolamento de braço,polia,2.5,False,reps,1
+162,Tríceps testa com barra W,tríceps,,isolamento de braço,barra,2.5,False,reps,1
+163,Tríceps unilateral polia,tríceps,,isolamento de braço,polia,2.5,True,reps,2

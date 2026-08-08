@@ -1,0 +1,175 @@
+/* =====================================================================
+   Design tokens — App Estudo + Treino
+   =====================================================================
+   Paleta e tipografia herdadas de franciscogomes.com, remapeadas para
+   semântica de PRODUTO em vez de seções de portfólio.
+
+   O que veio igual: fundo, superfície, tinta, fio de cabelo, as quatro
+   cores de acento com o par base/ink, as três famílias tipográficas, os
+   raios pequenos e a gramática de movimento.
+
+   O que mudou, e por quê: no portfólio as quatro cores nomeiam seções
+   institucionais. Aqui cor precisa carregar significado de domínio —
+   qual módulo é este, isto está feito ou pendente, o streak está vivo.
+   Cor decorativa em app de uso diário vira ruído; cor com significado
+   vira atalho de leitura.
+   ===================================================================== */
+
+:root {
+  /* ---------------------------------------------------------------
+     Superfícies — do site, sem alteração
+     Fundo quase preto com viés azul. Não é cinza neutro: a diferença
+     é sutil na captura e óbvia no aparelho.
+     --------------------------------------------------------------- */
+  --bg:            #0a0c10;
+  --surface:       #12151c;
+  /* Terceiro degrau, derivado: o site não precisava, um app precisa.
+     Card sobre card acontece o tempo todo (sessão dentro do dia). */
+  --surface-alta:  #171b24;
+
+  --ink:           #ededf2;
+  --ink-muted:     #ededf29e;   /* 62% — rótulo, metadado */
+  --ink-fraco:     #ededf257;   /* 34% — placeholder, desabilitado */
+  --hairline:      #ededf21a;   /* 10% — borda de card, divisória */
+  --hairline-forte:#ededf233;   /* 20% — borda de campo com foco */
+
+  /* ---------------------------------------------------------------
+     Acentos — as quatro do site, com papel de domínio
+     Cada uma mantém o par do original: `base` para preenchimento e
+     traço, `ink` (clareada) para TEXTO sobre fundo escuro. Essa é a
+     melhor ideia do seu sistema — contraste resolvido na origem, não
+     remendado depois.
+     --------------------------------------------------------------- */
+  --treino:        #00e5cc;     /* era "inteligência" */
+  --treino-ink:    #2eead5;
+  --estudo:        #7c4dff;     /* era "visibilidade" */
+  --estudo-ink:    #ac8fff;
+  --ok:            #a3e635;     /* era "matéria" — streak vivo, concluído */
+  --ok-ink:        #b4eb59;
+  --atencao:       #ff6b35;     /* era "estrutura" — pendência, aviso */
+  --atencao-ink:   #ff7a49;
+
+  /* Quinta cor, DERIVADA — o site não tem destrutivo porque portfólio
+     não apaga nada. App apaga: abandonar treino, sair do grupo, excluir
+     conta. Mantida na mesma família saturada-sobre-escuro, e afastada
+     do laranja o suficiente para não confundir aviso com perigo. */
+  --perigo:        #ff4f5e;
+  --perigo-ink:    #ff8089;
+
+  /* Versões a 12% para preenchimento de chip e faixa de estado. */
+  --treino-fraco:  #00e5cc1f;
+  --estudo-fraco:  #7c4dff1f;
+  --ok-fraco:      #a3e6351f;
+  --atencao-fraco: #ff6b351f;
+  --perigo-fraco:  #ff4f5e1f;
+
+  /* ---------------------------------------------------------------
+     Tipografia — as três famílias do site, com papéis separados
+     --------------------------------------------------------------- */
+  --fonte-ui:      "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --fonte-num:     "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --fonte-display: "Instrument Serif", ui-serif, Georgia, serif;
+
+  /* Escala mobile-first. 16px de base é inegociável: abaixo disso o
+     Safari do iPhone dá zoom automático ao focar um campo. */
+  --t-xs:   0.75rem;   /* 12 — rótulo de metadado */
+  --t-sm:   0.875rem;  /* 14 — texto secundário */
+  --t-base: 1rem;      /* 16 — corpo, e mínimo de qualquer input */
+  --t-lg:   1.125rem;  /* 18 — título de card */
+  --t-xl:   1.375rem;  /* 22 — título de tela */
+  --t-2xl:  1.75rem;   /* 28 — número grande */
+  --t-3xl:  2.5rem;    /* 40 — display (streak, carga da série) */
+
+  --lh-tight:   1.15;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.625;
+
+  /* ---------------------------------------------------------------
+     Forma — os raios do site. Pequenos de propósito.
+     Cantos muito arredondados leem como app de consumo; este é sóbrio.
+     --------------------------------------------------------------- */
+  --r-sm: 0.25rem;   /* 4  — chip, badge */
+  --r-md: 0.5rem;    /* 8  — botão, campo */
+  --r-lg: 0.75rem;   /* 12 — card (o --radius-xl do site) */
+
+  /* ---------------------------------------------------------------
+     Espaçamento — escala de 4px, igual à do Tailwind do site
+     --------------------------------------------------------------- */
+  --e-1: 0.25rem;  --e-2: 0.5rem;   --e-3: 0.75rem;  --e-4: 1rem;
+  --e-5: 1.25rem;  --e-6: 1.5rem;   --e-8: 2rem;     --e-10: 2.5rem;
+  --e-12: 3rem;    --e-16: 4rem;
+
+  /* ---------------------------------------------------------------
+     Movimento — a gramática do site, copiada exatamente
+     Sair mais rápido que entrar, e mover bem mais lento que os dois.
+     É uma decisão incomum e boa: sumir rápido não chama atenção,
+     mover devagar deixa o olho acompanhar.
+     --------------------------------------------------------------- */
+  --d-entrar: 0.21s;
+  --d-sair:   0.15s;
+  --d-mover:  0.42s;
+  --ease-mover: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-out:   cubic-bezier(0, 0, 0.2, 1);
+  --ease-in:    cubic-bezier(0.4, 0, 1, 1);
+
+  /* ---------------------------------------------------------------
+     Alvo de toque — não vem do site, vem de app ser usado com a mão
+     44px é o mínimo da Apple, 48 o do Material. Uso 48 porque isto é
+     usado na academia, com a mão suada e o braço cansado.
+     --------------------------------------------------------------- */
+  --toque-min: 48px;
+
+  /* Barra inferior. Em PWA standalone no iPhone não existe gesto de
+     voltar confiável (§2 do plano), então a barra é a navegação — e
+     precisa respeitar o indicador de home. */
+  --nav-h: 56px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+/* =====================================================================
+   Ponte para o Tailwind v4.
+   `@theme inline` expõe os tokens como utilitários (bg-surface,
+   text-treino-ink, rounded-lg...) sem duplicar valor.
+   ===================================================================== */
+@theme inline {
+  --color-bg:            var(--bg);
+  --color-surface:       var(--surface);
+  --color-surface-alta:  var(--surface-alta);
+  --color-ink:           var(--ink);
+  --color-ink-muted:     var(--ink-muted);
+  --color-ink-fraco:     var(--ink-fraco);
+  --color-hairline:      var(--hairline);
+  --color-hairline-forte:var(--hairline-forte);
+
+  --color-treino:        var(--treino);
+  --color-treino-ink:    var(--treino-ink);
+  --color-treino-fraco:  var(--treino-fraco);
+  --color-estudo:        var(--estudo);
+  --color-estudo-ink:    var(--estudo-ink);
+  --color-estudo-fraco:  var(--estudo-fraco);
+  --color-ok:            var(--ok);
+  --color-ok-ink:        var(--ok-ink);
+  --color-ok-fraco:      var(--ok-fraco);
+  --color-atencao:       var(--atencao);
+  --color-atencao-ink:   var(--atencao-ink);
+  --color-atencao-fraco: var(--atencao-fraco);
+  --color-perigo:        var(--perigo);
+  --color-perigo-ink:    var(--perigo-ink);
+  --color-perigo-fraco:  var(--perigo-fraco);
+
+  --font-sans:    var(--fonte-ui);
+  --font-mono:    var(--fonte-num);
+  --font-display: var(--fonte-display);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  /* Breakpoints. Mobile-first: o padrão é o celular, e cada uma destas
+     é um "a partir de". `sm` em 480 e não 640 porque a diferença que
+     importa aqui é celular grande vs pequeno. */
+  --breakpoint-sm: 30rem;   /* 480 */
+  --breakpoint-md: 48rem;   /* 768 — tablet, 2 colunas */
+  --breakpoint-lg: 64rem;   /* 1024 — desktop, barra lateral */
+}

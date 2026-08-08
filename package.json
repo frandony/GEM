@@ -1,0 +1,21 @@
+{
+  "name": "app-estudo-treino",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PWA de estudo + treino — backend Supabase (schema, RLS, RPCs, cron, Edge Functions)",
+  "scripts": {
+    "seed:gerar": "node scripts/gerar-seed.mjs",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset --linked",
+    "db:advisors": "supabase db advisors",
+    "fn:deploy": "supabase functions deploy montar-treino montar-estudo extrair-topicos disparar-notificacoes diagnostico-ia --use-api",
+    "fn:serve": "supabase functions serve --env-file .env",
+    "fn:check": "deno check supabase/functions/**/*.ts",
+    "fn:lint": "deno lint supabase/functions",
+    "vapid": "npx --yes web-push generate-vapid-keys"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

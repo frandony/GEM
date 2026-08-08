@@ -1,0 +1,17 @@
+{
+  "imports": {
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.116.0",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.112.2",
+    "web-push": "npm:web-push@3.6.7"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "lineWidth": 90,
+    "semiColons": true,
+    "singleQuote": false
+  }
+}

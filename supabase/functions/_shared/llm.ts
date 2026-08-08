@@ -1,0 +1,468 @@
+import Anthropic from "npm:@anthropic-ai/sdk@0.116.0";
+
+/**
+ * Camada de provedor para as três Edge Functions de IA.
+ *
+ * Existe para que trocar de modelo — ou de provedor inteiro — seja uma
+ * variável de ambiente, não um refactor. Dois caminhos:
+ *
+ *   "anthropic"      → API nativa da Anthropic. Mantém prompt caching do
+ *                      catálogo e saída estruturada GARANTIDA pela API.
+ *   "openai-compat"  → qualquer endpoint compatível com OpenAI:
+ *                      OpenRouter, OmniRoute auto-hospedado, Together,
+ *                      LM Studio local. Muda só a URL base.
+ *
+ * As duas diferenças que importam entre os caminhos:
+ *
+ * 1. FORMATO DA SAÍDA. Anthropic usa `output_config.format`; o padrão
+ *    OpenAI usa `response_format.json_schema`. Os dois recebem o MESMO
+ *    JSON Schema — a conversão é só de envelope.
+ *
+ * 2. FORÇA DA GARANTIA. Na Anthropic o schema é garantido. Em endpoints
+ *    compatíveis a documentação do OpenRouter é explícita: alguns
+ *    provedores garantem, outros tratam o schema como "dica forte".
+ *    Por isso o caminho compat valida o JSON no cliente antes de
+ *    devolver — o que na Anthropic seria redundante.
+ */
+
+export type Provedor = "anthropic" | "openai-compat";
+export type Esforco = "low" | "medium" | "high" | "xhigh" | "max";
+
+/** Qual função usa qual modelo. Tudo por env, com padrão seguro. */
+function configDaTarefa(tarefa: string): {
+  provedor: Provedor;
+  modelo: string;
+  baseUrl?: string;
+  apiKey?: string;
+} {
+  const prefixo = `LLM_${tarefa.toUpperCase().replace(/-/g, "_")}`;
+
+  const provedor =
+    (Deno.env.get(`${prefixo}_PROVEDOR`) ??
+      Deno.env.get("LLM_PROVEDOR") ??
+      "anthropic") as Provedor;
+
+  const modelo =
+    Deno.env.get(`${prefixo}_MODELO`) ??
+    Deno.env.get("LLM_MODELO") ??
+    (provedor === "anthropic" ? "claude-opus-5" : "anthropic/claude-opus-5");
+
+  if (provedor === "anthropic") {
+    return { provedor, modelo, apiKey: Deno.env.get("ANTHROPIC_API_KEY") };
+  }
+
+  return {
+    provedor,
+    modelo,
+    // OpenRouter: https://openrouter.ai/api/v1
+    // OmniRoute auto-hospedado: https://seu-host/v1  (nunca localhost —
+    // a Edge Function roda na infraestrutura do Supabase, não na sua máquina)
+    baseUrl: Deno.env.get(`${prefixo}_BASE_URL`) ??
+      Deno.env.get("LLM_BASE_URL") ??
+      "https://openrouter.ai/api/v1",
+    apiKey: Deno.env.get(`${prefixo}_API_KEY`) ?? Deno.env.get("LLM_API_KEY"),
+  };
+}
+
+export interface OpcoesChamada {
+  /** Identifica a chamada para escolher modelo por env. */
+  tarefa: string;
+  /** Regras do domínio. Prefixo estável. */
+  system: string;
+  /** Bloco grande e fixo (o catálogo). Recebe o breakpoint de cache. */
+  systemCacheavel?: string;
+  userPrompt: string;
+  /** JSON Schema. Sem minimum/maximum/minLength — não são suportados. */
+  schema: Record<string, unknown>;
+  maxTokens?: number;
+  esforco?: Esforco;
+}
+
+export interface UsoTokens {
+  entrada: number;
+  saida: number;
+  cacheEscrito: number;
+  cacheLido: number;
+}
+
+export interface ResultadoChamada<T> {
+  dados: T;
+  usoTokens: UsoTokens;
+  provedorUsado: Provedor;
+  modeloUsado: string;
+}
+
+export class RecusaDoModelo extends Error {
+  constructor(public categoria: string | null) {
+    super(`o modelo recusou a solicitação (categoria: ${categoria ?? "n/d"})`);
+    this.name = "RecusaDoModelo";
+  }
+}
+
+/**
+ * O provedor não respondeu — host fora do ar, timeout, 5xx, rate limit.
+ *
+ * Distinto de erro de GERAÇÃO de propósito. Quem chama trata os dois de
+ * formas opostas:
+ *
+ *   geração ruim   → cai no template. Melhor um plano genérico que nenhum.
+ *   indisponível   → NÃO cai no template. Devolve 503 e pede pra tentar
+ *                    de novo, porque o plano bom ainda existe do outro
+ *                    lado — só não deu pra buscar agora. Salvar um
+ *                    template aqui condena a pessoa a um plano pior
+ *                    por causa de um reboot.
+ *
+ * Importa mais com endpoint auto-hospedado (OmniRoute), onde ficar fora
+ * do ar é rotina, não exceção.
+ */
+export class ProvedorIndisponivel extends Error {
+  constructor(public detalhe: string, public status?: number) {
+    super(`provedor de IA indisponível: ${detalhe}`);
+    this.name = "ProvedorIndisponivel";
+  }
+}
+
+export async function chamarComSchema<T>(
+  opcoes: OpcoesChamada,
+): Promise<ResultadoChamada<T>> {
+  const cfg = configDaTarefa(opcoes.tarefa);
+
+  const resultado =
+    cfg.provedor === "anthropic"
+      ? await viaAnthropic<T>(opcoes, cfg)
+      : await viaOpenAICompat<T>(opcoes, cfg);
+
+  return { ...resultado, provedorUsado: cfg.provedor, modeloUsado: cfg.modelo };
+}
+
+// ---------------------------------------------------------------------------
+// Caminho Anthropic — schema garantido pela API, cache de prefixo no catálogo
+// ---------------------------------------------------------------------------
+async function viaAnthropic<T>(
+  o: OpcoesChamada,
+  cfg: ReturnType<typeof configDaTarefa>,
+): Promise<{ dados: T; usoTokens: UsoTokens }> {
+  const cliente = new Anthropic({ apiKey: cfg.apiKey });
+
+  const system: Anthropic.TextBlockParam[] = [{ type: "text", text: o.system }];
+  if (o.systemCacheavel) {
+    system.push({
+      type: "text",
+      text: o.systemCacheavel,
+      // Breakpoint no último bloco estável: cacheia regras + catálogo juntos.
+      cache_control: { type: "ephemeral" },
+    });
+  }
+
+  const r = await cliente.messages.create({
+    model: cfg.modelo,
+    max_tokens: o.maxTokens ?? 16000,
+    system,
+    messages: [{ role: "user", content: o.userPrompt }],
+    output_config: {
+      effort: o.esforco ?? "high",
+      format: { type: "json_schema", schema: o.schema },
+    },
+    // Sem `temperature`: removido nesta geração, devolve 400.
+  });
+
+  if (r.stop_reason === "refusal") {
+    throw new RecusaDoModelo(r.stop_details?.category ?? null);
+  }
+  if (r.stop_reason === "max_tokens") {
+    throw new Error("resposta truncada por max_tokens — aumente maxTokens");
+  }
+
+  const bloco = r.content.find((b) => b.type === "text");
+  if (!bloco || bloco.type !== "text") {
+    throw new Error("a resposta não trouxe bloco de texto");
+  }
+
+  return {
+    dados: JSON.parse(bloco.text) as T,
+    usoTokens: {
+      entrada: r.usage.input_tokens,
+      saida: r.usage.output_tokens,
+      cacheEscrito: r.usage.cache_creation_input_tokens ?? 0,
+      cacheLido: r.usage.cache_read_input_tokens ?? 0,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Caminho compatível com OpenAI — OpenRouter, OmniRoute, Together, local
+// ---------------------------------------------------------------------------
+async function viaOpenAICompat<T>(
+  o: OpcoesChamada,
+  cfg: ReturnType<typeof configDaTarefa>,
+): Promise<{ dados: T; usoTokens: UsoTokens }> {
+  if (!cfg.baseUrl) throw new Error("LLM_BASE_URL não configurada");
+
+  // Aqui system e catálogo viram UMA mensagem só: o padrão OpenAI não tem
+  // breakpoint de cache explícito. Quem cacheia (ou não) é o provedor.
+  const systemBase = o.systemCacheavel
+    ? `${o.system}\n\n${o.systemCacheavel}`
+    : o.system;
+
+  // Instrução de JSON em prosa. Só entra quando o provedor NÃO aceita
+  // response_format — nos que aceitam, repetir a regra em texto é ruído
+  // que o modelo tem que reconciliar com o schema.
+  const instrucaoJson =
+    `\n\nResponda com um único objeto JSON válido que obedeça exatamente a este JSON Schema. ` +
+    `Sem markdown, sem cercas de código, sem texto antes ou depois.\n` +
+    `SCHEMA:\n${JSON.stringify(o.schema)}`;
+
+  // Uma tentativa com response_format; se o provedor não conhecer o
+  // parâmetro, repete sem ele e com a instrução em prosa.
+  //
+  // Isso importa porque o OmniRoute agrega 43 pools de capacidade
+  // desigual: parte aceita json_schema, parte ignora, parte rejeita com
+  // 400. Sem essa degradação, um provedor mais fraco na cascata derruba
+  // a geração inteira.
+  let json: Record<string, unknown> | undefined;
+  let usouSchemaNativo = true;
+
+  for (const comSchema of [true, false]) {
+    const corpo: Record<string, unknown> = {
+      model: cfg.modelo,
+      max_tokens: o.maxTokens ?? 16000,
+      messages: [
+        { role: "system", content: comSchema ? systemBase : systemBase + instrucaoJson },
+        { role: "user", content: o.userPrompt },
+      ],
+    };
+    if (comSchema) {
+      corpo.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: o.tarefa.replace(/-/g, "_"),
+          strict: true,
+          schema: o.schema,
+        },
+      };
+    }
+
+    const r = await postar(cfg, corpo);
+
+    if (r.ok) {
+      json = r.json;
+      usouSchemaNativo = comSchema;
+      break;
+    }
+
+    // Só vale tentar de novo sem schema se a queixa foi sobre o schema.
+    const reclamouDoSchema =
+      /response_format|json_schema|structured|schema|not support/i.test(r.corpo);
+    if (comSchema && reclamouDoSchema) {
+      console.warn(
+        `${cfg.modelo} não aceita response_format — repetindo com instrução em prosa`,
+      );
+      continue;
+    }
+
+    if (r.status >= 500 || r.status === 429) {
+      throw new ProvedorIndisponivel(
+        `${cfg.baseUrl} devolveu ${r.status}: ${r.corpo.slice(0, 200)}`,
+        r.status,
+      );
+    }
+    throw new Error(`${cfg.baseUrl} devolveu ${r.status}: ${r.corpo.slice(0, 400)}`);
+  }
+
+  if (!json) throw new Error("nenhuma resposta utilizável do provedor");
+
+  const escolha = (json.choices as Array<Record<string, never>> | undefined)?.[0] as
+    | { finish_reason?: string; message?: { content?: string } }
+    | undefined;
+
+  if (escolha?.finish_reason === "content_filter") {
+    throw new RecusaDoModelo("content_filter");
+  }
+  if (escolha?.finish_reason === "length") {
+    throw new Error("resposta truncada por max_tokens — aumente maxTokens");
+  }
+
+  const texto = escolha?.message?.content;
+  if (typeof texto !== "string" || texto.length === 0) {
+    throw new Error("a resposta não trouxe conteúdo de texto");
+  }
+
+  const uso = json.usage as
+    | { prompt_tokens?: number; completion_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number } }
+    | undefined;
+
+  let dados: T;
+  try {
+    dados = extrairJson<T>(texto);
+  } catch {
+    // Reparo: devolve o texto quebrado e pede só o JSON de volta.
+    // É o caso comum em modelo free — prosa antes do objeto, cerca de
+    // markdown, vírgula sobrando. Uma tentativa; se falhar, desiste.
+    console.warn(`${cfg.modelo} devolveu JSON inválido — tentando reparar`);
+
+    const r = await postar(cfg, {
+      model: cfg.modelo,
+      max_tokens: o.maxTokens ?? 16000,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Você corrige JSON malformado. Devolva APENAS o objeto JSON válido, " +
+            "sem markdown e sem comentário. Não invente dados: preserve o conteúdo original.",
+        },
+        { role: "user", content: `Corrija para casar com este schema:\n${JSON.stringify(o.schema)}\n\nJSON quebrado:\n${texto}` },
+      ],
+    });
+
+    if (!r.ok) {
+      throw new Error(
+        `${cfg.modelo} não devolveu JSON válido e o reparo falhou (${r.status})`,
+      );
+    }
+
+    const reparado = (r.json.choices as Array<{ message?: { content?: string } }>)?.[0]
+      ?.message?.content;
+    if (typeof reparado !== "string") {
+      throw new Error(`${cfg.modelo} não devolveu JSON válido e o reparo veio vazio`);
+    }
+
+    try {
+      dados = extrairJson<T>(reparado);
+    } catch {
+      throw new Error(
+        `${cfg.modelo} não devolveu JSON válido nem após reparo. ` +
+          `Este provedor provavelmente não serve para "${o.tarefa}". Trecho: ${texto.slice(0, 200)}`,
+      );
+    }
+  }
+
+  if (!usouSchemaNativo) {
+    console.warn(
+      `${o.tarefa}: ${cfg.modelo} rodou SEM schema nativo — a validação de domínio é a única rede aqui`,
+    );
+  }
+
+  return {
+    dados,
+    usoTokens: {
+      entrada: uso?.prompt_tokens ?? 0,
+      saida: uso?.completion_tokens ?? 0,
+      cacheEscrito: 0,
+      cacheLido: uso?.prompt_tokens_details?.cached_tokens ?? 0,
+    },
+  };
+}
+
+/** POST único, com timeout. Erro de rede vira ProvedorIndisponivel. */
+async function postar(
+  cfg: ReturnType<typeof configDaTarefa>,
+  corpo: Record<string, unknown>,
+): Promise<
+  | { ok: true; json: Record<string, unknown> }
+  | { ok: false; status: number; corpo: string }
+> {
+  const controle = new AbortController();
+  const relogio = setTimeout(() => controle.abort(), 120_000);
+
+  try {
+    const resposta = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      method: "POST",
+      signal: controle.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.apiKey}`,
+        // OpenRouter usa estes dois para atribuição; endpoints que não
+        // conhecem simplesmente ignoram.
+        "HTTP-Referer": Deno.env.get("ORIGENS_PERMITIDAS")?.split(",")[0] ?? "",
+        "X-Title": "App Estudo + Treino",
+      },
+      body: JSON.stringify(corpo),
+    });
+
+    if (!resposta.ok) {
+      return { ok: false, status: resposta.status, corpo: await resposta.text() };
+    }
+    return { ok: true, json: await resposta.json() };
+  } catch (e) {
+    // DNS, conexão recusada, host fora do ar, timeout. Nada disso é culpa
+    // da geração — o plano bom existe, só não deu pra buscar.
+    throw new ProvedorIndisponivel(
+      e instanceof Error && e.name === "AbortError"
+        ? `${cfg.baseUrl} não respondeu em 120s`
+        : `não foi possível alcançar ${cfg.baseUrl} (${e instanceof Error ? e.message : e})`,
+    );
+  } finally {
+    clearTimeout(relogio);
+  }
+}
+
+/**
+ * Extrai o objeto JSON de uma resposta que pode vir suja.
+ *
+ * Modelo sem schema nativo costuma embrulhar em ```json, escrever
+ * "Aqui está o plano:" antes, ou comentar depois. Recortar do primeiro
+ * `{` até o último `}` resolve os três casos sem regex frágil.
+ */
+function extrairJson<T>(texto: string): T {
+  const limpo = texto.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    return JSON.parse(limpo) as T;
+  } catch {
+    const inicio = limpo.indexOf("{");
+    const fim = limpo.lastIndexOf("}");
+    if (inicio === -1 || fim <= inicio) throw new Error("sem objeto JSON no texto");
+    return JSON.parse(limpo.slice(inicio, fim + 1)) as T;
+  }
+}
+
+/**
+ * Gera → valida → se falhou, tenta UMA vez com os erros anexados.
+ * Vale para os dois provedores.
+ */
+export async function gerarComValidacao<T>(
+  opcoes: OpcoesChamada,
+  validar: (dados: T) => { erros: string[]; avisos: string[] },
+): Promise<{
+  dados: T;
+  avisos: string[];
+  tentativas: number;
+  usoTokens: UsoTokens;
+  provedorUsado: Provedor;
+  modeloUsado: string;
+}> {
+  const primeira = await chamarComSchema<T>(opcoes);
+  const r1 = validar(primeira.dados);
+
+  if (r1.erros.length === 0) {
+    return { ...primeira, avisos: r1.avisos, tentativas: 1 };
+  }
+
+  const violacoes = [...r1.erros, ...r1.avisos];
+  const segunda = await chamarComSchema<T>({
+    ...opcoes,
+    userPrompt:
+      `${opcoes.userPrompt}\n\n` +
+      `A resposta anterior violou as regras abaixo. Corrija TODAS e devolva o plano novamente.\n` +
+      violacoes.map((v) => `- ${v}`).join("\n"),
+  });
+
+  const r2 = validar(segunda.dados);
+  if (r2.erros.length > 0) {
+    const e = new Error("a geração falhou na validação após o retry");
+    (e as Error & { violacoes?: string[] }).violacoes = r2.erros;
+    throw e;
+  }
+
+  return {
+    ...segunda,
+    avisos: r2.avisos,
+    tentativas: 2,
+    usoTokens: {
+      entrada: primeira.usoTokens.entrada + segunda.usoTokens.entrada,
+      saida: primeira.usoTokens.saida + segunda.usoTokens.saida,
+      cacheEscrito: primeira.usoTokens.cacheEscrito + segunda.usoTokens.cacheEscrito,
+      cacheLido: primeira.usoTokens.cacheLido + segunda.usoTokens.cacheLido,
+    },
+  };
+}

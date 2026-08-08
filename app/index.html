@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover libera as safe-area-inset. Sem isso a barra
+         inferior fica atrás do indicador de home do iPhone. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0c10" />
+    <!-- Standalone no iOS. Sem isto, "Adicionar à Tela de Início" abre no
+         Safari com barra — e sem PWA instalada não há push nenhum. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Treino" />
+    <link rel="apple-touch-icon" href="/icones/192.png" />
+    <title>Estudo + Treino</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

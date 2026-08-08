@@ -1,0 +1,22 @@
+# Segredos
+.env
+.env.local
+.env.*.local
+supabase/.env
+
+# Supabase CLI
+supabase/.branches
+supabase/.temp
+supabase/.tmp
+
+# Dependências
+node_modules/
+
+# Build do front (quando existir)
+dist/
+.vercel/
+
+# Ferramentas
+.DS_Store
+Thumbs.db
+*.log
