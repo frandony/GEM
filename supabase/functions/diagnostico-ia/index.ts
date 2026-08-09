@@ -57,7 +57,11 @@ Deno.serve(async (req: Request) => {
           required: ["ok", "modelo"],
           additionalProperties: false,
         },
-        maxTokens: 200,
+        // Generoso mesmo para um teste trivial: modelo de raciocínio (ex.
+        // "auto/best-reasoning" do OmniRoute) gasta parte do orçamento
+        // "pensando" antes de escrever a resposta visível. 200 tokens
+        // truncava isso a meio caminho e parecia "JSON inválido".
+        maxTokens: 1000,
         esforco: "low",
       });
       return { detalhe: `diz ser "${r.dados.modelo}"`, tokens: r.usoTokens };
@@ -96,7 +100,7 @@ Deno.serve(async (req: Request) => {
               required: ["itens"],
               additionalProperties: false,
             },
-            maxTokens: 800,
+            maxTokens: 1500,
             esforco: "low",
           });
 
@@ -155,7 +159,7 @@ Deno.serve(async (req: Request) => {
               required: ["escolhidos"],
               additionalProperties: false,
             },
-            maxTokens: 1500,
+            maxTokens: 3000,
             esforco: "medium",
           });
 

@@ -284,7 +284,9 @@ async function viaOpenAICompat<T>(
 
   const texto = escolha?.message?.content;
   if (typeof texto !== "string" || texto.length === 0) {
-    throw new Error("a resposta não trouxe conteúdo de texto");
+    throw new Error(
+      `a resposta não trouxe conteúdo de texto (finish_reason=${escolha?.finish_reason ?? "?"})`,
+    );
   }
 
   const uso = json.usage as
@@ -331,8 +333,9 @@ async function viaOpenAICompat<T>(
       dados = extrairJson<T>(reparado);
     } catch {
       throw new Error(
-        `${cfg.modelo} não devolveu JSON válido nem após reparo. ` +
-          `Este provedor provavelmente não serve para "${o.tarefa}". Trecho: ${texto.slice(0, 200)}`,
+        `${cfg.modelo} não devolveu JSON válido nem após reparo ` +
+          `(finish_reason=${escolha?.finish_reason ?? "?"}, ${texto.length} caractere(s)). ` +
+          `Este provedor provavelmente não serve para "${o.tarefa}". Trecho: ${texto.slice(0, 200) || "(vazio)"}`,
       );
     }
   }
@@ -365,8 +368,9 @@ async function postar(
   const controle = new AbortController();
   const relogio = setTimeout(() => controle.abort(), 120_000);
 
+  let resposta: Response;
   try {
-    const resposta = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    resposta = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: "POST",
       signal: controle.signal,
       headers: {
@@ -377,13 +381,11 @@ async function postar(
         "HTTP-Referer": Deno.env.get("ORIGENS_PERMITIDAS")?.split(",")[0] ?? "",
         "X-Title": "App Estudo + Treino",
       },
-      body: JSON.stringify(corpo),
+      // stream:false explícito — sem isto, ao menos um pool do agregador
+      // (visto em produção) manda SSE de qualquer jeito. reconstruirDeSSE
+      // abaixo é a rede de segurança para quem ignorar mesmo assim.
+      body: JSON.stringify({ ...corpo, stream: false }),
     });
-
-    if (!resposta.ok) {
-      return { ok: false, status: resposta.status, corpo: await resposta.text() };
-    }
-    return { ok: true, json: await resposta.json() };
   } catch (e) {
     // DNS, conexão recusada, host fora do ar, timeout. Nada disso é culpa
     // da geração — o plano bom existe, só não deu pra buscar.
@@ -395,6 +397,91 @@ async function postar(
   } finally {
     clearTimeout(relogio);
   }
+
+  if (!resposta.ok) {
+    return { ok: false, status: resposta.status, corpo: await resposta.text() };
+  }
+
+  const bruto = await resposta.text();
+  try {
+    return { ok: true, json: interpretarCorpoChat(bruto) };
+  } catch (e) {
+    // Respondeu 200, mas o corpo não é JSON nem SSE reconhecível. O
+    // provedor está no ar — isto é erro de GERAÇÃO, não indisponibilidade;
+    // não é ProvedorIndisponivel, então cai no template como qualquer
+    // outra saída malformada, em vez de virar 503 indevido.
+    throw new Error(
+      `${cfg.baseUrl} devolveu 200 com corpo ilegível: ` +
+        `${e instanceof Error ? e.message : String(e)}. Trecho: ${bruto.slice(0, 200)}`,
+    );
+  }
+}
+
+/** JSON direto, ou SSE reconstruído — ver interpretarCorpoChat. */
+function interpretarCorpoChat(bruto: string): Record<string, unknown> {
+  const texto = bruto.trim();
+  if (texto.startsWith("data:") || texto.startsWith("event:")) {
+    return reconstruirDeSSE(texto);
+  }
+  return JSON.parse(texto);
+}
+
+/**
+ * Alguns pools do agregador ignoram `stream:false` e mandam Server-Sent
+ * Events mesmo assim. Reconstrói o formato não-streaming (mesma forma que
+ * o resto do código já espera) juntando os deltas — assim quem chama não
+ * precisa saber que isto aconteceu.
+ */
+function reconstruirDeSSE(corpoTexto: string): Record<string, unknown> {
+  const conteudoPorIndice = new Map<number, string>();
+  const finishReasonPorIndice = new Map<number, string>();
+  let usage: unknown;
+  let modelo: unknown;
+  let id: unknown;
+
+  for (const linhaBruta of corpoTexto.split("\n")) {
+    const linha = linhaBruta.trim();
+    if (!linha.startsWith("data:")) continue;
+    const dado = linha.slice(5).trim();
+    if (dado === "" || dado === "[DONE]") continue;
+
+    let pedaco: Record<string, unknown>;
+    try {
+      pedaco = JSON.parse(dado);
+    } catch {
+      continue; // linha truncada — o resto do stream cobre o conteúdo
+    }
+
+    id ??= pedaco.id;
+    modelo ??= pedaco.model;
+    if (pedaco.usage) usage = pedaco.usage;
+
+    const escolhas = pedaco.choices as
+      | Array<{ index?: number; delta?: { content?: string }; finish_reason?: string | null }>
+      | undefined;
+    for (const c of escolhas ?? []) {
+      const indice = c.index ?? 0;
+      if (c.delta?.content) {
+        conteudoPorIndice.set(indice, (conteudoPorIndice.get(indice) ?? "") + c.delta.content);
+      }
+      if (c.finish_reason) finishReasonPorIndice.set(indice, c.finish_reason);
+    }
+  }
+
+  const indices = [...new Set([...conteudoPorIndice.keys(), ...finishReasonPorIndice.keys()])].sort(
+    (a, b) => a - b,
+  );
+
+  return {
+    id,
+    model: modelo,
+    usage,
+    choices: indices.map((i) => ({
+      index: i,
+      message: { role: "assistant", content: conteudoPorIndice.get(i) ?? "" },
+      finish_reason: finishReasonPorIndice.get(i) ?? null,
+    })),
+  };
 }
 
 /**
