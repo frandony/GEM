@@ -28,13 +28,15 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.116.0";
 export type Provedor = "anthropic" | "openai-compat";
 export type Esforco = "low" | "medium" | "high" | "xhigh" | "max";
 
-/** Qual função usa qual modelo. Tudo por env, com padrão seguro. */
-function configDaTarefa(tarefa: string): {
+interface ConfigProvedor {
   provedor: Provedor;
   modelo: string;
   baseUrl?: string;
   apiKey?: string;
-} {
+}
+
+/** Qual função usa qual modelo. Tudo por env, com padrão seguro. */
+function configDaTarefa(tarefa: string): ConfigProvedor {
   const prefixo = `LLM_${tarefa.toUpperCase().replace(/-/g, "_")}`;
 
   const provedor =
@@ -61,6 +63,30 @@ function configDaTarefa(tarefa: string): {
       Deno.env.get("LLM_BASE_URL") ??
       "https://openrouter.ai/api/v1",
     apiKey: Deno.env.get(`${prefixo}_API_KEY`) ?? Deno.env.get("LLM_API_KEY"),
+  };
+}
+
+/**
+ * Segundo provedor, usado só quando o primeiro dá ProvedorIndisponivel.
+ * Opcional — sem `LLM_<TAREFA>_FALLBACK_PROVEDOR` configurado, não há
+ * fallback e o erro original sobe (503, sem cair no template).
+ */
+function configFallbackDaTarefa(tarefa: string): ConfigProvedor | null {
+  const prefixo = `LLM_${tarefa.toUpperCase().replace(/-/g, "_")}_FALLBACK`;
+
+  const provedor = Deno.env.get(`${prefixo}_PROVEDOR`) as Provedor | undefined;
+  const modelo = Deno.env.get(`${prefixo}_MODELO`);
+  if (!provedor || !modelo) return null;
+
+  if (provedor === "anthropic") {
+    return { provedor, modelo, apiKey: Deno.env.get("ANTHROPIC_API_KEY") };
+  }
+
+  return {
+    provedor,
+    modelo,
+    baseUrl: Deno.env.get(`${prefixo}_BASE_URL`),
+    apiKey: Deno.env.get(`${prefixo}_API_KEY`),
   };
 }
 
@@ -127,12 +153,34 @@ export async function chamarComSchema<T>(
 ): Promise<ResultadoChamada<T>> {
   const cfg = configDaTarefa(opcoes.tarefa);
 
-  const resultado =
-    cfg.provedor === "anthropic"
-      ? await viaAnthropic<T>(opcoes, cfg)
-      : await viaOpenAICompat<T>(opcoes, cfg);
+  try {
+    const resultado = await chamarProvedor<T>(opcoes, cfg);
+    return { ...resultado, provedorUsado: cfg.provedor, modeloUsado: cfg.modelo };
+  } catch (e) {
+    // Só troca de provedor quando o primeiro está fora do ar (rede, 5xx,
+    // 429, timeout) — erro de GERAÇÃO não vira fallback de provedor, vira
+    // retry de prompt (gerarComValidacao) ou template, como já era.
+    if (!(e instanceof ProvedorIndisponivel)) throw e;
 
-  return { ...resultado, provedorUsado: cfg.provedor, modeloUsado: cfg.modelo };
+    const reserva = configFallbackDaTarefa(opcoes.tarefa);
+    if (!reserva) throw e;
+
+    console.warn(
+      `${opcoes.tarefa}: ${cfg.modelo} indisponível (${e.detalhe}) — tentando ${reserva.modelo}`,
+    );
+
+    const resultado = await chamarProvedor<T>(opcoes, reserva);
+    return { ...resultado, provedorUsado: reserva.provedor, modeloUsado: reserva.modelo };
+  }
+}
+
+function chamarProvedor<T>(
+  opcoes: OpcoesChamada,
+  cfg: ConfigProvedor,
+): Promise<{ dados: T; usoTokens: UsoTokens }> {
+  return cfg.provedor === "anthropic"
+    ? viaAnthropic<T>(opcoes, cfg)
+    : viaOpenAICompat<T>(opcoes, cfg);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +188,7 @@ export async function chamarComSchema<T>(
 // ---------------------------------------------------------------------------
 async function viaAnthropic<T>(
   o: OpcoesChamada,
-  cfg: ReturnType<typeof configDaTarefa>,
+  cfg: ConfigProvedor,
 ): Promise<{ dados: T; usoTokens: UsoTokens }> {
   const cliente = new Anthropic({ apiKey: cfg.apiKey });
 
@@ -194,7 +242,7 @@ async function viaAnthropic<T>(
 // ---------------------------------------------------------------------------
 async function viaOpenAICompat<T>(
   o: OpcoesChamada,
-  cfg: ReturnType<typeof configDaTarefa>,
+  cfg: ConfigProvedor,
 ): Promise<{ dados: T; usoTokens: UsoTokens }> {
   if (!cfg.baseUrl) throw new Error("LLM_BASE_URL não configurada");
 
@@ -359,7 +407,7 @@ async function viaOpenAICompat<T>(
 
 /** POST único, com timeout. Erro de rede vira ProvedorIndisponivel. */
 async function postar(
-  cfg: ReturnType<typeof configDaTarefa>,
+  cfg: ConfigProvedor,
   corpo: Record<string, unknown>,
 ): Promise<
   | { ok: true; json: Record<string, unknown> }
