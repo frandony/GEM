@@ -97,7 +97,12 @@ export async function carregarExerciciosDaSessao(
   const { data, error } = await supabase
     .from("sessao_exercicios")
     .select(
-      "id,exercicio_id,ordem,series,reps_min,reps_max,duracao_seg,descanso_seg,exercicios(nome,unilateral)",
+      // Hint explícito da FK: sessao_exercicio_substitutos também liga
+      // sessao_exercicios <-> exercicios (é uma tabela de junção — tem FK
+      // pras duas), então o PostgREST enxerga DOIS caminhos possíveis e
+      // recusa o embed sem dizer qual. Sem o hint, a tela de treino
+      // ficava em branco (o catch engolia o erro em silêncio).
+      "id,exercicio_id,ordem,series,reps_min,reps_max,duracao_seg,descanso_seg,exercicios!sessao_exercicios_exercicio_id_fkey(nome,unilateral)",
     )
     .eq("sessao_id", sessaoId)
     .order("ordem", { ascending: true })

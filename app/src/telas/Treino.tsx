@@ -23,13 +23,22 @@ type Estado =
       letra: string;
       exercicios: ExercicioDaSessao[];
       timezone: string;
-    };
+    }
+  // Sessão aberta (ex: reload no meio do treino) sem exercício nenhum
+  // carregado — sem isto, a tela ficava em branco: SessaoTreino recebe
+  // lista vazia e faz `return null` silenciosamente.
+  | { fase: "erro"; mensagem: string; treinoSessaoIdParaAbandonar: string | null };
 
 export function Treino() {
   const { sessao } = useAuth();
   const userId = sessao!.user.id;
   const [estado, setEstado] = useState<Estado>({ fase: "carregando" });
   const [erro, setErro] = useState<string | null>(null);
+  // Trava o botão enquanto a sessão está sendo aberta — sem isto, um
+  // segundo toque (ex: tela sem retorno visual) tenta abrir outra
+  // treino_sessoes enquanto a primeira ainda não sincronizou, e o índice
+  // único de "uma sessão aberta por vez" rejeita a segunda.
+  const [iniciando, setIniciando] = useState(false);
 
   async function carregar() {
     setEstado({ fase: "carregando" });
@@ -42,6 +51,16 @@ export function Treino() {
     const emAndamento = await sessaoEmAndamento(userId);
     if (emAndamento?.sessao_id) {
       const exercicios = await carregarExerciciosDaSessao(emAndamento.sessao_id);
+      if (exercicios.length === 0) {
+        setEstado({
+          fase: "erro",
+          mensagem:
+            "Não consegui carregar os exercícios da sua sessão em andamento. " +
+            "Você pode abandonar este treino e começar de novo.",
+          treinoSessaoIdParaAbandonar: emAndamento.id,
+        });
+        return;
+      }
       setEstado({
         fase: "ativo",
         treinoSessaoId: emAndamento.id,
@@ -66,7 +85,9 @@ export function Treino() {
   }, [userId]);
 
   async function iniciar(proxima: ProximaSessao, timezone: string) {
+    if (iniciando) return;
     setErro(null);
+    setIniciando(true);
     try {
       const treinoSessaoId = await iniciarTreinoSessao(userId, timezone, proxima);
       const exercicios = await carregarExerciciosDaSessao(proxima.id);
@@ -77,6 +98,8 @@ export function Treino() {
       setEstado({ fase: "ativo", treinoSessaoId, letra: proxima.letra, exercicios, timezone });
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não deu para iniciar o treino.");
+    } finally {
+      setIniciando(false);
     }
   }
 
@@ -120,6 +143,29 @@ export function Treino() {
     );
   }
 
+  if (estado.fase === "erro") {
+    return (
+      <div className="tela">
+        <div className="vazio">
+          <span className="chip chip-atencao">Algo deu errado</span>
+          <p>{estado.mensagem}</p>
+          {estado.treinoSessaoIdParaAbandonar && (
+            <button
+              className="btn btn-perigo"
+              onClick={() => {
+                void abandonarTreinoSessao(estado.treinoSessaoIdParaAbandonar!, null).finally(
+                  () => void carregar(),
+                );
+              }}
+            >
+              Abandonar treino
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // fase === "ocioso"
   const { proxima, timezone } = estado;
   return (
@@ -137,8 +183,9 @@ export function Treino() {
           <button
             className="btn btn-treino btn-bloco"
             onClick={() => void iniciar(proxima, timezone)}
+            disabled={iniciando}
           >
-            Iniciar treino
+            {iniciando ? "Iniciando…" : "Iniciar treino"}
           </button>
         </div>
       ) : (
