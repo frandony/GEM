@@ -308,7 +308,10 @@ async function viaOpenAICompat<T>(
       continue;
     }
 
-    if (r.status >= 500 || r.status === 429) {
+    // 429/413 = limite de taxa ou de tamanho (TPM etc) — capacidade, não
+    // geração ruim. O outro provedor pode aguentar o mesmo pedido numa
+    // cota diferente, então é exatamente o caso do fallback de provedor.
+    if (r.status >= 500 || r.status === 429 || r.status === 413) {
       throw new ProvedorIndisponivel(
         `${cfg.baseUrl} devolveu ${r.status}: ${r.corpo.slice(0, 200)}`,
         r.status,
