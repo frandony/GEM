@@ -1,62 +1,67 @@
-import { useState } from "react";
-import { SessaoTreino, type ExercicioDaSessao } from "./telas/SessaoTreino";
-import { novoId } from "./lib/fila";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
+import { AuthProvider, useAuth } from "./lib/auth";
+import { Nav } from "./componentes/Nav";
+import { Login } from "./telas/Login";
+import { Onboarding } from "./telas/Onboarding";
+import { Home } from "./telas/Home";
+import { Treino } from "./telas/Treino";
+import { Estudo } from "./telas/Estudo";
+import { Grupo } from "./telas/Grupo";
 
-/**
- * Casca do app.
- *
- * Ainda sem roteamento nem login — a tela de sessão foi construída
- * primeiro de propósito (item 4 da ordem do plano: se travar na hora de
- * marcar série, o app morre em uma semana). O resto vem em volta dela.
- *
- * Os dados abaixo são de exemplo, só para a tela rodar sozinha enquanto
- * auth e carregamento do plano não existem.
- */
-
-const EXEMPLO: ExercicioDaSessao[] = [
-  {
-    sessaoExercicioId: "ex-1", exercicioId: 114, nome: "Supino reto com barra",
-    ordem: 1, series: 4, repsMin: 6, repsMax: 8, duracaoSeg: null,
-    descansoSeg: 120, unilateral: false,
-  },
-  {
-    sessaoExercicioId: "ex-2", exercicioId: 90, nome: "Elevação lateral com halteres",
-    ordem: 2, series: 3, repsMin: 10, repsMax: 15, duracaoSeg: null,
-    descansoSeg: 60, unilateral: false,
-  },
-  {
-    sessaoExercicioId: "ex-3", exercicioId: 9, nome: "Prancha isométrica",
-    ordem: 3, series: 3, repsMin: null, repsMax: null, duracaoSeg: 45,
-    descansoSeg: 60, unilateral: false,
-  },
-];
-
-export function App() {
-  const [treinoId] = useState(novoId);
-  const [terminou, setTerminou] = useState(false);
-
-  if (terminou) {
+/** Só entra quem tem sessão. Sem isso, qualquer rota do app é pública. */
+function Protegido() {
+  const { sessao, carregando } = useAuth();
+  if (carregando) {
     return (
       <div className="tela">
-        <div className="vazio">
-          <span className="chip chip-ok">Treino concluído</span>
-          <p className="text-sm">
-            As séries sobem sozinhas quando houver rede.
-          </p>
-          <button className="btn btn-neutro" onClick={() => setTerminou(false)}>
-            Voltar
-          </button>
-        </div>
+        <div className="vazio">Carregando…</div>
       </div>
     );
   }
+  if (!sessao) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
 
+/** Quem já tem sessão não vê a tela de login de novo. */
+function SomenteVisitante() {
+  const { sessao, carregando } = useAuth();
+  if (carregando) return null;
+  if (sessao) return <Navigate to="/" replace />;
+  return <Outlet />;
+}
+
+/** Casca com a barra de navegação — onboarding fica fora dela de propósito. */
+function ComNav() {
   return (
-    <SessaoTreino
-      treinoSessaoId={treinoId}
-      letra="A"
-      exercicios={EXEMPLO}
-      aoFinalizar={() => setTerminou(true)}
-    />
+    <>
+      <Outlet />
+      <Nav />
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<SomenteVisitante />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
+
+          <Route element={<Protegido />}>
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route element={<ComNav />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/treino" element={<Treino />} />
+              <Route path="/estudo" element={<Estudo />} />
+              <Route path="/grupo" element={<Grupo />} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

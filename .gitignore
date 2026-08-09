@@ -15,6 +15,7 @@ node_modules/
 # Build do front (quando existir)
 dist/
 .vercel/
+*.tsbuildinfo
 
 # Ferramentas
 .DS_Store

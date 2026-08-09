@@ -40,6 +40,9 @@ interface Props {
   letra: string;
   exercicios: ExercicioDaSessao[];
   aoFinalizar: () => void;
+  /** Opcional: sem isto, quem fecha o app no meio do treino fica sem
+      como abrir outro depois — só existe uma sessão "em_andamento" por vez. */
+  aoAbandonar?: (exercicioAtualId: number | null) => void;
 }
 
 interface SerieFeita {
@@ -49,7 +52,13 @@ interface SerieFeita {
   duracaoSeg: number | null;
 }
 
-export function SessaoTreino({ treinoSessaoId, letra, exercicios, aoFinalizar }: Props) {
+export function SessaoTreino({
+  treinoSessaoId,
+  letra,
+  exercicios,
+  aoFinalizar,
+  aoAbandonar,
+}: Props) {
   const [indice, setIndice] = useState(0);
   const [feitas, setFeitas] = useState<Record<string, SerieFeita[]>>({});
   const [sugestao, setSugestao] = useState<Sugestao | null>(null);
@@ -151,8 +160,18 @@ export function SessaoTreino({ treinoSessaoId, letra, exercicios, aoFinalizar }:
           </div>
           <h1 className="text-xl font-semibold">{atual.nome}</h1>
         </div>
-        <div className="text-sm text-ink-muted num">
-          {indice + 1}/{exercicios.length}
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-ink-muted num">
+            {indice + 1}/{exercicios.length}
+          </div>
+          {aoAbandonar && (
+            <button
+              className="text-xs text-ink-muted underline"
+              onClick={() => aoAbandonar(atual.exercicioId)}
+            >
+              Abandonar
+            </button>
+          )}
         </div>
       </header>
 
