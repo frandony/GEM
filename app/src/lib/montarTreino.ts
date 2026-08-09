@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { extrairErroDeFuncao, supabase } from "./supabase";
 
 export interface PedidoMontarTreino {
   divisao: "AB" | "ABC" | "ABCD" | "ABCDE";
@@ -25,7 +25,7 @@ export async function montarTreino(pedido: PedidoMontarTreino): Promise<Resposta
   const { data, error } = await supabase.functions.invoke<RespostaMontarTreino>("montar-treino", {
     body: pedido,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await extrairErroDeFuncao(error));
   if (!data) throw new Error("resposta vazia do servidor");
   return data;
 }
