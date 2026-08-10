@@ -1,4 +1,4 @@
-import type { BlocoGerado, BlocosGerados } from "./validacao.ts";
+import type { BlocoGerado, BlocosGerados, NaoAlocado } from "./validacao.ts";
 
 /**
  * Fallback determinístico da Fase B.
@@ -84,10 +84,11 @@ export function distribuicaoRoundRobin(ctx: Contexto): BlocosGerados {
     if (p.restantes <= 0) fila.shift();
   }
 
-  const naoAlocados = filas.flatMap((f) =>
+  const naoAlocados: NaoAlocado[] = filas.flatMap((f) =>
     f.map((p) => ({
       topico_id: p.topicoId,
-      motivo: "sem slot disponível no horizonte planejado",
+      evento_id: null,
+      motivo: "grade_cheia" as const,
     })),
   );
 

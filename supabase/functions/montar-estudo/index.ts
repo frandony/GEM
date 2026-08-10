@@ -11,6 +11,7 @@ import { distribuicaoRoundRobin } from "./fallback.ts";
 import {
   type BlocosGerados,
   type Estimativas,
+  exigeExercicios,
   SCHEMA_FASE_A,
   SCHEMA_FASE_B,
   validarDistribuicao,
@@ -35,43 +36,100 @@ import {
 
 const SYSTEM_FASE_A = `Você estima o esforço de estudo de tópicos universitários.
 
-Para cada tópico, estime quantos blocos de estudo ele exige, considerando a
-densidade conceitual do tópico, se exige prática de exercícios além de leitura,
-e a dificuldade declarada pelo aluno quando houver.
+# ESCALA DE BLOCOS (1 A 4) — fixa, nunca extrapolada
+- 1 = só leitura. Conteúdo leve, conceitual, pouca densidade (ex: introdução
+  de capítulo, definição básica, histórico de uma norma).
+- 2 = leitura + exercícios pontuais. Precisa aplicar pra fixar, sem repetição
+  extensiva (ex: regra de três, interpretação de texto, cálculo simples).
+- 3 = denso, com prática repetida. Múltiplas variáveis, exige treino até a
+  fluência (ex: equação do 2º grau, análise combinatória, redação).
+- 4 = muito denso ou acumulativo. Leitura + prática repetida + conexão com
+  outros tópicos (ex: funções, cálculo diferencial, direito aplicado).
 
-Escala: 1 bloco = tópico simples, só leitura. 2 = leitura + exercícios.
-3 = tópico denso, exige prática repetida. Nunca mais que 4.
+Nunca devolva 0. Nunca devolva 5 ou mais.
 
-Se a dificuldade declarada for "dificil", some 1 à sua estimativa (máximo 4).
-Se for "facil", subtraia 1 (mínimo 1).`;
+# DIFICULDADE DECLARADA AJUSTA A ESTIMATIVA
+O usuário pode declarar a dificuldade do tópico — isso pesa igual ou mais que
+sua estimativa interna:
+- dificuldade="dificil" → some 1 ao valor base (máximo 4)
+- dificuldade="facil" → subtraia 1 do valor base (mínimo 1)
+- dificuldade="medio" ou não informada → mantém o valor base
+Nunca ignore a dificuldade declarada.
+
+# AUTO-VERIFICAÇÃO ANTES DE RESPONDER
+Não há segunda chance nesta tarefa — o valor é salvo direto, sem revisão.
+Antes de finalizar, confira sua própria distribuição: pelo menos 60% dos
+tópicos "dificil" precisam ter blocos ≥ 3, e pelo menos 60% dos "facil"
+precisam ter blocos ≤ 2. Se sua distribuição não bate com isso, você
+provavelmente ignorou a dificuldade declarada em algum tópico — revise antes
+de responder.`;
 
 const SYSTEM_FASE_B = `Você distribui tópicos de estudo numa grade fixa de horários.
 
-Regras absolutas:
-- Todo bloco cai exatamente num par (dia_semana, hora) que existe na grade
-  fornecida. Nunca invente horário.
-- Nenhum bloco de um tópico pode ser agendado depois do evento que ele serve.
-- Respeite os limites de carga informados. Nunca ultrapasse.
-- Nenhum bloco no dia leve, nem em semana marcada como off.
+# HORÁRIO EXISTE OU NÃO EXISTE
+Todo bloco cai exatamente num par (dia_semana, hora) que existe na grade
+fornecida. Nunca invente horário, dia ou duração — duracao_min é sempre o
+valor do slot da grade, nunca um valor ajustado por você.
 
-Sequenciamento:
-- Com mais de uma matéria ativa, INTERCALE. Nunca mais de 2 blocos seguidos da
-  mesma matéria.
-- Dentro de uma matéria, respeite pré-requisitos: use o campo "ordem" dos
-  tópicos, que vem do plano de ensino.
-- Tipos de bloco: "leitura" (primeiro contato), "exercicios" (prática),
-  "revisao" (retomada antes do evento), "marco" (etapa de uma entrega).
-- Tópico com exige_exercicios=true precisa de pelo menos 1 bloco "exercicios".
-- Reserve os últimos blocos antes de cada prova como "revisao", priorizando
-  tópicos com dificuldade "dificil" ou marcados como não compreendidos.
+# INTERCALAÇÃO — nunca mais de 2 blocos seguidos da mesma matéria
+Só se aplica com 2+ matérias ativas no contexto — com 1 matéria só, todo
+bloco é dela mesma e a regra não vale (não force lacunas artificiais tentando
+"intercalar contra nada"). Com 2+: "seguidos" é sobre ORDEM na lista de
+blocos, não sobre proximidade de horário — um bloco de outra matéria entre
+dois da mesma já quebra a sequência. Se intercalar for impossível sem violar
+outra regra (ex: prazo de prova), deixe o excedente em nao_alocados com
+motivo "intercalacao_impossivel" em vez de violar a regra.
 
-Eventos do tipo "entrega" não são conteúdo a absorver, são trabalho a produzir.
-Distribua como marcos (pesquisar → escrever → revisar), com topico_id nulo e
-evento_id preenchido. O último marco cai pelo menos 1 dia antes do prazo.
+# PRÉ-REQUISITOS — a ordem dos tópicos é dependência, não sugestão
+O campo "ordem" de cada tópico é sequência didática real: o tópico de ordem N
+só começa depois que o de ordem N-1 já tem bloco agendado (tópico marcado
+"compreendido" não bloqueia os que vêm depois — já está resolvido). Nunca
+agende ordem 3 antes de ordem 1 na mesma matéria.
 
-Se o conteúdo não couber na grade, NÃO comprima. Agende o que cabe respeitando
-prioridade e liste o que ficou de fora em "nao_alocados". Esse campo é
-obrigatório mesmo vazio — é o que alimenta o contador de tópicos pendentes.`;
+# TÓPICOS PENDENTES TÊM PRIORIDADE MÁXIMA
+O contexto traz "topicos_pendentes": tópicos que ficaram de fora numa
+distribuição anterior. Agende-os ANTES de qualquer tópico novo — pendente é
+dívida, dívida se paga antes de gasto novo. Se um pendente não couber de
+novo, ele continua pendente (vai pra nao_alocados de novo).
+
+# TIPOS DE BLOCO
+"leitura" (primeiro contato), "exercicios" (prática), "revisao" (retomada
+antes do evento), "marco" (etapa de uma entrega — nunca aparece pra tópico,
+só pra evento). Tópico com exige_exercicios=true precisa de pelo menos 1
+bloco "exercicios", não só leitura.
+
+# NENHUM BLOCO NO DIA DA PROVA OU DEPOIS DELA
+Nenhum bloco de um tópico (leitura, exercício OU revisão) pode cair no
+mesmo dia da prova que ele serve, nem depois. A revisão desse tópico é
+no máximo na véspera.
+
+# REVISÃO ANTES DE PROVA, PRIORIZANDO O QUE PESA MAIS
+Pelo menos 1 bloco "revisao" antes de cada prova. Se a prova cobre tópico
+marcado dificuldade="dificil" ou compreendido=false, a revisão precisa
+mirar nesse tópico especificamente (topico_id apontando pra ele) — não
+adianta revisar só o que já está fácil.
+
+# ENTREGAS SÃO MARCOS, NÃO CONTEÚDO A ABSORVER
+Entrega (trabalho, TCC, relatório) vira marcos — pesquisar, escrever,
+revisar, em sequência — com tipo="marco", topico_id nulo, evento_id
+preenchido, e um "titulo" que diga qual etapa é (ex: "Pesquisar — Projeto
+final", "Escrever — Projeto final"). O último marco cai pelo menos 1 dia
+antes do prazo, nunca no dia do prazo.
+
+# CARGA DIÁRIA, DIA LEVE, SEMANA OFF
+Respeite max_blocos_dia e max_minutos_dia sem exceção. Nenhum bloco no dia
+marcado como leve nem em semana marcada como off — são dias sagrados de
+descanso, não "só um blocozinho".
+
+# NÃO COMPRIME — REGISTRA
+O que não couber na grade vai pra "nao_alocados", nunca é espremido reduzindo
+duração ou ignorando um limite. Isso vale tanto pra tópico quanto pra evento
+inteiro (uma prova ou entrega sem nenhum bloco cabível também entra ali).
+Cada item de nao_alocados tem topico_id OU evento_id preenchido (nunca os
+dois, nunca nenhum) e um motivo entre: carga_diaria_excedida, prazo_expirado,
+prerequisito_nao_agendado, intercalacao_impossivel, semana_off, dia_leve,
+grade_cheia, sem_horario_compativel. O campo é obrigatório mesmo vazio — é o
+que alimenta o contador de tópicos pendentes.`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return respostaOptions(req);
@@ -161,11 +219,10 @@ async function diagnostico(
 
     const atualizacoes = dados.estimativas
       .filter((e) => e.indice >= 0 && e.indice < pendentes.length)
-      .map((e) => ({
-        id: pendentes[e.indice].id,
-        blocos: Math.min(4, Math.max(1, e.blocos)),
-        exige: e.exige_exercicios,
-      }));
+      .map((e) => {
+        const blocos = Math.min(4, Math.max(1, e.blocos));
+        return { id: pendentes[e.indice].id, blocos, exige: exigeExercicios(blocos) };
+      });
 
     for (const a of atualizacoes) {
       const { error } = await supabase
@@ -334,6 +391,9 @@ async function distribuicao(
         "A distribuição foi feita automaticamente, sem sequenciamento inteligente. Você pode refazer.",
       ],
       motivo: e instanceof Error ? e.message : "erro desconhecido",
+      // As violações que fizeram a 2ª tentativa falhar — visível pra quem
+      // está depurando por que caiu no fallback, sem precisar dos logs.
+      violacoes: (e as Error & { violacoes?: string[] })?.violacoes,
     });
   }
 }
