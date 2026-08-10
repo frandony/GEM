@@ -10,6 +10,6 @@
     "react-best-practices@claude-skills": true,
     "tanstack-query@claude-skills": true,
     "tailwind-v4-shadcn@claude-skills": true,
-    "react-hook-form-zod@claude-skills": true
+    "react-hook-form-zod@claude-skills": true   
   }
 }
