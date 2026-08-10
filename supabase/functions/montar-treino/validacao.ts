@@ -1,9 +1,36 @@
 import {
   type Catalogo,
+  type Exercicio,
   LETRAS_POR_DIVISAO,
   PADROES_COMPOSTOS,
   regiaoDoGrupo,
 } from "../_shared/catalogo.ts";
+
+type TipoExercicio = "composto" | "isolamento" | "complemento";
+
+/** Abdômen e panturrilha são complemento — nem composto nem isolamento. */
+function tipoDoExercicio(e: Exercicio): TipoExercicio {
+  if (e.grupo_primario === "abdômen" || e.grupo_primario === "panturrilha") {
+    return "complemento";
+  }
+  return PADROES_COMPOSTOS.has(e.padrao_movimento) ? "composto" : "isolamento";
+}
+
+/** Espelha o prompt (SYSTEM_REGRAS, seção FAIXAS). Fonte única: mudar aqui
+    sem mudar lá (ou vice-versa) desalinha o que a IA lê do que é cobrada. */
+const FAIXAS: Record<
+  TipoExercicio,
+  {
+    series: readonly [number, number];
+    reps: readonly [number, number];
+    duracao?: readonly [number, number];
+    descanso: readonly [number, number];
+  }
+> = {
+  composto: { series: [3, 5], reps: [5, 10], descanso: [90, 180] },
+  isolamento: { series: [2, 4], reps: [10, 15], descanso: [45, 90] },
+  complemento: { series: [2, 4], reps: [10, 20], duracao: [20, 60], descanso: [30, 60] },
+};
 
 export interface ExercicioGerado {
   exercicio_id: number;
@@ -110,6 +137,34 @@ export function validarPlano(
         }
       }
 
+      // --- 13. faixas de séries/reps/duração/descanso por tipo ----------
+      const tipo = tipoDoExercicio(doCatalogo);
+      const faixa = FAIXAS[tipo];
+
+      if (ex.series < faixa.series[0] || ex.series > faixa.series[1]) {
+        erros.push(
+          `${rotulo}: ${doCatalogo.nome} (${tipo}) tem ${ex.series} séries — faixa é ${faixa.series[0]}-${faixa.series[1]}`,
+        );
+      }
+      if (ex.descanso_seg < faixa.descanso[0] || ex.descanso_seg > faixa.descanso[1]) {
+        erros.push(
+          `${rotulo}: ${doCatalogo.nome} (${tipo}) tem ${ex.descanso_seg}s de descanso — faixa é ${faixa.descanso[0]}-${faixa.descanso[1]}s`,
+        );
+      }
+      if (doCatalogo.medida === "reps" && ex.reps_min != null && ex.reps_max != null) {
+        if (ex.reps_min < faixa.reps[0] || ex.reps_max > faixa.reps[1]) {
+          erros.push(
+            `${rotulo}: ${doCatalogo.nome} (${tipo}) tem reps ${ex.reps_min}-${ex.reps_max} — faixa é ${faixa.reps[0]}-${faixa.reps[1]}`,
+          );
+        }
+      } else if (doCatalogo.medida === "tempo" && ex.duracao_seg != null && faixa.duracao) {
+        if (ex.duracao_seg < faixa.duracao[0] || ex.duracao_seg > faixa.duracao[1]) {
+          erros.push(
+            `${rotulo}: ${doCatalogo.nome} (${tipo}) tem duracao_seg ${ex.duracao_seg} — faixa é ${faixa.duracao[0]}-${faixa.duracao[1]}`,
+          );
+        }
+      }
+
       // --- 7. substitutos: mesmo grupo e mesmo padrão -------------------
       for (const subId of ex.substitutos) {
         const sub = catalogo.porId.get(subId);
@@ -153,6 +208,27 @@ export function validarPlano(
     if (sessao.exercicios.length < 4 || sessao.exercicios.length > 7) {
       avisos.push(
         `${rotulo}: ${sessao.exercicios.length} exercícios — o alvo é entre 4 e 7`,
+      );
+    }
+
+    // --- 13b. abdômen/panturrilha: no máx 2 exercícios e 20% das séries -
+    const complementares = sessao.exercicios.filter((e) => {
+      const doCatalogo = catalogo.porId.get(e.exercicio_id);
+      return (
+        doCatalogo?.grupo_primario === "abdômen" ||
+        doCatalogo?.grupo_primario === "panturrilha"
+      );
+    });
+    if (complementares.length > 2) {
+      avisos.push(
+        `${rotulo}: ${complementares.length} exercícios de abdômen/panturrilha — o máximo é 2`,
+      );
+    }
+    const seriesComplementares = complementares.reduce((s, e) => s + e.series, 0);
+    if (totalSeries > 0 && seriesComplementares / totalSeries > 0.2) {
+      avisos.push(
+        `${rotulo}: abdômen/panturrilha usam ${Math.round((seriesComplementares / totalSeries) * 100)}% ` +
+          `das séries — o máximo é 20%`,
       );
     }
 

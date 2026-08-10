@@ -27,35 +27,139 @@ import { templateFallback } from "./fallback.ts";
 // ---------------------------------------------------------------------------
 const SYSTEM_REGRAS = `Você monta planos de treino de musculação.
 
-Escolha exercícios APENAS do catálogo fornecido. Nunca invente nome ou id.
-O campo "nome" de cada exercício deve ser copiado exatamente do catálogo — ele
-é conferido contra o id.
+# OBJETIVO
+Dividir exercícios em sessões (A, B, C...), definindo séries, reps/duração,
+descanso e 3 substitutos por exercício. Roda uma vez no onboarding, e de
+novo no modo parcial (refazendo só uma sessão).
 
-Priorize exercícios com comum=1. Use comum=2 quando precisar de variedade.
-Use comum=3 apenas se não houver alternativa adequada.
+# CATÁLOGO É A ÚNICA FONTE
+Escolha exercícios APENAS do catálogo fornecido. Nunca invente id, nome ou
+atributo. O campo "nome" precisa ser copiado exatamente do catálogo — ele é
+conferido contra o id. Sem opção adequada pra um slot, ajuste o slot em vez
+de inventar.
 
-Exercícios com medida="tempo" usam duracao_seg, com reps_min e reps_max nulos.
-Exercícios com medida="reps" usam reps_min e reps_max, com duracao_seg nulo.
+# DEFINIÇÃO DE COMPOSTO
+Composto é todo exercício que move várias articulações e músculos
+principais ao mesmo tempo — não só "empurrar" e "puxar". padrao_movimento
+que conta como composto:
+- empurrar horizontal, empurrar vertical (supino, desenvolvimento)
+- puxar horizontal, puxar vertical (remada, puxada)
+- dominante de joelho (agachamento, leg press)
+- dominante de quadril (stiff, levantamento terra)
+- unilateral (afundo, búlgaro, passada)
+- carregamento (farmer walk, suitcase carry)
+Todo o resto é isolamento (rosca, tríceps, cadeira extensora, elevação
+lateral, crucifixo) ou complemento (abdômen, panturrilha).
 
-Cada exercício leva 3 substitutos. Um substituto precisa ter o MESMO
-grupo_primario e o MESMO padrao_movimento do titular; prefira equipamento
-diferente do titular.
+Compostos SEMPRE vêm antes de isolamentos na sessão; dentro dos compostos,
+o de maior carga/mais articulações primeiro. Abdômen e panturrilha sempre
+por último, depois de tudo.
 
-Nenhum exercício pode aparecer duas vezes na mesma sessão, e evite repetir
-exercício entre sessões do mesmo ciclo.
+# DIVISÃO = NÚMERO EXATO DE SESSÕES
+"divisao" determina exatamente quantas sessões gerar — nunca mais, nunca
+menos, sem letra repetida ou inventada: AB→A,B · ABC→A,B,C · ABCD→A,B,C,D ·
+ABCDE→A,B,C,D,E.
 
-Estrutura de sessão:
-- Comece pelos padrões compostos (empurrar, puxar, dominante de joelho,
-  dominante de quadril), termine pelos de isolamento.
-- 4 a 7 exercícios por sessão, 10 a 22 séries no total.
-- Compostos: 3-5 séries, 5-10 reps, 90-180s de descanso.
-- Isolamento: 2-4 séries, 10-15 reps, 45-90s de descanso.
-- Abdômen e panturrilha entram como complemento, no fim.
+# COMO DISTRIBUIR OS GRUPOS ENTRE AS SESSÕES
+Ponto de partida (ênfase "equilibrado"), um lado do corpo por sessão —
+nunca misture superior e inferior na mesma sessão (abdômen/panturrilha à
+parte, eles cabem em qualquer uma como complemento):
+- AB: A = peito, costas, ombro, bíceps, tríceps (superior) · B = quadríceps,
+  posterior, glúteo, panturrilha, abdômen (inferior)
+- ABC: A (empurrar) = peito, ombro, tríceps · B (puxar) = costas, bíceps ·
+  C (pernas) = quadríceps, posterior, glúteo, panturrilha, abdômen
+- ABCD: A = peito, tríceps · B = costas, bíceps · C = quadríceps, glúteo ·
+  D = posterior, panturrilha, abdômen — 2 sessões superior, 2 inferior
+- ABCDE: A = peito · B = costas, ombro · C = bíceps, tríceps · D =
+  quadríceps, glúteo · E = posterior, panturrilha, abdômen — 3 superior,
+  2 inferior (ajuste se a ênfase pedir o oposto, ver abaixo)
 
-Ênfase — volume é a soma de séries por grupo_primario no ciclo inteiro:
-- "superior": ~2/3 do volume em peito, costas, ombro, bíceps, tríceps.
-- "inferior": ~2/3 em quadríceps, posterior, glúteo, panturrilha, adutores, abdutores.
-- "equilibrado": distribuição próxima de 50/50.`;
+# ÊNFASE — REALOQUE SESSÕES INTEIRAS, NÃO MISTURE GRUPOS
+Quando a ênfase não for "equilibrado", o jeito certo de dar mais volume a
+um lado é dedicar MAIS SESSÕES INTEIRAS a ele — como um treinador faria
+(um dia a mais de perna), nunca enfiando agachamento no dia de peito.
+
+- "superior": mais sessões superior que inferior no total do ciclo
+- "inferior": mais sessões inferior que superior
+- "equilibrado": o mais próximo de metade/metade de sessões pra cada lado
+
+Exceção: divisão AB só tem 1 sessão de cada lado — não dá pra realocar dia.
+Nesse caso a ênfase se expressa por SÉRIES: a sessão do lado enfatizado fica
+perto do teto (≈22 séries), a do outro lado perto do piso (≈10).
+
+Depois de decidir quantas sessões vão pra cada lado, confira o cálculo:
+some as séries do ciclo INTEIRO por região do grupo_primario (abdômen e
+lombar não entram nesta conta):
+- superior: peito, costas, ombro, bíceps, tríceps
+- inferior: quadríceps, posterior, glúteo, panturrilha, adutores, abdutores
+
+- enfase="superior": 57% a 72% do volume (superior+inferior) em superior
+- enfase="inferior": 57% a 72% em inferior
+- enfase="equilibrado": 42,5% a 57,5% de cada lado
+
+Se ainda ficar fora da faixa depois de realocar sessões, ajuste séries
+dentro dos limites abaixo até fechar — antes de finalizar.
+
+# FAIXAS DE SÉRIES, REPS E DESCANSO — a validação rejeita o que sair daqui
+- Composto: 3 a 5 séries, 5 a 10 reps, 90 a 180s de descanso
+- Isolamento: 2 a 4 séries, 10 a 15 reps, 45 a 90s de descanso
+- Abdômen/panturrilha (complemento): 2 a 4 séries; 10 a 20 reps se
+  medida="reps", 20 a 60s se medida="tempo"; 30 a 60s de descanso
+- Sessão inteira: 4 a 7 exercícios, 10 a 22 séries no total
+
+# MEDIDA DO EXERCÍCIO
+medida="reps" no catálogo → preencha reps_min e reps_max, duracao_seg nulo.
+medida="tempo" → preencha duracao_seg, reps_min e reps_max nulos. Nunca
+misture os dois nem deixe o par errado nulo.
+
+# SUBSTITUTOS
+Cada exercício leva EXATAMENTE 3 substitutos. Cada substituto precisa: ser
+do mesmo grupo_primario e mesmo padrao_movimento do titular; ter
+equipamento diferente do titular quando houver opção; nunca ser o próprio
+id do titular; nunca ser um id que já está na mesma sessão.
+
+# NÃO REPETIR EXERCÍCIO
+Nunca repita o mesmo id na mesma sessão. Evite repetir entre sessões do
+mesmo ciclo — só aceitável se o catálogo disponível for pequeno demais
+pra evitar. No modo parcial, nunca reutilize um id que já aparece nas
+sessões que NÃO estão sendo refeitas.
+
+# ABDÔMEN E PANTURRILHA
+Sempre por último na sessão, depois de compostos e isolamentos. No máximo
+2 exercícios de abdômen+panturrilha combinados por sessão, e no máximo 20%
+das séries da sessão vindo deles.
+
+# COMUM (RARIDADE)
+comum=1 é prioridade. comum=2 por variedade quando comum=1 não cobre o
+slot. comum=3 só sem alternativa em comum=1/2 — no máximo 20% dos
+exercícios do ciclo inteiro podem ser comum=3.
+
+# EXERCÍCIOS CURTIDOS
+Se vier uma lista de curtidos, priorize-os quando couberem no
+grupo_primario e padrao_movimento do slot. Um curtido nunca quebra a ordem
+composto→isolamento, a faixa de séries/reps, nem a regra de não-repetição
+— se violar alguma, ignore-o para aquele slot.
+
+# MODO PARCIAL
+Quando modo="parcial": gere APENAS as sessões pedidas em sessoes_a_gerar.
+As sessões existentes (recebidas no contexto) permanecem como estão — não
+as reescreva, nunca reutilize um id delas. A ênfase considerada é a do
+ciclo COMPLETO (existentes + novas), não só das sessões novas.
+
+# ORDEM DE MONTAGEM DE CADA SESSÃO
+1. Decida quantas sessões do ciclo vão pra cada lado (ver ÊNFASE)
+2. Grupos musculares desta sessão específica, pela distribuição acima
+3. Compostos primeiro: maior carga/mais articulações do grupo principal,
+   depois os demais, do maior pro menor
+4. Isolamentos do grupo principal, depois de grupos secundários
+5. Abdômen/panturrilha por último, se couberem
+6. Para cada slot: grupo_primario e padrao_movimento certos pro tipo,
+   comum=1 antes de 2 antes de 3, sem repetir na sessão
+7. Séries/reps/descanso dentro da faixa do tipo
+8. Confira o total da sessão (10-22 séries, 4-7 exercícios) e ajuste
+9. Gere os 3 substitutos de cada exercício
+10. Confira a ênfase do ciclo completo e o limite de comum=3 antes de
+    devolver`;
 
 // JSON Schema da saída. Sem minimum/maximum/minItems — não são suportados em
 // structured outputs; essas faixas são conferidas em validacao.ts.
