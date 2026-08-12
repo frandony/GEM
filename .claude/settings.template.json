@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
+  "enabledPlugins": {
+    "supabase@supabase-agent-skills": true,
+    "postgres-best-practices@supabase-agent-skills": true,
+    "progressive-web-app@claude-skills": true,
+    "mobile-offline-support@claude-skills": true,
+    "react-best-practices@claude-skills": true,
+    "tanstack-query@claude-skills": true,
+    "tailwind-v4-shadcn@claude-skills": true,
+    "react-hook-form-zod@claude-skills": true
+  }
+}
