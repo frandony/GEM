@@ -1,0 +1,54 @@
+﻿id,nome,grupo_primario,grupos_secundarios,padrao_movimento,equipamento,unilateral,comum,nivel,cadeia,perfil_sugerido,foco,complexidade_tecnica
+1,Abdução miniband,abdutores,glúteo,isolamento de perna,elástico,False,3,Avançado,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção,Lateral do Quadril,Média
+2,Abdução na máquina,abdutores,,isolamento de perna,máquina,False,1,Básico,Cadeia Aberta,Isolamento Específico,Lateral do Quadril,Baixa (guiado)
+3,Abdução na polia,abdutores,,isolamento de perna,polia,True,2,Intermediário,Cadeia Aberta,Estabilidade/Prevenção,Lateral do Quadril,Baixa (guiado)
+4,Monster Walk,abdutores,glúteo,isolamento de perna,elástico,False,3,Avançado,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção,Lateral do Quadril,Média
+24,Adução na máquina,adutores,,isolamento de perna,máquina,False,1,Básico,Cadeia Aberta,Isolamento Específico,Interno da Coxa,Baixa (guiado)
+25,Adução polia,adutores,,isolamento de perna,polia,True,2,Intermediário,Cadeia Aberta,Estabilidade/Prevenção,Interno da Coxa,Baixa (guiado)
+26,Copenhagen Plank,adutores,,isolamento de perna,peso corporal,True,3,Avançado,Cadeia Aberta,Estabilidade/Prevenção,Interno da Coxa,Média (controle corporal)
+64,Cable Pull Through,glúteo,posterior,dominante de quadril,polia,False,3,Avançado,Cadeia Fechada,Glúteo/Posterior,Posterior / Quadril,Média
+65,Elevação pélvica com barra,glúteo,posterior,dominante de quadril,barra,False,1,Básico,Cadeia Fechada,Base Universal | Glúteo/Posterior | Força Máxima,Posterior / Quadril,Alta (técnica de barra)
+66,Elevação pélvica na máquina,glúteo,posterior,dominante de quadril,máquina,False,1,Básico,Cadeia Fechada,Base Universal | Glúteo/Posterior,Posterior / Quadril,Média
+67,Frog Pump,glúteo,posterior,dominante de quadril,halter,False,3,Avançado,Cadeia Fechada,Glúteo/Posterior,Posterior / Quadril,Média
+68,Hip Thrust unilateral,glúteo,posterior,dominante de quadril,halter,True,2,Intermediário,Cadeia Fechada,Glúteo/Posterior,Posterior / Quadril,Média
+69,Ponte de glúteo,glúteo,posterior,dominante de quadril,peso corporal,False,1,Básico,Cadeia Fechada,Glúteo/Posterior,Posterior / Quadril,Média (controle corporal)
+70,Reverse Hyper,glúteo,posterior,dominante de quadril,máquina,False,3,Avançado,Cadeia Fechada,Glúteo/Posterior,Posterior / Quadril,Média
+71,Coice na máquina,glúteo,,isolamento de perna,máquina,True,2,Intermediário,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção | Isolamento Específico,Glúteo,Baixa (guiado)
+72,Coice na polia,glúteo,,isolamento de perna,polia,True,1,Básico,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção,Glúteo,Baixa (guiado)
+98,Donkey Calf Raise,panturrilha,,panturrilha,máquina,False,3,Avançado,Cadeia Aberta,Panturrilha,Panturrilha,Média
+99,Panturrilha Smith,panturrilha,,panturrilha,máquina,False,2,Intermediário,Cadeia Aberta,Panturrilha,Panturrilha,Média
+100,Panturrilha em pé na máquina,panturrilha,,panturrilha,máquina,False,1,Básico,Cadeia Aberta,Panturrilha,Panturrilha,Média
+101,Panturrilha no leg press,panturrilha,,panturrilha,máquina,False,2,Intermediário,Cadeia Aberta,Panturrilha,Panturrilha,Média
+102,Panturrilha sentado na máquina,panturrilha,,panturrilha,máquina,False,1,Básico,Cadeia Aberta,Panturrilha,Panturrilha,Média
+103,Panturrilha sentado unilateral,panturrilha,,panturrilha,máquina,True,2,Intermediário,Cadeia Aberta,Panturrilha,Panturrilha,Média
+104,Panturrilha unilateral com halter,panturrilha,,panturrilha,halter,True,2,Intermediário,Cadeia Aberta,Panturrilha,Panturrilha,Média
+105,Tibial Raise,panturrilha,,panturrilha,peso corporal,False,3,Avançado,Cadeia Aberta,Panturrilha,Panturrilha,Média (controle corporal)
+123,Bom dia com barra,posterior,glúteo;lombar,dominante de quadril,barra,False,3,Avançado,Cadeia Fechada,Glúteo/Posterior | Força Máxima,Posterior / Quadril,Alta (técnica de barra)
+124,Good Morning Smith,posterior,glúteo;lombar,dominante de quadril,máquina,False,3,Avançado,Cadeia Fechada,Glúteo/Posterior,Posterior / Quadril,Média
+125,Levantamento terra,posterior,glúteo;costas,dominante de quadril,barra,False,1,Básico,Cadeia Fechada,Base Universal | Glúteo/Posterior | Força Máxima,Posterior / Quadril,Alta (técnica de barra)
+126,Levantamento terra romeno,posterior,glúteo,dominante de quadril,barra,False,1,Básico,Cadeia Fechada,Base Universal | Glúteo/Posterior | Força Máxima,Posterior / Quadril,Alta (técnica de barra)
+127,Levantamento terra sumô,posterior,glúteo;quadríceps,dominante de quadril,barra,False,3,Avançado,Cadeia Fechada,Glúteo/Posterior | Força Máxima,Posterior / Quadril,Alta (técnica de barra)
+128,Stiff com halteres,posterior,glúteo,dominante de quadril,halter,False,1,Básico,Cadeia Fechada,Base Universal | Glúteo/Posterior,Posterior / Quadril,Média
+129,Cadeira flexora,posterior,,isolamento de perna,máquina,False,1,Básico,Cadeia Aberta,Glúteo/Posterior | Isolamento Específico,Posterior / Quadril,Baixa (guiado)
+130,Flexora unilateral em pé,posterior,,isolamento de perna,máquina,True,2,Intermediário,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção | Isolamento Específico,Posterior / Quadril,Baixa (guiado)
+131,Glute Ham Raise,posterior,glúteo,isolamento de perna,peso corporal,False,3,Avançado,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção,Posterior / Quadril,Média (controle corporal)
+132,Mesa flexora,posterior,,isolamento de perna,máquina,False,1,Básico,Cadeia Aberta,Glúteo/Posterior | Isolamento Específico,Posterior / Quadril,Baixa (guiado)
+133,Nordic Curl,posterior,,isolamento de perna,peso corporal,False,3,Avançado,Cadeia Aberta,Glúteo/Posterior | Estabilidade/Prevenção,Posterior / Quadril,Média (controle corporal)
+134,Agachamento frontal,quadríceps,glúteo,dominante de joelho,barra,False,2,Intermediário,Cadeia Fechada,Força Máxima,Frente da Coxa / Joelho,Alta (técnica de barra)
+135,Agachamento goblet,quadríceps,glúteo,dominante de joelho,halter,False,1,Básico,Cadeia Fechada,Base Universal,Frente da Coxa / Joelho,Média
+136,Agachamento livre,quadríceps,glúteo;posterior,dominante de joelho,barra,False,1,Básico,Cadeia Fechada,Base Universal | Força Máxima,Frente da Coxa / Joelho,Alta (técnica de barra)
+137,Agachamento no Smith,quadríceps,glúteo,dominante de joelho,máquina,False,1,Básico,Cadeia Fechada,Base Universal,Frente da Coxa / Joelho,Média
+138,Agachamento sumô com halter,quadríceps,glúteo,dominante de joelho,halter,False,2,Intermediário,Cadeia Fechada,Acessório,Frente da Coxa / Joelho,Média
+139,Belt Squat,quadríceps,glúteo,dominante de joelho,máquina,False,3,Avançado,Cadeia Fechada,Acessório,Frente da Coxa / Joelho,Média
+140,Hack machine,quadríceps,glúteo,dominante de joelho,máquina,False,1,Básico,Cadeia Fechada,Base Universal,Frente da Coxa / Joelho,Média
+141,Landmine Squat,quadríceps,glúteo,dominante de joelho,barra,False,3,Avançado,Cadeia Fechada,Força Máxima,Frente da Coxa / Joelho,Alta (técnica de barra)
+142,Leg press 45,quadríceps,glúteo,dominante de joelho,máquina,False,1,Básico,Cadeia Fechada,Base Universal,Frente da Coxa / Joelho,Média
+143,Sissy Squat,quadríceps,,dominante de joelho,peso corporal,False,3,Avançado,Cadeia Fechada,Acessório,Frente da Coxa / Joelho,Média (controle corporal)
+144,Spanish Squat,quadríceps,,dominante de joelho,peso corporal,False,3,Avançado,Cadeia Fechada,Acessório,Frente da Coxa / Joelho,Média (controle corporal)
+145,Cadeira extensora,quadríceps,,isolamento de perna,máquina,False,1,Básico,Cadeia Aberta,Isolamento Específico,Frente da Coxa / Joelho,Baixa (guiado)
+146,Extensora unilateral,quadríceps,,isolamento de perna,máquina,True,2,Intermediário,Cadeia Aberta,Estabilidade/Prevenção | Isolamento Específico,Frente da Coxa / Joelho,Baixa (guiado)
+147,Afundo com halteres,quadríceps,glúteo,unilateral,halter,True,1,Básico,Cadeia Fechada,Base Universal | Estabilidade/Prevenção,Frente da Coxa / Joelho,Média-Alta (equilíbrio)
+148,Agachamento búlgaro,quadríceps,glúteo,unilateral,halter,True,2,Intermediário,Cadeia Fechada,Estabilidade/Prevenção,Frente da Coxa / Joelho,Média-Alta (equilíbrio)
+149,Avanço no Smith,quadríceps,glúteo,unilateral,máquina,True,2,Intermediário,Cadeia Fechada,Estabilidade/Prevenção,Frente da Coxa / Joelho,Média-Alta (equilíbrio)
+150,Passada,quadríceps,glúteo,unilateral,halter,True,2,Intermediário,Cadeia Fechada,Estabilidade/Prevenção,Frente da Coxa / Joelho,Média-Alta (equilíbrio)
+151,Step-up no banco,quadríceps,glúteo,unilateral,halter,True,2,Intermediário,Cadeia Fechada,Estabilidade/Prevenção,Frente da Coxa / Joelho,Média-Alta (equilíbrio)

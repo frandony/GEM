@@ -1,0 +1,111 @@
+﻿id,nome,grupo_primario,grupos_secundarios,padrao_movimento,equipamento,unilateral,comum,nivel,cadeia,perfil_sugerido,foco,complexidade_tecnica
+5,Dead Bug,abdômen,,antiextensão,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+6,Dragon Flag,abdômen,,antiextensão,peso corporal,False,3,Avançado,Cadeia Fechada,Core/Estabilidade,Abdômen,Alta (controle avançado)
+7,Hollow Hold,abdômen,,antiextensão,peso corporal,False,3,Avançado,Cadeia Fechada,Core/Estabilidade,Abdômen,Alta (controle avançado)
+8,Mountain Climbers,abdômen,,antiextensão,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+9,Prancha isométrica,abdômen,lombar,antiextensão,peso corporal,False,1,Básico,Cadeia Fechada,Base Universal | Core/Estabilidade,Abdômen,Média (controle corporal)
+10,Prancha lateral,abdômen,,antiextensão,peso corporal,True,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+11,Roda abdominal,abdômen,,antiextensão,peso corporal,False,3,Avançado,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+12,Abdominal infra no solo,abdômen,,flexão de tronco,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+13,Abdominal na máquina,abdômen,,flexão de tronco,máquina,False,1,Básico,Cadeia Fechada,Core/Estabilidade,Abdômen,Média
+14,Abdominal na polia alta,abdômen,,flexão de tronco,polia,False,1,Básico,Cadeia Fechada,Core/Estabilidade,Abdômen,Média
+15,Abdominal supra no solo,abdômen,,flexão de tronco,peso corporal,False,1,Básico,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+16,Elevação de pernas no banco,abdômen,,flexão de tronco,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+17,Elevação de pernas suspenso,abdômen,,flexão de tronco,peso corporal,False,1,Básico,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+18,Toes to Bar,abdômen,,flexão de tronco,peso corporal,False,3,Avançado,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+19,V-Up,abdômen,,flexão de tronco,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+20,Abdominal bicicleta,abdômen,,rotação,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média (controle corporal)
+21,Lenhador na polia,abdômen,,rotação,polia,True,3,Avançado,Cadeia Fechada,Core/Estabilidade,Abdômen,Média-Alta (equilíbrio)
+22,Pallof press na polia,abdômen,,rotação,polia,True,3,Avançado,Cadeia Fechada,Core/Estabilidade,Abdômen,Média-Alta (equilíbrio)
+23,Rotação russa com anilha,abdômen,,rotação,anilha,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Abdômen,Média
+27,Farmer Walk,bíceps,ombro;abdômen,carregamento,halter,False,3,Avançado,Cadeia Fechada,Costas/Bíceps | Acessório,Bíceps/Antebraço,Média
+28,Rosca de punho,bíceps,,isolamento de antebraço,halter,False,2,Intermediário,Cadeia Aberta,Costas/Bíceps | Acessório,Bíceps/Antebraço,Média
+29,Rosca de punho inversa,bíceps,,isolamento de antebraço,halter,False,2,Intermediário,Cadeia Aberta,Costas/Bíceps | Acessório,Bíceps/Antebraço,Média
+30,Wrist Roller,bíceps,,isolamento de antebraço,anilha,False,3,Avançado,Cadeia Aberta,Costas/Bíceps | Acessório,Bíceps/Antebraço,Média
+31,Rosca 21,bíceps,,isolamento de braço,barra,False,3,Avançado,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+32,Rosca Bayesian,bíceps,,isolamento de braço,polia,True,3,Avançado,Cadeia Aberta,Costas/Bíceps | Isolamento Específico,Bíceps/Antebraço,Média-Alta (equilíbrio)
+33,Rosca Drag,bíceps,,isolamento de braço,barra,False,3,Avançado,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+34,Rosca Scott unilateral,bíceps,,isolamento de braço,halter,True,2,Intermediário,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média-Alta (equilíbrio)
+35,Rosca Spider,bíceps,,isolamento de braço,halter,False,3,Avançado,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+36,Rosca alternada com halteres,bíceps,,isolamento de braço,halter,True,1,Básico,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média-Alta (equilíbrio)
+37,Rosca concentrada,bíceps,,isolamento de braço,halter,True,2,Intermediário,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média-Alta (equilíbrio)
+38,Rosca direta com barra,bíceps,,isolamento de braço,barra,False,1,Básico,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+39,Rosca direta com barra W,bíceps,,isolamento de braço,barra,False,2,Intermediário,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+40,Rosca inversa,bíceps,,isolamento de braço,barra,False,2,Intermediário,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+41,Rosca martelo,bíceps,,isolamento de braço,halter,True,1,Básico,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média-Alta (equilíbrio)
+42,Rosca na polia baixa,bíceps,,isolamento de braço,polia,False,1,Básico,Cadeia Aberta,Costas/Bíceps | Isolamento Específico,Bíceps/Antebraço,Baixa (guiado)
+43,Rosca scott,bíceps,,isolamento de braço,barra,False,1,Básico,Cadeia Aberta,Costas/Bíceps,Bíceps/Antebraço,Média
+44,Rack Pull,costas,posterior;glúteo,dominante de quadril,barra,False,3,Avançado,Cadeia Fechada,Costas/Bíceps,Costas,Média
+45,Pull-over máquina,costas,,isolamento de costas,máquina,False,3,Avançado,Cadeia Aberta,Costas/Bíceps | Isolamento Específico,Costas,Baixa (guiado)
+46,Pullover com halter,costas,peito,isolamento de costas,halter,False,2,Intermediário,Cadeia Aberta,Costas/Bíceps,Costas,Média
+47,Pullover na polia alta,costas,,isolamento de costas,polia,False,2,Intermediário,Cadeia Aberta,Costas/Bíceps | Isolamento Específico,Costas,Baixa (guiado)
+48,Remada Meadows,costas,bíceps,puxar horizontal,barra,True,3,Avançado,Cadeia Fechada,Costas/Bíceps,Costas,Média-Alta (equilíbrio)
+49,Remada T-Bar,costas,bíceps,puxar horizontal,barra,False,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Alta (técnica de barra)
+50,Remada baixa na polia,costas,bíceps,puxar horizontal,polia,False,1,Básico,Cadeia Fechada,Costas/Bíceps,Costas,Média
+51,Remada cavalinho,costas,bíceps,puxar horizontal,barra,False,3,Avançado,Cadeia Fechada,Costas/Bíceps,Costas,Alta (técnica de barra)
+52,Remada curvada com barra,costas,bíceps,puxar horizontal,barra,False,1,Básico,Cadeia Fechada,Base Universal | Costas/Bíceps,Costas,Alta (técnica de barra)
+53,Remada curvada pronada,costas,bíceps,puxar horizontal,barra,False,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Alta (técnica de barra)
+54,Remada máquina,costas,bíceps,puxar horizontal,máquina,False,1,Básico,Cadeia Fechada,Base Universal | Costas/Bíceps,Costas,Média
+55,Remada serrote com halter,costas,bíceps,puxar horizontal,halter,True,1,Básico,Cadeia Fechada,Base Universal | Costas/Bíceps,Costas,Média-Alta (equilíbrio)
+56,Remada unilateral na polia,costas,bíceps,puxar horizontal,polia,True,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Média-Alta (equilíbrio)
+57,Barra fixa pronada,costas,bíceps,puxar vertical,peso corporal,False,1,Básico,Cadeia Fechada,Base Universal | Costas/Bíceps,Costas,Alta (peso corporal)
+58,Barra fixa supinada,costas,bíceps,puxar vertical,peso corporal,False,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Alta (peso corporal)
+59,Pulldown unilateral,costas,bíceps,puxar vertical,polia,True,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Média-Alta (equilíbrio)
+60,Puxada com pegada neutra,costas,bíceps,puxar vertical,polia,False,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Média
+61,Puxada com triângulo,costas,bíceps,puxar vertical,polia,False,1,Básico,Cadeia Fechada,Costas/Bíceps,Costas,Média
+62,Puxada frontal na polia,costas,bíceps,puxar vertical,polia,False,1,Básico,Cadeia Fechada,Costas/Bíceps,Costas,Média
+63,Puxada supinada na polia,costas,bíceps,puxar vertical,polia,False,2,Intermediário,Cadeia Fechada,Costas/Bíceps,Costas,Média
+73,Bird Dog,lombar,abdômen,antiextensão,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Lombar,Média (controle corporal)
+74,Hiperextensão com anilha,lombar,glúteo;posterior,extensão de tronco,anilha,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Lombar,Média
+75,Hiperextensão lombar,lombar,glúteo;posterior,extensão de tronco,peso corporal,False,1,Básico,Cadeia Fechada,Core/Estabilidade,Lombar,Média (controle corporal)
+76,Jefferson Curl,lombar,posterior,extensão de tronco,halter,False,3,Avançado,Cadeia Fechada,Core/Estabilidade,Lombar,Média
+77,Superman no solo,lombar,,extensão de tronco,peso corporal,False,2,Intermediário,Cadeia Fechada,Core/Estabilidade,Lombar,Média (controle corporal)
+78,Desenvolvimento Arnold,ombro,tríceps,empurrar vertical,halter,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps | Ombro,Ombro,Média
+79,Desenvolvimento Smith,ombro,tríceps,empurrar vertical,máquina,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps | Ombro,Ombro,Média
+80,Desenvolvimento com halteres,ombro,tríceps,empurrar vertical,halter,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps | Ombro,Ombro,Média
+81,Desenvolvimento militar com barra,ombro,tríceps,empurrar vertical,barra,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps | Ombro,Ombro,Alta (técnica de barra)
+82,Desenvolvimento máquina,ombro,tríceps,empurrar vertical,máquina,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps | Ombro,Ombro,Média
+83,Crucifixo inverso com halteres,ombro,costas,isolamento de ombro,halter,False,1,Básico,Cadeia Aberta,Ombro,Ombro,Média
+84,Crucifixo inverso na máquina,ombro,costas,isolamento de ombro,máquina,False,1,Básico,Cadeia Aberta,Ombro | Isolamento Específico,Ombro,Baixa (guiado)
+85,Crucifixo inverso polia,ombro,costas,isolamento de ombro,polia,True,2,Intermediário,Cadeia Aberta,Ombro | Isolamento Específico,Ombro,Média-Alta (equilíbrio)
+86,Cuban Press,ombro,,isolamento de ombro,halter,False,3,Avançado,Cadeia Aberta,Ombro,Ombro,Média
+87,Elevação Y,ombro,,isolamento de ombro,halter,False,3,Avançado,Cadeia Aberta,Ombro,Ombro,Média
+88,Elevação frontal com anilha,ombro,,isolamento de ombro,anilha,False,2,Intermediário,Cadeia Aberta,Ombro,Ombro,Média
+89,Elevação frontal com halteres,ombro,,isolamento de ombro,halter,False,1,Básico,Cadeia Aberta,Ombro,Ombro,Média
+90,Elevação lateral com halteres,ombro,,isolamento de ombro,halter,False,1,Básico,Cadeia Aberta,Ombro,Ombro,Média
+91,Elevação lateral na máquina,ombro,,isolamento de ombro,máquina,False,1,Básico,Cadeia Aberta,Ombro | Isolamento Específico,Ombro,Baixa (guiado)
+92,Elevação lateral na polia,ombro,,isolamento de ombro,polia,True,2,Intermediário,Cadeia Aberta,Ombro | Isolamento Específico,Ombro,Média-Alta (equilíbrio)
+93,Encolhimento com barra,ombro,,isolamento de ombro,barra,False,2,Intermediário,Cadeia Aberta,Ombro,Ombro,Média
+94,Encolhimento com halteres,ombro,,isolamento de ombro,halter,False,1,Básico,Cadeia Aberta,Ombro,Ombro,Média
+95,Face pull na polia,ombro,costas,isolamento de ombro,polia,False,1,Básico,Cadeia Aberta,Ombro | Isolamento Específico,Ombro,Baixa (guiado)
+96,High Pull,ombro,costas,isolamento de ombro,barra,False,3,Avançado,Cadeia Aberta,Ombro,Ombro,Média
+97,Remada alta com barra,ombro,costas,isolamento de ombro,barra,False,1,Básico,Cadeia Aberta,Ombro,Ombro,Média
+106,Chest Press convergente,peito,tríceps;ombro,empurrar horizontal,máquina,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps,Peitoral,Média
+107,Flexão de braço,peito,tríceps;ombro,empurrar horizontal,peso corporal,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps,Peitoral,Média (controle corporal)
+108,Paralelas,peito,tríceps,empurrar horizontal,peso corporal,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps,Peitoral,Média (controle corporal)
+109,Supino declinado com barra,peito,tríceps,empurrar horizontal,barra,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps,Peitoral,Alta (técnica de barra)
+110,Supino inclinado com barra,peito,ombro;tríceps,empurrar horizontal,barra,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps,Peitoral,Alta (técnica de barra)
+111,Supino inclinado com halteres,peito,ombro;tríceps,empurrar horizontal,halter,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps,Peitoral,Média
+112,Supino máquina,peito,tríceps;ombro,empurrar horizontal,máquina,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps,Peitoral,Média
+113,Supino pegada neutra,peito,tríceps;ombro,empurrar horizontal,halter,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps,Peitoral,Média
+114,Supino reto com barra,peito,tríceps;ombro,empurrar horizontal,barra,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps,Peitoral,Alta (técnica de barra)
+115,Supino reto com halteres,peito,tríceps;ombro,empurrar horizontal,halter,False,1,Básico,Cadeia Fechada,Base Universal | Peito/Tríceps,Peitoral,Média
+116,Crossover baixo para cima,peito,,isolamento de peito,polia,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Peitoral,Baixa (guiado)
+117,Crossover cima para baixo,peito,,isolamento de peito,polia,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Peitoral,Baixa (guiado)
+118,Crossover na polia,peito,,isolamento de peito,polia,False,1,Básico,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Peitoral,Baixa (guiado)
+119,Crucifixo com halteres,peito,,isolamento de peito,halter,False,1,Básico,Cadeia Aberta,Peito/Tríceps,Peitoral,Média
+120,Crucifixo inclinado com halteres,peito,,isolamento de peito,halter,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps,Peitoral,Média
+121,Svend Press,peito,,isolamento de peito,anilha,False,3,Avançado,Cadeia Aberta,Peito/Tríceps,Peitoral,Média
+122,Voador (peck deck),peito,,isolamento de peito,máquina,False,1,Básico,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Peitoral,Baixa (guiado)
+152,Supino fechado,tríceps,peito,empurrar horizontal,barra,False,2,Intermediário,Cadeia Fechada,Peito/Tríceps,Peitoral,Alta (técnica de barra)
+153,Extensão acima cabeça polia,tríceps,,isolamento de braço,polia,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Tríceps,Baixa (guiado)
+154,JM Press,tríceps,peito,isolamento de braço,barra,False,3,Avançado,Cadeia Aberta,Peito/Tríceps,Tríceps,Média
+155,Kickback polia,tríceps,,isolamento de braço,polia,True,2,Intermediário,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Tríceps,Média-Alta (equilíbrio)
+156,Mergulho no banco,tríceps,,isolamento de braço,peso corporal,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps,Tríceps,Média (controle corporal)
+157,Tríceps coice,tríceps,,isolamento de braço,halter,True,2,Intermediário,Cadeia Aberta,Peito/Tríceps,Tríceps,Média-Alta (equilíbrio)
+158,Tríceps francês com halter,tríceps,,isolamento de braço,halter,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps,Tríceps,Média
+159,Tríceps máquina,tríceps,,isolamento de braço,máquina,False,2,Intermediário,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Tríceps,Baixa (guiado)
+160,Tríceps na polia com barra,tríceps,,isolamento de braço,polia,False,1,Básico,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Tríceps,Baixa (guiado)
+161,Tríceps na polia com corda,tríceps,,isolamento de braço,polia,False,1,Básico,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Tríceps,Baixa (guiado)
+162,Tríceps testa com barra W,tríceps,,isolamento de braço,barra,False,1,Básico,Cadeia Aberta,Peito/Tríceps,Tríceps,Média
+163,Tríceps unilateral polia,tríceps,,isolamento de braço,polia,True,2,Intermediário,Cadeia Aberta,Peito/Tríceps | Isolamento Específico,Tríceps,Média-Alta (equilíbrio)
