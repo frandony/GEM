@@ -199,8 +199,13 @@ function msDisponiveis(prazoFinal?: number): number {
  *
  * Não se aplica quando não há reserva — aí o primário pode usar tudo,
  * porque não existe segundo a quem ceder tempo.
+ *
+ * Ajustável por env (`LLM_FATIA_PRIMARIO`) porque o número certo depende
+ * de quanto o primário demora para falhar e de quanto a reserva precisa
+ * para gerar. Com um primário que cai rápido, vale subir; com uma reserva
+ * lenta e um primário instável, vale descer.
  */
-const FATIA_DO_PRIMARIO = 0.55;
+const FATIA_DO_PRIMARIO = Number(Deno.env.get("LLM_FATIA_PRIMARIO") ?? 0.55);
 
 export async function chamarComSchema<T>(
   opcoes: OpcoesChamada,
