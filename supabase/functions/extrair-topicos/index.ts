@@ -92,7 +92,16 @@ interface Extracao {
 const MIN_CARACTERES = 200;
 const MAX_CARACTERES = 15_000;
 
+/**
+ * Teto de tempo para a IA, menor que o wall clock do runtime (150s no
+ * plano free). O que sobra e a reserva para responder de verdade — sem
+ * isso a funcao e morta no meio e o cliente recebe "non-2xx" sem corpo.
+ * Ver o bloco "Prazo" em _shared/llm.ts.
+ */
+const ORCAMENTO_IA_MS = Number(Deno.env.get("LLM_ORCAMENTO_MS") ?? 110_000);
+
 Deno.serve(async (req: Request) => {
+  const prazoFinal = Date.now() + ORCAMENTO_IA_MS;
   if (req.method === "OPTIONS") return respostaOptions(req);
   if (req.method !== "POST") return erro(req, "método não suportado", 405);
 
@@ -142,6 +151,7 @@ Deno.serve(async (req: Request) => {
       system: SYSTEM,
       userPrompt,
       schema: SCHEMA as unknown as Record<string, unknown>,
+      prazoFinal,
       esforco: "medium",
       maxTokens: 4000,
     });

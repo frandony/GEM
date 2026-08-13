@@ -102,6 +102,12 @@ export interface OpcoesChamada {
   schema: Record<string, unknown>;
   maxTokens?: number;
   esforco?: Esforco;
+  /**
+   * Instante (epoch ms) em que a requisição inteira precisa ter desistido
+   * da IA — ver `PRAZO` abaixo. Sem isto, cada chamada usa o timeout
+   * padrão por conta própria e a soma estoura o wall clock.
+   */
+  prazoFinal?: number;
 }
 
 export interface UsoTokens {
@@ -148,13 +154,73 @@ export class ProvedorIndisponivel extends Error {
   }
 }
 
+/* ---------------------------------------------------------------------
+   Prazo — por que existe
+
+   A Edge Function é morta pelo runtime ao bater o wall clock (150s no
+   plano free). Quando isso acontece não há resposta nenhuma: o cliente
+   recebe "Edge Function returned a non-2xx status code", sem corpo, sem
+   motivo. Nem o 503 de provedor indisponível nem o template de fallback
+   chegam a rodar — o processo já morreu.
+
+   Foi exatamente o que aconteceu em produção em 2026-08-13: o Gemini
+   devolveu 503 aos ~72s, o fallback de provedor começou com 120s
+   próprios (72 + 120 = 192s) e o runtime matou a função aos 150s.
+
+   O timeout por chamada não resolve isso porque ele não sabe quantas
+   chamadas vieram antes. O prazo é da REQUISIÇÃO: cada tentativa recebe
+   o que sobrou, e quem não cabe no que sobrou não chega a começar.
+   --------------------------------------------------------------------- */
+
+/** Teto de uma chamada isolada, quando não há prazo da requisição. */
+const TIMEOUT_PADRAO_MS = 120_000;
+
+/**
+ * Abaixo disto não vale começar uma chamada: um modelo lento não devolve
+ * um plano completo em 15s, e a tentativa só consome o tempo que faltava
+ * para responder direito.
+ */
+const MINIMO_UTIL_MS = 15_000;
+
+/** Quanto resta do prazo, ou o teto padrão quando não há prazo. */
+function msDisponiveis(prazoFinal?: number): number {
+  if (prazoFinal === undefined) return TIMEOUT_PADRAO_MS;
+  return Math.min(TIMEOUT_PADRAO_MS, prazoFinal - Date.now());
+}
+
+/**
+ * Fatia máxima do prazo que o provedor PRIMÁRIO pode consumir quando
+ * existe reserva configurada.
+ *
+ * Sem este teto a reserva é decorativa: em produção o primário levou 72s
+ * para devolver 503, e o que sobrava não dava para gerar um plano
+ * completo. Cortar o primário mais cedo troca "espera o primeiro até o
+ * fim e a reserva não roda" por "os dois têm chance de responder".
+ *
+ * Não se aplica quando não há reserva — aí o primário pode usar tudo,
+ * porque não existe segundo a quem ceder tempo.
+ */
+const FATIA_DO_PRIMARIO = 0.55;
+
 export async function chamarComSchema<T>(
   opcoes: OpcoesChamada,
 ): Promise<ResultadoChamada<T>> {
   const cfg = configDaTarefa(opcoes.tarefa);
+  const temReserva = configFallbackDaTarefa(opcoes.tarefa) !== null;
+
+  // Só encurta quando há prazo E reserva: sem um dos dois, o primário
+  // continua com o prazo cheio.
+  const opcoesPrimario =
+    temReserva && opcoes.prazoFinal !== undefined
+      ? {
+          ...opcoes,
+          prazoFinal: Date.now() +
+            Math.round((opcoes.prazoFinal - Date.now()) * FATIA_DO_PRIMARIO),
+        }
+      : opcoes;
 
   try {
-    const resultado = await chamarProvedor<T>(opcoes, cfg);
+    const resultado = await chamarProvedor<T>(opcoesPrimario, cfg);
     return { ...resultado, provedorUsado: cfg.provedor, modeloUsado: cfg.modelo };
   } catch (e) {
     // Só troca de provedor quando o primeiro está fora do ar (rede, 5xx,
@@ -165,8 +231,21 @@ export async function chamarComSchema<T>(
     const reserva = configFallbackDaTarefa(opcoes.tarefa);
     if (!reserva) throw e;
 
+    // Não começar o que não dá tempo de terminar. Sem esta guarda o
+    // fallback de provedor é justamente o que estoura o wall clock:
+    // o primeiro já gastou a maior parte do prazo antes de falhar.
+    const sobra = msDisponiveis(opcoes.prazoFinal);
+    if (sobra < MINIMO_UTIL_MS) {
+      throw new ProvedorIndisponivel(
+        `${e.detalhe}; sem tempo para tentar ${reserva.modelo} ` +
+          `(restavam ${Math.max(0, Math.round(sobra / 1000))}s do prazo)`,
+        e.status,
+      );
+    }
+
     console.warn(
-      `${opcoes.tarefa}: ${cfg.modelo} indisponível (${e.detalhe}) — tentando ${reserva.modelo}`,
+      `${opcoes.tarefa}: ${cfg.modelo} indisponível (${e.detalhe}) — tentando ${reserva.modelo} ` +
+        `com ${Math.round(sobra / 1000)}s restantes`,
     );
 
     const resultado = await chamarProvedor<T>(opcoes, reserva);
@@ -190,7 +269,15 @@ async function viaAnthropic<T>(
   o: OpcoesChamada,
   cfg: ConfigProvedor,
 ): Promise<{ dados: T; usoTokens: UsoTokens }> {
-  const cliente = new Anthropic({ apiKey: cfg.apiKey });
+  // O SDK tem retry e timeout próprios; sem amarrá-los ao prazo da
+  // requisição, ele reagenda por conta e estoura o wall clock igual.
+  const limite = msDisponiveis(o.prazoFinal);
+  if (limite <= 0) {
+    throw new ProvedorIndisponivel(
+      `o prazo da requisição acabou antes de chamar ${cfg.modelo}`,
+    );
+  }
+  const cliente = new Anthropic({ apiKey: cfg.apiKey, timeout: limite, maxRetries: 1 });
 
   const system: Anthropic.TextBlockParam[] = [{ type: "text", text: o.system }];
   if (o.systemCacheavel) {
@@ -290,7 +377,7 @@ async function viaOpenAICompat<T>(
       };
     }
 
-    const r = await postar(cfg, corpo);
+    const r = await postar(cfg, o.prazoFinal, corpo);
 
     if (r.ok) {
       json = r.json;
@@ -354,7 +441,7 @@ async function viaOpenAICompat<T>(
     // markdown, vírgula sobrando. Uma tentativa; se falhar, desiste.
     console.warn(`${cfg.modelo} devolveu JSON inválido — tentando reparar`);
 
-    const r = await postar(cfg, {
+    const r = await postar(cfg, o.prazoFinal, {
       model: cfg.modelo,
       max_tokens: o.maxTokens ?? 16000,
       messages: [
@@ -408,16 +495,27 @@ async function viaOpenAICompat<T>(
   };
 }
 
-/** POST único, com timeout. Erro de rede vira ProvedorIndisponivel. */
+/**
+ * POST único, limitado pelo que resta do prazo da requisição.
+ * Erro de rede vira ProvedorIndisponivel.
+ */
 async function postar(
   cfg: ConfigProvedor,
+  prazoFinal: number | undefined,
   corpo: Record<string, unknown>,
 ): Promise<
   | { ok: true; json: Record<string, unknown> }
   | { ok: false; status: number; corpo: string }
 > {
+  const limite = msDisponiveis(prazoFinal);
+  if (limite <= 0) {
+    throw new ProvedorIndisponivel(
+      `o prazo da requisição acabou antes de chamar ${cfg.modelo}`,
+    );
+  }
+
   const controle = new AbortController();
-  const relogio = setTimeout(() => controle.abort(), 120_000);
+  const relogio = setTimeout(() => controle.abort(), limite);
 
   let resposta: Response;
   try {
@@ -442,7 +540,7 @@ async function postar(
     // da geração — o plano bom existe, só não deu pra buscar.
     throw new ProvedorIndisponivel(
       e instanceof Error && e.name === "AbortError"
-        ? `${cfg.baseUrl} não respondeu em 120s`
+        ? `${cfg.baseUrl} não respondeu em ${Math.round(limite / 1000)}s`
         : `não foi possível alcançar ${cfg.baseUrl} (${e instanceof Error ? e.message : e})`,
     );
   } finally {
@@ -577,6 +675,20 @@ export async function gerarComValidacao<T>(
   }
 
   const violacoes = [...r1.erros, ...r1.avisos];
+
+  // Sem tempo para o retry, desiste como GERAÇÃO ruim e não como provedor
+  // fora do ar: o modelo respondeu, só respondeu errado. A distinção troca
+  // o que a pessoa recebe — template gravado (aqui) em vez de 503 sem
+  // plano nenhum. Erro comum seria deixar o ProvedorIndisponivel de
+  // `postar` subir daqui e virar 503 por falta de relógio.
+  if (msDisponiveis(opcoes.prazoFinal) < MINIMO_UTIL_MS) {
+    const e = new Error(
+      "a geração violou as regras e não sobrou tempo no prazo para tentar de novo",
+    );
+    (e as Error & { violacoes?: string[] }).violacoes = r1.erros;
+    throw e;
+  }
+
   const segunda = await chamarComSchema<T>({
     ...opcoes,
     userPrompt:

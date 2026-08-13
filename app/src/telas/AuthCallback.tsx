@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth";
+import { parametrosDeAuthNaUrl } from "../lib/supabase";
 
 /* =====================================================================
    Aterrissagem do link de e-mail.
@@ -91,15 +92,13 @@ function Moldura({ children }: { children: ReactNode }) {
 }
 
 /**
- * O Supabase devolve erro de link ora no fragmento (`#error=...`, que é o
- * caso do fluxo implícito), ora na query (`?error=...`). Ler os dois é
- * mais barato que descobrir na base de qual jeito veio.
+ * Lê o erro da cópia da URL feita no import de `lib/supabase` — e não de
+ * `window.location`, que a essa altura o cliente do Supabase já limpou.
  */
 function lerErroDaUrl(): ErroDoLink | null {
-  const doHash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const daQuery = new URLSearchParams(window.location.search);
-  const codigo = doHash.get("error_code") ?? daQuery.get("error_code");
-  const tipo = doHash.get("error") ?? daQuery.get("error");
+  const p = parametrosDeAuthNaUrl();
+  const codigo = p.get("error_code");
+  const tipo = p.get("error");
   if (!codigo && !tipo) return null;
 
   if (codigo === "otp_expired") {
@@ -120,8 +119,7 @@ function lerErroDaUrl(): ErroDoLink | null {
       podeReenviar: false,
     };
   }
-  const descricao =
-    doHash.get("error_description") ?? daQuery.get("error_description");
+  const descricao = p.get("error_description");
   return {
     titulo: "Não deu para confirmar",
     detalhe: descricao ? descricao.replace(/\+/g, " ") : "O link veio com erro.",

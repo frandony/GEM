@@ -223,7 +223,27 @@ interface Corpo {
   hora_lembrete?: string | null;
 }
 
+/* ---------------------------------------------------------------------
+   Orçamento de tempo da requisição.
+
+   O runtime mata a função ao bater o wall clock (150s no plano free) e
+   nesse caso NADA é devolvido: nem o 503 de provedor indisponível, nem o
+   template de fallback. O cliente vê só "Edge Function returned a
+   non-2xx status code" — sem corpo, sem motivo. Foi o que aconteceu em
+   2026-08-13 quando o provedor primário caiu e o fallback começou tarde
+   demais.
+
+   Por isso a IA ganha um teto MENOR que o wall clock: o que sobra é a
+   reserva para gravar o template e responder de verdade.
+
+   Ajustável por env porque o limite muda com o plano do Supabase.
+   --------------------------------------------------------------------- */
+const ORCAMENTO_IA_MS = Number(Deno.env.get("LLM_ORCAMENTO_MS") ?? 110_000);
+
 Deno.serve(async (req: Request) => {
+  const inicio = Date.now();
+  const prazoFinal = inicio + ORCAMENTO_IA_MS;
+
   if (req.method === "OPTIONS") return respostaOptions(req);
   if (req.method !== "POST") return erro(req, "método não suportado", 405);
 
@@ -300,6 +320,7 @@ Deno.serve(async (req: Request) => {
         esforco: "xhigh",
         maxTokens: 16000,
         schema: SCHEMA as unknown as Record<string, unknown>,
+        prazoFinal,
       },
       (plano) =>
         validarPlano(plano, catalogo, {
@@ -330,7 +351,10 @@ Deno.serve(async (req: Request) => {
     // continua do outro lado.
     // ---------------------------------------------------------------------
     if (e instanceof ProvedorIndisponivel) {
-      console.error("montar-treino: provedor indisponível —", e.detalhe);
+      console.error(
+        `montar-treino: provedor indisponível após ${Math.round((Date.now() - inicio) / 1000)}s —`,
+        e.detalhe,
+      );
       return erro(
         req,
         "Não consegui falar com a IA agora. Seu plano não foi criado — tente de novo em alguns minutos.",

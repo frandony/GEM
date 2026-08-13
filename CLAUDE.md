@@ -149,14 +149,58 @@ não achado. **Reavaliar depois de semanas de uso real**, aí sim vale podar.
 
 ### Falta
 
-- [ ] `deno check supabase/functions/**/*.ts` — Deno não está instalado nesta
-      máquina (as funções compilam no deploy, que é `ACTIVE` nas 5)
+- [x] ~~`deno check`~~ — Deno 2.9.5 instalado em `~/.deno/bin`. As 5 funções
+      passam em `deno check` e `deno lint` (`npm run fn:check`). Antes de
+      mexer nelas, **rode isso**: a primeira execução achou 3 erros de tipo
+      que teriam ido quebradas para produção.
 - [ ] Popular `private.config` com `projeto_url` e `cron_secret` (o push fica
       em silêncio até isso existir — de propósito)
 - [ ] UI de push/service worker de notificação no cliente
 - [ ] `extrair-topicos` não tem tela: Estudo só cria matéria manualmente
 - [ ] Feed e revisão semanal não têm tela
 - [ ] Nenhum teste automatizado — só `tsc --noEmit` e `vite build`
+
+---
+
+## 1a. Wall clock — por que "Edge Function returned a non-2xx status code"
+
+Sintoma em produção (2026-08-13, ao montar um plano): o front mostrava só a
+mensagem genérica do supabase-js. Não havia corpo de erro para
+`extrairErroDeFuncao` desembrulhar **porque não havia resposta nenhuma**.
+
+Os logs contam a história inteira:
+
+```
+01:29:08  booted
+01:30:20  WARN  gemini-3.5-flash indisponível (503 "high demand")
+                — tentando nvidia/nemotron-3-super-120b-a12b:free
+01:31:38  shutdown  reason: WallClockTime     ← 150s exatos
+```
+
+O runtime mata a função aos **150s** (plano free). O provedor primário
+demorou 72s para devolver 503; o fallback então começou com os 120s dele
+(72 + 120 = 192s) e a função morreu no meio. Nem o 503 de
+`ProvedorIndisponivel` nem o template de fallback chegaram a rodar.
+
+**A correção é orçamento de tempo da requisição, não timeout por chamada.**
+`_shared/llm.ts` ganhou `prazoFinal` (epoch ms), propagado até o `fetch` e
+até o SDK da Anthropic. Três regras:
+
+1. Cada tentativa recebe **o que sobrou**, não 120s fixos.
+2. Quem não cabe no que sobrou (`MINIMO_UTIL_MS`, 15s) **não começa** —
+   melhor um 503 explicado que um processo morto.
+3. Havendo reserva configurada, o primário usa no máximo
+   `FATIA_DO_PRIMARIO` (55%) do prazo. Sem esse teto a reserva é
+   decorativa: era o caso, o primário consumia quase tudo antes de falhar.
+
+O orçamento (`LLM_ORCAMENTO_MS`, padrão 110s) é menor que o wall clock de
+propósito — a diferença é a reserva para gravar o template e responder.
+
+Detalhe semântico que vale manter: se a geração for inválida e não sobrar
+tempo para o retry, o erro lançado é `Error` comum e **não**
+`ProvedorIndisponivel`. O modelo respondeu, só respondeu errado — isso é
+"geração ruim", que grava o template, e não "provedor fora do ar", que
+devolve 503 sem gravar nada.
 
 ---
 

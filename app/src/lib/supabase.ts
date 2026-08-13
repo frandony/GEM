@@ -9,6 +9,33 @@ if (!url || !chave) {
   );
 }
 
+/**
+ * Cópia do fragmento e da query da URL, tirada **antes** de `createClient`.
+ *
+ * Defesa, não correção de um bug observado: com `detectSessionInUrl` o
+ * cliente processa o fragmento e chama `history.replaceState` para tirar
+ * os parâmetros de auth da barra de endereço. Medido na versão 2.112 o
+ * fragmento de ERRO sobrevive, mas isso é detalhe de implementação que já
+ * mudou entre versões — e a tela de callback ficaria sem o motivo do erro
+ * se mudasse de novo.
+ *
+ * Funciona porque o módulo executa de cima para baixo: a cópia acontece
+ * antes da linha que cria o cliente, que por sua vez roda no import,
+ * antes de qualquer componente React montar.
+ */
+const urlDeEntrada =
+  typeof window === "undefined"
+    ? { hash: "", busca: "" }
+    : { hash: window.location.hash, busca: window.location.search };
+
+export function parametrosDeAuthNaUrl(): URLSearchParams {
+  // Fragmento e query no mesmo saco: o Supabase usa um ou outro conforme
+  // o fluxo, e para quem lê o erro tanto faz de onde veio.
+  return new URLSearchParams(
+    urlDeEntrada.hash.replace(/^#/, "") + "&" + urlDeEntrada.busca.replace(/^\?/, ""),
+  );
+}
+
 export const supabase = createClient(url, chave, {
   auth: {
     // Sessão persistida e renovada sozinha: o app é aberto na academia,

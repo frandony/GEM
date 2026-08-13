@@ -131,7 +131,16 @@ prerequisito_nao_agendado, intercalacao_impossivel, semana_off, dia_leve,
 grade_cheia, sem_horario_compativel. O campo é obrigatório mesmo vazio — é o
 que alimenta o contador de tópicos pendentes.`;
 
+/**
+ * Teto de tempo para a IA, menor que o wall clock do runtime (150s no
+ * plano free). O que sobra e a reserva para responder de verdade — sem
+ * isso a funcao e morta no meio e o cliente recebe "non-2xx" sem corpo.
+ * Ver o bloco "Prazo" em _shared/llm.ts.
+ */
+const ORCAMENTO_IA_MS = Number(Deno.env.get("LLM_ORCAMENTO_MS") ?? 110_000);
+
 Deno.serve(async (req: Request) => {
+  const prazoFinal = Date.now() + ORCAMENTO_IA_MS;
   if (req.method === "OPTIONS") return respostaOptions(req);
   if (req.method !== "POST") return erro(req, "método não suportado", 405);
 
@@ -148,8 +157,10 @@ Deno.serve(async (req: Request) => {
 
   const fase = corpo.fase as string;
   try {
-    if (fase === "diagnostico") return await diagnostico(req, supabase, corpo);
-    if (fase === "distribuicao") return await distribuicao(req, supabase, usuario.id, corpo);
+    if (fase === "diagnostico") return await diagnostico(req, supabase, corpo, prazoFinal);
+    if (fase === "distribuicao") {
+      return await distribuicao(req, supabase, usuario.id, corpo, prazoFinal);
+    }
     return erro(req, 'fase precisa ser "diagnostico" ou "distribuicao"');
   } catch (e) {
     const motivo =
@@ -170,6 +181,8 @@ async function diagnostico(
   req: Request,
   supabase: ReturnType<typeof clienteDoUsuario>,
   corpo: Record<string, unknown>,
+  /** Prazo da requisição inteira — ver ORCAMENTO_IA_MS acima. */
+  prazoFinal: number,
 ): Promise<Response> {
   const materiaId = corpo.materia_id as string;
   const duracaoBloco = (corpo.duracao_bloco_min as number) ?? 60;
@@ -213,6 +226,7 @@ async function diagnostico(
         ...linhas,
       ].join("\n"),
       schema: SCHEMA_FASE_A as unknown as Record<string, unknown>,
+      prazoFinal,
       esforco: "medium",
       maxTokens: 4000,
     });
@@ -277,6 +291,8 @@ async function distribuicao(
   supabase: ReturnType<typeof clienteDoUsuario>,
   userId: string,
   corpo: Record<string, unknown>,
+  /** Prazo da requisição inteira — ver ORCAMENTO_IA_MS acima. */
+  prazoFinal: number,
 ): Promise<Response> {
   // Replanejamento sempre começa na PRÓXIMA semana: a corrente fica congelada.
   const semanaInicio = corpo.semana_inicio as string;
@@ -350,6 +366,7 @@ async function distribuicao(
         system: SYSTEM_FASE_B,
         userPrompt: JSON.stringify(contexto, null, 1),
         schema: SCHEMA_FASE_B as unknown as Record<string, unknown>,
+        prazoFinal,
         esforco: "high",
         maxTokens: 16000,
       },
