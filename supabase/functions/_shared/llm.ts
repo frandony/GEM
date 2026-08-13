@@ -207,11 +207,33 @@ function msDisponiveis(prazoFinal?: number): number {
  */
 const FATIA_DO_PRIMARIO = Number(Deno.env.get("LLM_FATIA_PRIMARIO") ?? 0.55);
 
+const ESFORCOS_VALIDOS: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
+
+/**
+ * Esforço de raciocínio, com override por env
+ * (`LLM_<TAREFA>_ESFORCO`). O valor no código é a intenção do produto —
+ * `xhigh` no montar-treino porque é a decisão mais importante do fluxo —
+ * mas o teto real é o wall clock: num provedor lento, esforço alto é o
+ * que faz estourar o prazo e não entregar plano nenhum. Poder baixar sem
+ * redeploy é o que permite trocar qualidade por entrega quando o
+ * provedor do dia é lento.
+ */
+function esforcoDaTarefa(tarefa: string, padrao?: Esforco): Esforco | undefined {
+  const bruto = Deno.env.get(`LLM_${tarefa.toUpperCase().replace(/-/g, "_")}_ESFORCO`);
+  if (!bruto) return padrao;
+  if (!ESFORCOS_VALIDOS.includes(bruto)) {
+    console.warn(`esforço inválido para ${tarefa}: "${bruto}" — usando ${padrao ?? "o padrão"}`);
+    return padrao;
+  }
+  return bruto as Esforco;
+}
+
 export async function chamarComSchema<T>(
   opcoes: OpcoesChamada,
 ): Promise<ResultadoChamada<T>> {
   const cfg = configDaTarefa(opcoes.tarefa);
   const temReserva = configFallbackDaTarefa(opcoes.tarefa) !== null;
+  opcoes = { ...opcoes, esforco: esforcoDaTarefa(opcoes.tarefa, opcoes.esforco) };
 
   // Só encurta quando há prazo E reserva: sem um dos dois, o primário
   // continua com o prazo cheio.
@@ -362,7 +384,22 @@ async function viaOpenAICompat<T>(
   let json: Record<string, unknown> | undefined;
   let usouSchemaNativo = true;
 
-  for (const comSchema of [true, false]) {
+  // `reasoning_effort` usa o MESMO vocabulário do nosso `esforco`
+  // (low/medium/high/xhigh) na x.ai e no endpoint compatível do Gemini.
+  // Sem enviá-lo, o modelo assume o padrão dele — que na x.ai é `high`,
+  // ou seja, raciocínio longo que ninguém pediu, gasto do prazo à toa.
+  //
+  // "max" não existe lá: é valor só do caminho Anthropic, então vira o
+  // teto que o outro lado conhece.
+  const esforcoCompat = o.esforco === "max" ? "xhigh" : o.esforco;
+  let comEsforco = esforcoCompat !== undefined;
+  let comSchema = true;
+
+  // Até três tentativas porque há DOIS parâmetros opcionais que um
+  // provedor pode rejeitar, e eles se largam de forma independente: uma
+  // lista fixa `[true, false]` faria dropar o esforço custar o schema
+  // junto, que é a garantia mais cara de perder.
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
     const corpo: Record<string, unknown> = {
       model: cfg.modelo,
       max_tokens: o.maxTokens ?? 16000,
@@ -381,6 +418,7 @@ async function viaOpenAICompat<T>(
         },
       };
     }
+    if (comEsforco) corpo.reasoning_effort = esforcoCompat;
 
     const r = await postar(cfg, o.prazoFinal, corpo);
 
@@ -390,6 +428,16 @@ async function viaOpenAICompat<T>(
       break;
     }
 
+    // Queixa sobre o esforço vem antes da do schema: dropar só o
+    // `reasoning_effort` preserva a garantia de formato, enquanto cair
+    // para a instrução em prosa a perde. Sem esta separação, um provedor
+    // que só desconhece o esforço perderia o schema nativo junto.
+    if (comEsforco && /reasoning_effort|reasoning|effort/i.test(r.corpo)) {
+      console.warn(`${cfg.modelo} não aceita reasoning_effort — repetindo sem ele`);
+      comEsforco = false;
+      continue;
+    }
+
     // Só vale tentar de novo sem schema se a queixa foi sobre o schema.
     const reclamouDoSchema =
       /response_format|json_schema|structured|schema|not support/i.test(r.corpo);
@@ -397,6 +445,7 @@ async function viaOpenAICompat<T>(
       console.warn(
         `${cfg.modelo} não aceita response_format — repetindo com instrução em prosa`,
       );
+      comSchema = false;
       continue;
     }
 
