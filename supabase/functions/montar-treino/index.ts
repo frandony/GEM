@@ -132,7 +132,11 @@ Sem "objetivo" no user prompt (chamada antiga), use a linha "hipertrofia" —
 # FAIXAS COMPLEMENTARES — não variam por objetivo
 - Abdômen/panturrilha (complemento): 2 a 4 séries; 10 a 20 reps se
   medida="reps", 20 a 60s se medida="tempo"; 30 a 60s de descanso
-- Sessão inteira: 4 a 7 exercícios, 10 a 22 séries no total
+- Sessão inteira: **mire em 5 a 6 exercícios** sempre que a distribuição de
+  grupos da sessão permitir — é o alvo, não o teto nem o piso. 4 exercícios
+  só quando a sessão tiver poucos grupos pra cobrir; 7 só quando o volume
+  ou o número de grupos secundários realmente exigir. Limite aceito: 4 a 7.
+  Séries no total: 10 a 22
 
 # MEDIDA DO EXERCÍCIO
 medida="reps" no catálogo → preencha reps_min e reps_max, duracao_seg nulo.
@@ -188,8 +192,9 @@ ciclo COMPLETO (existentes + novas), não só das sessões novas.
 6. Para cada slot: grupo_primario e padrao_movimento certos pro tipo,
    comum=1 antes de 2 antes de 3, sem repetir na sessão
 7. Séries/reps/descanso dentro da faixa do tipo
-8. Confira o total da sessão (10-22 séries, 4-7 exercícios) e ajuste
-9. Gere os 3 substitutos de cada exercício
+8. Confira o total da sessão (10-22 séries, alvo de 5-6 exercícios, 4-7
+   como limite) e ajuste
+9. Gere até 3 substitutos de cada exercício, o quanto o catálogo permitir
 10. Confira a ênfase do ciclo completo e o limite de comum=3 antes de
     devolver`;
 
