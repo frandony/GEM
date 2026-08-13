@@ -37,22 +37,26 @@
   --hairline-foco: rgba(255,255,255,0.30);  /* foco de campo */
 
   /* ---------------------------------------------------------------
-     Acentos — identidade de módulo. Mantidos do site original: é a
-     melhor parte do sistema anterior, e o spec novo não tem essa
-     noção (usa uma cor só). Cada um guarda o par `base` (preenchimento/
-     traço) + `ink` (clareada, pra TEXTO sobre fundo escuro).
+     Acentos — identidade de módulo, redesign v2 (2026-08-13).
+     A v1 desta paleta mantinha teal/roxo herdados do site pessoal. O v2
+     troca por verde/azul de propósito — vem explícito do spec novo E dos
+     6 mockups, de forma consistente, então deixa de ser preferência
+     pessoal e vira a identidade do produto. `--treino` e `--ok` convergem
+     pro mesmo verde: o spec usa a mesma cor pra "treino" e pra "sucesso/
+     conclusão" — o dado bate, não é acidente.
      --------------------------------------------------------------- */
-  --treino:        #00e5cc;     /* era "inteligência" */
-  --treino-ink:    #2eead5;
-  --estudo:        #7c4dff;     /* era "visibilidade" */
-  --estudo-ink:    #ac8fff;
-  /* Verde do spec novo (status "sucesso") — não é identidade de módulo,
-     é status do sistema (concluído, streak vivo), por isso pode adotar
-     a cor nova sem perder a distinção treino/estudo. */
+  --treino:        #30d158;
+  --treino-ink:    #4ade7a;
+  --estudo:        #0a84ff;
+  --estudo-ink:    #4da3ff;
   --ok:            #30d158;
   --ok-ink:        #4ade7a;
   --atencao:       #ff9f0a;
   --atencao-ink:   #ffb340;
+  /* Só pra ciclar cor de disciplina (§5.5 do redesign) — não é identidade
+     de módulo, não tem par -ink próprio porque nunca vira texto. */
+  --roxo:          #af52de;
+  --roxo-fraco:    rgba(175,82,222,0.12);
 
   /* Quinta cor, DERIVADA — o site não tem destrutivo porque portfólio
      não apaga nada. App apaga: abandonar treino, sair do grupo, excluir
@@ -63,8 +67,8 @@
 
   /* Alpha derivado das cores acima — 12%, pra preenchimento de chip/badge
      e faixa de estado. Precisa acompanhar o hex se a cor base mudar. */
-  --treino-fraco:  #00e5cc1f;
-  --estudo-fraco:  #7c4dff1f;
+  --treino-fraco:  rgba(48,209,88,0.12);
+  --estudo-fraco:  rgba(10,132,255,0.12);
   --ok-fraco:      rgba(48,209,88,0.12);
   --atencao-fraco: rgba(255,159,10,0.12);
   --perigo-fraco:  #ff4f5e1f;
@@ -185,6 +189,8 @@
   --color-perigo:        var(--perigo);
   --color-perigo-ink:    var(--perigo-ink);
   --color-perigo-fraco:  var(--perigo-fraco);
+  --color-roxo:          var(--roxo);
+  --color-roxo-fraco:    var(--roxo-fraco);
 
   --font-sans:    var(--fonte-ui);
   --font-mono:    var(--fonte-num);

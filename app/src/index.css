@@ -273,6 +273,167 @@
     transform: scaleX(var(--progresso, 0));
     transition: transform var(--d-mover) var(--ease-mover);
   }
+  /* Label acima da barra: "Progresso do treino" ......... "0%". */
+  .progress-bar-rotulo {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-size: var(--t-overline);
+    color: var(--ink-terciario);
+    margin-bottom: var(--e-2);
+  }
+
+  /* ---- Skeleton (carregando) --------------------------------------------
+     Mostra só enquanto o dado real não chegou — sem atraso artificial.
+     `prefers-reduced-motion` já desliga a animação globalmente (ver
+     @layer base), então não precisa de regra própria aqui. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface) 25%, var(--surface-alta) 50%, var(--surface) 75%
+    );
+    background-size: 200% 100%;
+    animation: brilho 1.2s infinite;
+    border-radius: var(--r-md);
+  }
+  @keyframes brilho {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ---- Toast --------------------------------------------------------
+     Confirmação rápida (série concluída, pomodoro concluído). Sempre
+     verde/sucesso — é o único caso de uso hoje. Entra de cima, some
+     sozinha (ver componentes/Toast.tsx). */
+  .toast {
+    position: fixed;
+    top: calc(var(--safe-t) + var(--e-4));
+    left: 50%;
+    z-index: 100;
+    display: flex; align-items: center; gap: var(--e-2);
+    background: var(--treino);
+    color: var(--bg);
+    padding: var(--e-3) var(--e-5);
+    border-radius: var(--r-md);
+    font-size: var(--t-sm);
+    font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transform: translate(-50%, -6rem);
+    transition: transform var(--d-mover) var(--ease-mover);
+    pointer-events: none;
+  }
+  .toast--visivel { transform: translate(-50%, 0); }
+
+  /* ---- Stepper (execução de treino) -------------------------------------
+     Botões grandes de +/-, valor central grande — reps e peso já vêm
+     pré-preenchidos pela sugestão de progressão, então o toque típico é
+     só um ajuste fino, não construir o número do zero. */
+  .stepper {
+    display: flex; align-items: center; justify-content: center;
+    gap: var(--e-4);
+  }
+  .stepper-btn {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    width: var(--toque-min); height: var(--toque-min);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    border: 1px solid var(--hairline-forte);
+    font-size: var(--t-xl);
+    font-weight: 500;
+    color: var(--ink);
+    touch-action: manipulation;
+  }
+  .stepper-btn:active { transform: scale(0.94); }
+  .stepper-btn:disabled { opacity: 0.4; pointer-events: none; }
+  .stepper-valor {
+    min-width: 4.5rem;
+    text-align: center;
+    font-size: var(--t-2xl);
+    font-weight: 500;
+  }
+  .stepper-valor .unidade {
+    font-size: var(--t-sm);
+    font-weight: 400;
+    color: var(--ink-terciario);
+    margin-left: var(--e-1);
+  }
+
+  /* ---- Stat pill (resumo da semana) --------------------------------- */
+  .stat-pill {
+    flex-shrink: 0;
+    min-width: 7.5rem;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    padding: var(--e-3) var(--e-4);
+  }
+  .stat-pill-valor {
+    font-size: var(--t-lg);
+    font-weight: 500;
+  }
+  .stat-pill-rotulo {
+    font-size: var(--t-xs);
+    color: var(--ink-terciario);
+  }
+
+  /* ---- Action tile (ações rápidas) ----------------------------------- */
+  .action-tile {
+    display: flex; flex-direction: column; gap: var(--e-3);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: var(--e-4);
+    text-align: left;
+    transition: background var(--d-entrar) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .action-tile:hover { background: var(--surface-hover); }
+  }
+  .action-tile__icone {
+    display: flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem;
+    border-radius: var(--r-md);
+    background: var(--tile-cor-fraca, var(--treino-fraco));
+    color: var(--tile-cor, var(--treino-ink));
+  }
+  .action-tile__label {
+    font-size: var(--t-sm);
+    font-weight: 500;
+  }
+  .action-tile__sub {
+    font-size: var(--t-xs);
+    color: var(--ink-terciario);
+  }
+
+  /* ---- Subject row (disciplina, com checkbox de conclusão) ------------ */
+  .subject-row {
+    display: flex; align-items: center; gap: var(--e-3);
+    padding-block: var(--e-3);
+  }
+  .subject-row + .subject-row { border-top: 1px solid var(--hairline); }
+  .subject-row__cor {
+    flex-shrink: 0;
+    width: 8px; height: 2.25rem;
+    border-radius: var(--r-sm);
+    background: var(--cor, var(--estudo));
+  }
+  .subject-row__texto { flex: 1; min-width: 0; }
+  /* Botão real (não ::before): o ícone de check é filho de verdade,
+     renderizado condicionalmente pelo componente — mais acessível que
+     desenhar o check em CSS puro. */
+  .subject-row__caixa {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 1.5rem; height: 1.5rem;
+    border-radius: var(--r-pill);
+    border: 2px solid var(--hairline-forte);
+    color: var(--bg);
+    transition: background var(--d-entrar) var(--ease-out),
+                border-color var(--d-entrar) var(--ease-out);
+  }
+  .subject-row__caixa[aria-checked="true"] {
+    background: var(--treino);
+    border-color: var(--treino);
+  }
 
   /* ---- Linha de exercício -----------------------------------------------
      Ícone + texto + ação. A ação (editar) fica quase invisível até o

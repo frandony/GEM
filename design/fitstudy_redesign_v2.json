@@ -1,0 +1,491 @@
+{
+  "project": {
+    "name": "FitStudy App — Redesign Unificado v2.0",
+    "version": "2.0",
+    "date": "2026-08-13",
+    "author": "Design Review",
+    "target_developer": "Claudio Code",
+    "references": [
+      "Apple Design Guidelines",
+      "Nubank Design System",
+      "Kimi Widget Design System"
+    ],
+    "concept": "Unificação elegante de treino e estudo em uma única experiência fluida, com loading states, microinterações e responsividade completa"
+  },
+  "design_philosophy": {
+    "core_idea": "O usuário não vive em silos. Treino e estudo são duas faces da mesma disciplina diária. A interface reflete isso unificando ambos na home, com navegação contextual para execução profunda de cada atividade.",
+    "apple_principles": [
+      "Clareza — cada elemento tem propósito funcional",
+      "Hierarquia tipográfica — peso e opacidade criam níveis de informação",
+      "Feedback imediato — tap, toast, progresso visual",
+      "Respiro visual — espaçamento intencional em vez de bordas pesadas",
+      "Responsividade nativa — adaptação fluida entre mobile e desktop"
+    ]
+  },
+  "color_system": {
+    "background": {
+      "primary": "#0d0d0f",
+      "note": "Nunca use preto puro (#000). O #0d0d0f tem um leve aquecimento que reduz fadiga visual em telas OLED"
+    },
+    "surface": {
+      "muted": "rgba(255, 255, 255, 0.04)",
+      "default": "rgba(255, 255, 255, 0.08)",
+      "hover": "rgba(255, 255, 255, 0.06)",
+      "strong": "#0d0d0f"
+    },
+    "text": {
+      "primary": "#ffffff",
+      "secondary": "rgba(255, 255, 255, 0.70)",
+      "tertiary": "rgba(255, 255, 255, 0.50)",
+      "quaternary": "rgba(255, 255, 255, 0.30)"
+    },
+    "borders": {
+      "subtle": "rgba(255, 255, 255, 0.06)",
+      "default": "rgba(255, 255, 255, 0.10)",
+      "focus": "rgba(255, 255, 255, 0.30)"
+    },
+    "accent": {
+      "green": "#30d158",
+      "green_tint": "rgba(48, 209, 88, 0.12)",
+      "blue": "#0a84ff",
+      "blue_tint": "rgba(10, 132, 255, 0.12)",
+      "orange": "#ff9f0a",
+      "orange_tint": "rgba(255, 159, 10, 0.12)",
+      "purple": "#af52de",
+      "purple_tint": "rgba(175, 82, 222, 0.12)",
+      "red": "#ff453a"
+    },
+    "semantic": {
+      "success": "#30d158",
+      "info": "#0a84ff",
+      "warning": "#ff9f0a",
+      "danger": "#ff453a"
+    }
+  },
+  "typography": {
+    "font_family": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "weights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600
+    },
+    "scale": [
+      { "token": "display", "size_px": 56, "weight": 500, "line_height": 1.0, "letter_spacing": -1.0, "use": "Timer grande, contadores" },
+      { "token": "h1", "size_px": 24, "weight": 500, "line_height": 1.2, "letter_spacing": -0.3, "use": "Título de execução" },
+      { "token": "h2", "size_px": 20, "weight": 500, "line_height": 1.2, "letter_spacing": -0.3, "use": "Nome do usuário, títulos de seção" },
+      { "token": "h3", "size_px": 17, "weight": 500, "line_height": 1.3, "letter_spacing": -0.2, "use": "Título do card" },
+      { "token": "body", "size_px": 16, "weight": 400, "line_height": 1.5, "letter_spacing": 0, "use": "Texto corrido" },
+      { "token": "body_emphasized", "size_px": 16, "weight": 500, "line_height": 1.5, "letter_spacing": 0, "use": "Texto com ênfase" },
+      { "token": "label", "size_px": 15, "weight": 500, "line_height": 1.4, "letter_spacing": 0, "use": "Nome do exercício, disciplina" },
+      { "token": "caption", "size_px": 13, "weight": 400, "line_height": 1.4, "letter_spacing": 0, "use": "Metadados, saudação, subtítulo" },
+      { "token": "overline", "size_px": 11, "weight": 600, "line_height": 1.2, "letter_spacing": 0.8, "text_transform": "uppercase", "use": "Labels de seção (ex: 'TREINO DE HOJE')" },
+      { "token": "micro", "size_px": 10, "weight": 500, "line_height": 1.2, "letter_spacing": 0, "use": "Labels da tab bar" }
+    ],
+    "numeric_features": "font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;"
+  },
+  "spacing": {
+    "scale": [4, 8, 12, 16, 20, 24, 32, 40, 48],
+    "safe_area_horizontal": 16,
+    "safe_area_top": 16,
+    "card_padding": 16,
+    "section_gap": 24,
+    "item_gap": 12,
+    "card_gap": 12
+  },
+  "radius": {
+    "chip": 6,
+    "button": 12,
+    "input": 10,
+    "card": 16,
+    "panel": 12,
+    "tile": 16,
+    "avatar": "50%",
+    "pill": "999px",
+    "timer": 20
+  },
+  "shadows": {
+    "note": "Evitar sombras. Usar bordas sutis, espaçamento e backdrop-blur para criar hierarquia.",
+    "toast": "0 4px 20px rgba(0, 0, 0, 0.3)"
+  },
+  "motion": {
+    "durations": { "micro": "60ms", "fast": "150ms", "normal": "250ms", "slow": "350ms", "page_transition": "350ms" },
+    "easings": {
+      "ease_out": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+      "ease_in": "cubic-bezier(0.55, 0.085, 0.68, 0.53)",
+      "ease_standard": "cubic-bezier(0.4, 0, 0.2, 1)"
+    }
+  },
+  "loading_states": {
+    "skeleton": {
+      "style": "shimmer_gradient",
+      "background": "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
+      "background_size": "200% 100%",
+      "animation": "shimmer 1.2s infinite",
+      "border_radius": 8,
+      "duration_before_reveal": "2.5s a 3s",
+      "fade_out_duration": "400ms",
+      "fade_out_easing": "ease-out"
+    },
+    "shimmer_keyframes": { "0%": "background-position: 200% 0", "100%": "background-position: -200% 0" },
+    "elements_to_skeletonize": ["user_header", "card", "exercise_row", "stat_pill", "action_tile"]
+  },
+  "components": {
+    "navigation_mobile": {
+      "type": "bottom_tab_bar",
+      "height": 64,
+      "background": "rgba(13, 13, 15, 0.95)",
+      "backdrop_filter": "blur(20px)",
+      "border_top": "1px solid rgba(255,255,255,0.06)",
+      "items": [
+        { "id": "home", "label": "Início", "icon": "home", "active_icon": "home_filled" },
+        { "id": "workout", "label": "Treino", "icon": "dumbbell", "active_icon": "dumbbell_filled" },
+        { "id": "study", "label": "Estudo", "icon": "book", "active_icon": "book_filled" },
+        { "id": "group", "label": "Grupo", "icon": "users", "active_icon": "users_filled" }
+      ],
+      "icon_size": 20,
+      "label_size": 10,
+      "active_color": "#ffffff",
+      "inactive_color": "rgba(255,255,255,0.40)",
+      "touch_target": "44px min"
+    },
+    "navigation_desktop": {
+      "type": "sidebar",
+      "width": 240,
+      "background": "transparent",
+      "border_right": "1px solid rgba(255,255,255,0.06)",
+      "padding": "24px 16px",
+      "logo": { "text": "FitStudy", "size_px": 20, "weight": 500 },
+      "nav_items": [
+        { "id": "home", "label": "Início", "icon": "home" },
+        { "id": "workout", "label": "Treino", "icon": "dumbbell" },
+        { "id": "study", "label": "Estudo", "icon": "book" },
+        { "id": "group", "label": "Grupo", "icon": "users" }
+      ],
+      "item_style": {
+        "padding": "10px 12px",
+        "border_radius": 10,
+        "font_size": 15,
+        "font_weight": 500,
+        "inactive_color": "rgba(255,255,255,0.70)",
+        "active_background": "rgba(255,255,255,0.04)",
+        "active_color": "#ffffff"
+      },
+      "footer": { "text": "v2.0 · Redesign", "size_px": 12, "color": "rgba(255,255,255,0.30)" }
+    },
+    "card": {
+      "background": "rgba(255, 255, 255, 0.04)",
+      "border": "1px solid rgba(255, 255, 255, 0.06)",
+      "border_radius": 16,
+      "padding": 16,
+      "gap_between_cards": 12,
+      "active_state": { "background": "rgba(255, 255, 255, 0.06)", "transition": "background 150ms ease-out" }
+    },
+    "exercise_row": {
+      "layout": "horizontal_flex",
+      "padding_vertical": 10,
+      "border_bottom": "1px solid rgba(255,255,255,0.06)",
+      "icon_container": { "size": 36, "background": "rgba(255,255,255,0.08)", "radius": 10, "icon_size": 18 },
+      "text_stack": { "title_size": 15, "meta_size": 12, "meta_color": "tertiary" },
+      "action_button": { "icon": "edit", "size": 18, "behavior": "hover_reveal" },
+      "hover_behavior": { "action_opacity": "0 → 1", "transition": "opacity 150ms ease-out" },
+      "mobile_behavior": {
+        "swipe_left": "reveal_actions",
+        "actions": [
+          { "icon": "edit", "color": "#0a84ff" },
+          { "icon": "delete", "color": "#ff453a" }
+        ]
+      }
+    },
+    "study_subject_row": {
+      "layout": "horizontal_flex",
+      "padding_vertical": 14,
+      "border_bottom": "1px solid rgba(255,255,255,0.06)",
+      "color_indicator": { "width": 8, "height": 36, "border_radius": 4 },
+      "text_stack": { "title_size": 15, "meta_size": 12, "meta_color": "tertiary" },
+      "checkbox": {
+        "size": 24,
+        "border_radius": "50%",
+        "border": "2px solid rgba(255,255,255,0.10)",
+        "unchecked": { "background": "transparent", "color": "transparent" },
+        "checked": { "background": "#30d158", "border_color": "#30d158", "color": "#000000" },
+        "transition": "all 150ms ease-out"
+      }
+    },
+    "badge": {
+      "style": "pill",
+      "variants": {
+        "green": { "background": "rgba(48, 209, 88, 0.12)", "color": "#30d158" },
+        "blue": { "background": "rgba(10, 132, 255, 0.12)", "color": "#0a84ff" },
+        "orange": { "background": "rgba(255, 159, 10, 0.12)", "color": "#ff9f0a" }
+      },
+      "padding": "4px 10px",
+      "font_size": 12,
+      "font_weight": 500,
+      "border_radius": 999
+    },
+    "progress_bar": {
+      "height": 4,
+      "background": "rgba(255,255,255,0.08)",
+      "fill": "#30d158",
+      "border_radius": 2,
+      "margin_top": 12,
+      "animation": "width transition 600ms ease-out",
+      "label": { "size": 11, "color": "tertiary", "layout": "flex_between" }
+    },
+    "exec_progress_bar": { "height": 3, "background": "rgba(255,255,255,0.08)", "fill": "#30d158", "border_radius": 2, "position": "top_of_screen" },
+    "avatar": { "size": 36, "border_radius": "50%", "background": "linear-gradient(135deg, #34c759, #30d158)", "text_color": "#000000", "font_size": 14, "font_weight": 500 },
+    "button": {
+      "primary": { "background": "#30d158", "color": "#000000", "padding": "14px 20px", "border_radius": 14, "font_weight": 500, "font_size": 15, "display": "flex_center", "gap": 8 },
+      "secondary": { "background": "rgba(255,255,255,0.08)", "color": "#ffffff", "border": "1px solid rgba(255,255,255,0.10)", "padding": "14px 20px", "border_radius": 14, "font_weight": 500, "font_size": 15, "display": "flex_center", "gap": 8 },
+      "timer": { "size": 56, "border_radius": "50%", "background": "rgba(255,255,255,0.08)", "border": "1px solid rgba(255,255,255,0.10)", "primary_variant": { "background": "#30d158", "color": "#000", "border": "none" } }
+    },
+    "stepper": {
+      "button_size": 44,
+      "button_radius": 12,
+      "button_background": "rgba(255,255,255,0.04)",
+      "button_border": "1px solid rgba(255,255,255,0.10)",
+      "value_size": 28,
+      "value_weight": 500,
+      "unit_size": 15,
+      "unit_color": "tertiary"
+    },
+    "stat_pill": {
+      "background": "rgba(255,255,255,0.04)",
+      "border": "1px solid rgba(255,255,255,0.06)",
+      "border_radius": 12,
+      "padding": "12px 16px",
+      "min_width": 120,
+      "value_size": 20,
+      "value_weight": 500,
+      "label_size": 12,
+      "label_color": "tertiary"
+    },
+    "action_tile": {
+      "background": "rgba(255,255,255,0.04)",
+      "border": "1px solid rgba(255,255,255,0.06)",
+      "border_radius": 16,
+      "padding": 16,
+      "icon_size": 40,
+      "icon_radius": 12,
+      "label_size": 14,
+      "label_weight": 500,
+      "sub_size": 12,
+      "sub_color": "tertiary"
+    },
+    "toast": {
+      "position": "top_center",
+      "background": "#30d158",
+      "color": "#000000",
+      "padding": "12px 20px",
+      "border_radius": 12,
+      "font_size": 14,
+      "font_weight": 500,
+      "shadow": "0 4px 20px rgba(0,0,0,0.3)",
+      "entrance": "translateY(-100px) → translateY(0)",
+      "duration": "400ms",
+      "auto_dismiss": "2500ms"
+    }
+  },
+  "screens": {
+    "home_dashboard": {
+      "title": "Home / Dashboard Unificado",
+      "layout": "vertical_scroll",
+      "safe_area": { "top": 16, "horizontal": 16, "bottom": 80 },
+      "loading_state": "skeleton_shimmer",
+      "sections": [
+        {
+          "id": "user_header",
+          "type": "header",
+          "elements": [
+            { "type": "greeting", "text": "Olá,", "style": "caption", "color": "tertiary" },
+            { "type": "user_name", "text": "francisco", "style": "h2" },
+            { "type": "avatar", "initials": "FV", "position": "right" }
+          ],
+          "margin_bottom": 24
+        },
+        {
+          "id": "today_workout",
+          "type": "workout_card",
+          "overline": "Treino de hoje",
+          "overline_color": "green",
+          "title": "Empurrar",
+          "badge": { "text": "5 exercícios", "variant": "green" },
+          "exercises": [
+            { "name": "Supino inclinado", "sets": 4, "reps": "6–10", "rest": "2 min", "icon": "dumbbell" },
+            { "name": "Desenvolvimento", "sets": 4, "reps": "6–10", "rest": "2 min", "icon": "dumbbell" },
+            { "name": "Supino reto", "sets": 3, "reps": "6–10", "rest": "1.5 min", "icon": "dumbbell" }
+          ],
+          "progress_bar": { "value": 0, "max": 5, "label": "Progresso do treino" },
+          "tap_action": "navigate_to_workout_execution",
+          "hover_reveal_actions": true
+        },
+        {
+          "id": "today_study",
+          "type": "study_card",
+          "overline": "Estudo de hoje",
+          "overline_color": "blue",
+          "title": "Blocos de estudo",
+          "badge": { "text": "3 disciplinas", "variant": "blue" },
+          "subjects": [
+            { "name": "Matemática", "time": "45 min", "topics": "2 tópicos", "icon_color": "blue", "completed": false },
+            { "name": "Física", "time": "30 min", "topics": "1 tópico", "icon_color": "purple", "completed": false }
+          ],
+          "progress_bar": { "value": 33, "max": 100, "label": "Progresso de estudo" },
+          "tap_action": "navigate_to_study_session"
+        },
+        {
+          "id": "weekly_summary",
+          "type": "stats_row",
+          "title": "Resumo da semana",
+          "scroll": "horizontal",
+          "items": [
+            { "label": "Treinos", "value": "3/4", "icon": "dumbbell" },
+            { "label": "Minutos", "value": "145", "icon": "clock" },
+            { "label": "Volume", "value": "12.4t", "icon": "weight" },
+            { "label": "Estudo", "value": "8h", "icon": "book" }
+          ]
+        },
+        {
+          "id": "quick_actions",
+          "type": "action_grid",
+          "layout": "2_columns_mobile_4_desktop",
+          "items": [
+            { "icon": "play", "label": "Iniciar treino", "sub": "Empurrar · 45 min", "color": "green", "action": "navigate_to_workout_execution" },
+            { "icon": "timer", "label": "Timer de estudo", "sub": "Pomodoro · 25 min", "color": "blue", "action": "navigate_to_study_session" },
+            { "icon": "chart", "label": "Evolução", "sub": "Gráficos e stats", "color": "orange", "action": "navigate_to_analytics" },
+            { "icon": "settings", "label": "Configurar", "sub": "Preferências", "color": "gray", "action": "navigate_to_settings" }
+          ]
+        }
+      ]
+    },
+    "workout_execution": {
+      "title": "Execução do Treino",
+      "layout": "fullscreen_scroll",
+      "header": {
+        "progress_bar": { "height": 3, "color": "#30d158", "position": "absolute_top" },
+        "back_button": { "text": "Treino A", "style": "text_with_icon" },
+        "title": "Supino inclinado",
+        "subtitle": "Série 2 de 4 · 60 kg · 8 reps"
+      },
+      "main_content": {
+        "set_counter": { "current_size": 48, "total_size": 20, "total_color": "tertiary", "label": "série atual" },
+        "inputs": [
+          { "label": "Repetições", "type": "stepper", "min": 0, "max": 50, "step": 1, "default": 8, "unit": null },
+          { "label": "Peso", "type": "stepper", "min": 0, "max": 500, "step": 2.5, "default": 60, "unit": "kg" }
+        ]
+      },
+      "sticky_actions": {
+        "position": "bottom_above_nav",
+        "gradient_background": "linear-gradient(to top, #0d0d0f, transparent)",
+        "buttons": [
+          { "text": "Descanso", "style": "secondary", "icon": "timer", "action": "start_rest_timer" },
+          { "text": "Concluir série", "style": "primary", "icon": "check", "action": "complete_set" }
+        ]
+      },
+      "completion_feedback": { "type": "toast", "message": "Série concluída!", "duration": 2500 }
+    },
+    "study_session": {
+      "title": "Sessão de Estudo",
+      "layout": "vertical_scroll",
+      "header": { "greeting": "Sessão de estudo", "title": "Blocos de hoje" },
+      "timer": {
+        "type": "pomodoro",
+        "default_duration": 1500,
+        "display_size": 56,
+        "display_weight": 500,
+        "label": "Foco total · Pomodoro",
+        "controls": [
+          { "icon": "reset", "action": "reset_timer" },
+          { "icon": "play_pause", "action": "toggle_timer", "primary": true },
+          { "icon": "skip", "action": "skip_timer" }
+        ]
+      },
+      "subject_list": {
+        "title": "Disciplinas",
+        "items": [
+          { "name": "Matemática · Cálculo I", "time": "45 min planejados", "color": "blue", "completed": true },
+          { "name": "Física · Mecânica", "time": "30 min planejados", "color": "purple", "completed": false },
+          { "name": "Programação · Algoritmos", "time": "60 min planejados", "color": "orange", "completed": false }
+        ],
+        "checkbox_behavior": "toggle_completion"
+      }
+    },
+    "workout_list": {
+      "title": "Meus Treinos",
+      "layout": "vertical_scroll",
+      "header": { "greeting": "Meus treinos", "title": "Plano ABC" },
+      "cards": [
+        { "title": "Treino A — Empurrar", "badge": { "text": "5 exercícios", "variant": "green" }, "subtitle": "Peito, ombros, tríceps", "meta": "~45 min · 120s descanso médio", "tap_action": "navigate_to_workout_execution" },
+        { "title": "Treino B — Puxar", "badge": { "text": "5 exercícios", "variant": "green" }, "subtitle": "Costas, bíceps, posteriores", "meta": "~40 min · 105s descanso médio" },
+        { "title": "Treino C — Pernas e Core", "badge": { "text": "6 exercícios", "variant": "green" }, "subtitle": "Quadríceps, posterior, panturrilha", "meta": "~50 min · 90s descanso médio" }
+      ]
+    },
+    "group": {
+      "title": "Grupo de Estudo",
+      "layout": "vertical_scroll",
+      "status": "coming_soon",
+      "placeholder": { "emoji": "👥", "title": "Em breve", "subtitle": "Compartilhe progresso com amigos" }
+    }
+  },
+  "interactions": {
+    "tap_feedback": { "style": "opacity_pulse", "active_opacity": 0.7, "duration": "100ms" },
+    "hover_reveal": { "target": "secondary_actions", "default_opacity": 0, "hover_opacity": 1, "transition": "opacity 150ms ease-out" },
+    "swipe_actions": {
+      "exercise_row": {
+        "direction": "left",
+        "threshold": 80,
+        "actions": [
+          { "icon": "edit", "label": "Editar", "color": "#0a84ff" },
+          { "icon": "delete", "label": "Excluir", "color": "#ff453a" }
+        ]
+      }
+    },
+    "page_transitions": { "push": "slide_from_right", "pop": "slide_to_right", "duration": "350ms", "easing": "cubic-bezier(0.4, 0, 0.2, 1)" },
+    "toast": { "entrance": "translateY(-100px) → translateY(0)", "duration": "400ms", "auto_dismiss": "2500ms", "position": "top_center" }
+  },
+  "responsiveness": {
+    "breakpoints": {
+      "mobile": { "max_width": 639, "navigation": "bottom_tab_bar" },
+      "tablet_desktop": { "min_width": 640, "navigation": "sidebar" }
+    },
+    "layout_changes": {
+      "mobile": { "action_grid_columns": 2, "sidebar_visible": false, "tab_bar_visible": true },
+      "desktop": { "action_grid_columns": 4, "sidebar_visible": true, "tab_bar_visible": false, "app_height": "600px (max para widget, 100vh para app real)", "app_layout": "flex_row" }
+    }
+  },
+  "accessibility": {
+    "minimum_touch_target": 44,
+    "contrast_ratio": "WCAG AA (4.5:1 para texto normal)",
+    "dynamic_type": "Suportar ajuste de tamanho de fonte do sistema",
+    "voice_over": {
+      "exercise_row": "{nome do exercício}, {séries} séries de {repetições} repetições, {descanso} de descanso",
+      "progress_bar": "{porcentagem}% do treino concluído",
+      "subject_row": "{nome da disciplina}, {tempo} planejados, {status}"
+    },
+    "reduce_motion": "Respeitar preferência do sistema para animações"
+  },
+  "implementation_notes": {
+    "framework_recommendations": [
+      "React Native com Expo para cross-platform",
+      "Flutter como alternativa (Material 3 + customização)",
+      "SwiftUI para iOS nativo (melhor performance e feel)",
+      "Jetpack Compose para Android nativo"
+    ],
+    "libraries": [
+      "Reanimated 3 (React Native) para animações fluidas",
+      "React Native Gesture Handler para gestures e swipe",
+      "Lottie para animações complexas (timer, conclusão)"
+    ],
+    "performance": [
+      "Usar FlatList/SectionList para listas longas",
+      "Memoizar componentes de exercício e disciplina",
+      "Lazy load imagens e ícones",
+      "Manter estado do timer no nível mais baixo possível"
+    ],
+    "data_persistence": [
+      "AsyncStorage/SecureStore para preferências",
+      "SQLite/Realm para histórico offline",
+      "Sync com backend quando online"
+    ]
+  }
+}

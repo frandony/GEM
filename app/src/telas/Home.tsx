@@ -3,13 +3,22 @@ import { Link } from "react-router";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import {
+  carregarBlocosDoDia,
   carregarExerciciosDaSessao,
+  carregarMaterias,
   carregarPerfil,
   carregarProgramaAtivo,
+  carregarResumoSemanal,
+  corDaDisciplina,
   hojeNoFuso,
+  type BlocoEstudo,
+  type Materia,
   type Perfil,
   type ProximaSessao,
+  type ResumoSemanal,
 } from "../lib/dados";
+import type { ExercicioDaSessao } from "./SessaoTreino";
+import { BarChart3, Dumbbell, Play, Settings, Timer } from "lucide-react";
 
 /** "Francisco Vasconcelos" → "FV". Só letras — número ou emoji no nome
     (existe gente assim) não vira parte da inicial. */
@@ -27,50 +36,74 @@ export function Home() {
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [proxima, setProxima] = useState<ProximaSessao | null>(null);
-  const [totalExercicios, setTotalExercicios] = useState<number | null>(null);
+  const [exercicios, setExercicios] = useState<ExercicioDaSessao[] | null>(null);
   const [treinouHoje, setTreinouHoje] = useState(false);
   const [streak, setStreak] = useState<number | null>(null);
+  const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
+  const [materias, setMaterias] = useState<Materia[]>([]);
+  const [resumo, setResumo] = useState<ResumoSemanal | null>(null);
   const [carregando, setCarregando] = useState(true);
 
+  async function carregar() {
+    const p = await carregarPerfil(userId);
+    if (!p) return;
+    setPerfil(p);
+
+    const hoje = hojeNoFuso(p.timezone);
+    const [programa, resumoDia, s, resumoSemanal] = await Promise.all([
+      carregarProgramaAtivo(userId),
+      supabase.from("resumos_diarios").select("treinou").eq("user_id", userId).eq("data", hoje).maybeSingle(),
+      supabase.rpc("streak_de", { p_user_id: null }),
+      carregarResumoSemanal(userId, p.timezone),
+    ]);
+    setProxima(programa?.proxima ?? null);
+    setTreinouHoje(resumoDia.data?.treinou ?? false);
+    setStreak((s.data as number) ?? 0);
+    setResumo(resumoSemanal);
+    setCarregando(false);
+
+    // Exercícios da próxima sessão e blocos de estudo de hoje entram
+    // depois: a tela já pinta com o resto, essas duas listas só enriquecem
+    // os cards — não vale atrasar o primeiro paint por elas.
+    if (programa?.proxima) {
+      void carregarExerciciosDaSessao(programa.proxima.id).then(setExercicios);
+    }
+    if (p.usa_estudo) {
+      void Promise.all([carregarBlocosDoDia(userId, hoje), carregarMaterias(userId)]).then(
+        ([bs, ms]) => {
+          setBlocos(bs);
+          setMaterias(ms);
+        },
+      );
+    }
+  }
+
   useEffect(() => {
-    let ativo = true;
-    (async () => {
-      const p = await carregarPerfil(userId);
-      if (!ativo || !p) return;
-      setPerfil(p);
-
-      const hoje = hojeNoFuso(p.timezone);
-      const [programa, resumo, s] = await Promise.all([
-        carregarProgramaAtivo(userId),
-        supabase.from("resumos_diarios").select("treinou").eq("user_id", userId).eq("data", hoje).maybeSingle(),
-        supabase.rpc("streak_de", { p_user_id: null }),
-      ]);
-      if (!ativo) return;
-      setProxima(programa?.proxima ?? null);
-      setTreinouHoje(resumo.data?.treinou ?? false);
-      setStreak((s.data as number) ?? 0);
-      setCarregando(false);
-
-      // Contagem de exercícios pro badge do card — só o card de treino
-      // precisa disso, então não entra no Promise.all acima (a tela
-      // pinta antes de esperar mais uma volta de rede).
-      if (programa?.proxima) {
-        const exs = await carregarExerciciosDaSessao(programa.proxima.id);
-        if (ativo) setTotalExercicios(exs.length);
-      }
-    })();
-    return () => {
-      ativo = false;
-    };
+    void carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   if (carregando || !perfil) {
     return (
       <div className="tela">
-        <div className="vazio">Carregando…</div>
+        <div className="flex items-center justify-between mb-6">
+          <div className="skeleton" style={{ width: "10rem", height: "2.5rem" }} />
+          <div className="skeleton" style={{ width: "2.25rem", height: "2.25rem", borderRadius: "999px" }} />
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="skeleton" style={{ height: "11rem" }} />
+          <div className="skeleton" style={{ height: "9rem" }} />
+        </div>
       </div>
     );
   }
+
+  const blocosFeitos = blocos.filter((b) => b.status !== "pendente").length;
+  const progressoEstudo = blocos.length > 0 ? blocosFeitos / blocos.length : 0;
+
+  // A Home não acompanha série a série (isso é papel do SessaoTreino) —
+  // o progresso aqui é binário: já treinou hoje, ou ainda não.
+  const progressoTreino = treinouHoje ? 1 : 0;
 
   return (
     <div className="tela">
@@ -86,35 +119,60 @@ export function Home() {
               <span className="overline text-ink-muted">semanas</span>
             </div>
           )}
-          {/* Sem --avatar-de/--avatar-para: o padrão do componente já é o
-              gradiente treino, que é o que faz sentido aqui. */}
           <div className="avatar">{iniciais(perfil.nome)}</div>
         </div>
       </header>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 mb-6">
+        {/* ---- Treino de hoje ------------------------------------------- */}
         <Link to="/treino" className="card card-treino block">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="overline text-treino-ink">Treino</span>
-            {perfil.usa_treino && totalExercicios != null && (
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <span className="overline text-treino-ink">Treino de hoje</span>
+            {perfil.usa_treino && exercicios && (
               <span className="badge badge-treino">
-                {totalExercicios} {totalExercicios === 1 ? "exercício" : "exercícios"}
+                {exercicios.length} {exercicios.length === 1 ? "exercício" : "exercícios"}
               </span>
             )}
           </div>
+
           {perfil.usa_treino ? (
             <>
-              <div className="h2">
-                {proxima ? `Treino ${proxima.letra} — ${proxima.nome}` : "Sem sessão pendente"}
+              <div className="h2 mb-1">
+                {proxima ? `${proxima.letra} — ${proxima.nome}` : "Sem sessão pendente"}
               </div>
-              {treinouHoje && <span className="badge badge-ok mt-2">Treinou hoje</span>}
-              {proxima && (
-                <div
-                  className="progress-bar mt-3"
-                  style={{ "--progresso": treinouHoje ? 1 : 0 } as CSSProperties}
-                >
-                  <span />
+
+              {exercicios && exercicios.length > 0 && (
+                <div className="mt-2">
+                  {exercicios.slice(0, 3).map((ex) => (
+                    <div key={ex.sessaoExercicioId} className="exercise-row">
+                      <span className="exercise-row__icone">
+                        <Dumbbell size={18} />
+                      </span>
+                      <div className="exercise-row__texto">
+                        <div className="h3">{ex.nome}</div>
+                        <div className="text-xs text-ink-terciario num">
+                          {ex.series} séries · {ex.repsMin}–{ex.repsMax} ·{" "}
+                          {Math.round(ex.descansoSeg / 60 * 10) / 10} min
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+
+              {proxima && (
+                <>
+                  <div
+                    className="progress-bar mt-3"
+                    style={{ "--progresso": progressoTreino } as CSSProperties}
+                  >
+                    <span />
+                  </div>
+                  <div className="progress-bar-rotulo mt-2">
+                    <span>{treinouHoje ? "Treino concluído" : "Progresso do treino"}</span>
+                    <span className="num">{Math.round(progressoTreino * 100)}%</span>
+                  </div>
+                </>
               )}
             </>
           ) : (
@@ -122,20 +180,128 @@ export function Home() {
           )}
         </Link>
 
-        <Link to="/estudo" className="card card-estudo block">
-          <span className="overline text-estudo-ink mb-1">Estudo</span>
-          <div className="h2">
-            {perfil.usa_estudo ? "Ver blocos de hoje" : "Cadastrar minha primeira matéria"}
-          </div>
-        </Link>
+        {/* ---- Estudo de hoje --------------------------------------------- */}
+        {perfil.usa_estudo && (
+          <Link to="/estudo" className="card card-estudo block">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="overline text-estudo-ink">Estudo de hoje</span>
+              {materias.length > 0 && (
+                <span className="badge badge-estudo">
+                  {materias.length} {materias.length === 1 ? "disciplina" : "disciplinas"}
+                </span>
+              )}
+            </div>
 
-        <Link to="/grupo" className="card block">
-          <span className="overline text-ink-muted mb-1">Grupo</span>
-          <div className="h2">Ver grupo</div>
-        </Link>
+            <div className="h2 mb-1">Blocos de estudo</div>
+
+            {blocos.length > 0 ? (
+              <>
+                <div className="mt-2">
+                  {blocos.slice(0, 3).map((b) => (
+                    <div
+                      key={b.id}
+                      className="subject-row"
+                      style={{ "--cor": corDaDisciplina(b.materia_id, materias) } as CSSProperties}
+                    >
+                      <span className="subject-row__cor" />
+                      <div className="subject-row__texto">
+                        <div className="h3">{b.titulo}</div>
+                        <div className="text-xs text-ink-terciario">{b.duracao_min} min</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="progress-bar mt-3" style={{ "--progresso-cor": "var(--estudo)", "--progresso": progressoEstudo } as CSSProperties}>
+                  <span />
+                </div>
+                <div className="progress-bar-rotulo mt-2">
+                  <span>Progresso de estudo</span>
+                  <span className="num">{Math.round(progressoEstudo * 100)}%</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-ink-muted">Nenhum bloco planejado para hoje.</p>
+            )}
+          </Link>
+        )}
       </div>
 
-      <button className="btn btn-neutro mt-8" onClick={() => void sair()}>
+      {/* ---- Resumo da semana ----------------------------------------- */}
+      {resumo && (
+        <section className="mb-6">
+          <span className="overline text-ink-muted mb-2 block">Resumo da semana</span>
+          <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            <div className="stat-pill">
+              <div className="stat-pill-valor num">
+                {resumo.treinosFeitos}/{resumo.treinosMeta || "–"}
+              </div>
+              <div className="stat-pill-rotulo">Treinos</div>
+            </div>
+            <div className="stat-pill">
+              <div className="stat-pill-valor num">{resumo.minutosTreino}</div>
+              <div className="stat-pill-rotulo">Minutos</div>
+            </div>
+            <div className="stat-pill">
+              <div className="stat-pill-valor num">{(resumo.volumeKg / 1000).toFixed(1)}t</div>
+              <div className="stat-pill-rotulo">Volume</div>
+            </div>
+            <div className="stat-pill">
+              <div className="stat-pill-valor num">
+                {resumo.minutosEstudo >= 60 ? `${Math.round(resumo.minutosEstudo / 60)}h` : `${resumo.minutosEstudo}min`}
+              </div>
+              <div className="stat-pill-rotulo">Estudo</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ---- Ações rápidas ---------------------------------------------
+          Evolução e Configurar não têm tela própria ainda — ficam
+          visualmente presentes (o mockup pede) mas inertes, em vez de
+          linkar pra uma rota que não existe. */}
+      <section className="mb-8">
+        <span className="overline text-ink-muted mb-2 block">Ações rápidas</span>
+        <div className="grid grid-cols-2 gap-3">
+          <Link to="/treino" className="action-tile" style={{ "--tile-cor": "var(--treino-ink)", "--tile-cor-fraca": "var(--treino-fraco)" } as CSSProperties}>
+            <span className="action-tile__icone">
+              <Play size={20} />
+            </span>
+            <div>
+              <div className="action-tile__label">Iniciar treino</div>
+              <div className="action-tile__sub">{proxima ? `Treino ${proxima.letra} — ${proxima.nome}` : "Montar treino"}</div>
+            </div>
+          </Link>
+          <Link to="/estudo" className="action-tile" style={{ "--tile-cor": "var(--estudo-ink)", "--tile-cor-fraca": "var(--estudo-fraco)" } as CSSProperties}>
+            <span className="action-tile__icone">
+              <Timer size={20} />
+            </span>
+            <div>
+              <div className="action-tile__label">Timer de estudo</div>
+              <div className="action-tile__sub">Pomodoro · 25 min</div>
+            </div>
+          </Link>
+          <div className="action-tile opacity-50" style={{ "--tile-cor": "var(--atencao-ink)", "--tile-cor-fraca": "var(--atencao-fraco)" } as CSSProperties}>
+            <span className="action-tile__icone">
+              <BarChart3 size={20} />
+            </span>
+            <div>
+              <div className="action-tile__label">Evolução</div>
+              <div className="action-tile__sub">Em breve</div>
+            </div>
+          </div>
+          <div className="action-tile opacity-50">
+            <span className="action-tile__icone">
+              <Settings size={20} />
+            </span>
+            <div>
+              <div className="action-tile__label">Configurar</div>
+              <div className="action-tile__sub">Em breve</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <button className="btn btn-neutro" onClick={() => void sair()}>
         Sair
       </button>
     </div>

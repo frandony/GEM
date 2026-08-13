@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ChevronLeft, Timer } from "lucide-react";
 import { enfileirar, novoId } from "../lib/fila";
 import { explicarSugestao, sugestaoDeCarga, type Sugestao } from "../lib/progressao";
 import { IndicadorPendencia } from "../componentes/IndicadorPendencia";
+import { Toast } from "../componentes/Toast";
 
 /* =====================================================================
    Registrar série — a tela que decide o app.
@@ -33,6 +35,9 @@ export interface ExercicioDaSessao {
   duracaoSeg: number | null;
   descansoSeg: number;
   unilateral: boolean;
+  /** Só pra exibição (ex: "Peito, ombros, tríceps" no card do plano) —
+      nunca usado pra decidir nada na execução do treino. */
+  grupoPrimario: string;
 }
 
 interface Props {
@@ -62,9 +67,13 @@ export function SessaoTreino({
   const [indice, setIndice] = useState(0);
   const [feitas, setFeitas] = useState<Record<string, SerieFeita[]>>({});
   const [sugestao, setSugestao] = useState<Sugestao | null>(null);
-  const [carga, setCarga] = useState("");
-  const [reps, setReps] = useState("");
+  // Numérico, não string: o stepper ajusta a partir do valor sugerido —
+  // ninguém digita mais, então não precisa lidar com vírgula/ponto do
+  // teclado. 0 continua significando "em branco" pro registro (vira null).
+  const [carga, setCarga] = useState(0);
+  const [reps, setReps] = useState(0);
   const [descansando, setDescansando] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   // Abandonar descarta a sessão inteira e é irreversível. Um toque só,
   // num link pequeno ao lado do contador, é fácil demais de acertar sem
   // querer com o polegar.
@@ -81,13 +90,13 @@ export function SessaoTreino({
     let ativo = true;
 
     setSugestao(null);
-    setReps(porTempo ? "" : String(atual.repsMax ?? ""));
+    setReps(porTempo ? 0 : (atual.repsMax ?? 0));
 
     void sugestaoDeCarga(atual.exercicioId, atual.repsMax).then((s) => {
       if (!ativo) return;
       setSugestao(s);
-      // Preenche, mas não trava: o campo segue editável.
-      setCarga(s?.carga_kg != null ? String(s.carga_kg).replace(".", ",") : "");
+      // Preenche, mas não trava: o stepper parte daqui, sem forçar nada.
+      setCarga(s?.carga_kg ?? 0);
     });
 
     return () => { ativo = false; };
@@ -119,8 +128,8 @@ export function SessaoTreino({
 
     const serie: SerieFeita = {
       numero: proximaSerie,
-      reps: porTempo ? null : Number(reps.replace(",", ".")) || null,
-      cargaKg: porTempo ? null : Number(carga.replace(",", ".")) || null,
+      reps: porTempo ? null : reps || null,
+      cargaKg: porTempo ? null : carga || null,
       duracaoSeg: porTempo ? ex.duracaoSeg : null,
     };
 
@@ -129,6 +138,7 @@ export function SessaoTreino({
       ...f,
       [ex.sessaoExercicioId]: [...(f[ex.sessaoExercicioId] ?? []), serie],
     }));
+    setToast("Série concluída!");
 
     // 2. Fila depois. Não esperamos: o id é do cliente, então reenviar
     //    não duplica, e a rede pode demorar o quanto quiser.
@@ -154,27 +164,53 @@ export function SessaoTreino({
   const terminouExercicio = jaFeitas.length >= atual.series;
   const ultimoExercicio = indice >= exercicios.length - 1;
 
+  // Progresso do treino inteiro (todos os exercícios, não só o atual) —
+  // a barra fina do topo é a mesma métrica do card na Home.
+  const totalSeriesSessao = exercicios.reduce((s, e) => s + e.series, 0);
+  const feitasSessao = Object.values(feitas).reduce((s, fs) => s + fs.length, 0);
+  const progressoSessao = totalSeriesSessao > 0 ? feitasSessao / totalSeriesSessao : 0;
+
   return (
     <div className="tela">
+      <div
+        className="progress-bar"
+        style={{
+          position: "fixed", top: 0, insetInline: 0, height: 3,
+          borderRadius: 0, zIndex: 60,
+          "--progresso": progressoSessao,
+        } as CSSProperties}
+      >
+        <span />
+      </div>
+
+      <Toast mensagem={toast} onFechar={() => setToast(null)} />
+
       {/* ---- Cabeçalho: onde estou ---------------------------------- */}
-      <header className="flex items-baseline justify-between mb-1">
-        <div>
-          <span className="overline text-ink-muted">Treino {letra}</span>
-          <h1 className="h1">{atual.nome}</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-ink-muted num">
-            {indice + 1}/{exercicios.length}
+      <header className="mb-1">
+        <div className="flex items-center justify-between mb-1">
+          <span className="flex items-center text-sm text-ink-muted">
+            <ChevronLeft size={16} /> Treino {letra}
+          </span>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-ink-muted num">
+              {indice + 1}/{exercicios.length}
+            </div>
+            {aoAbandonar && (
+              <button
+                className="text-xs text-ink-muted underline"
+                onClick={() => setConfirmandoAbandono(true)}
+              >
+                Abandonar
+              </button>
+            )}
           </div>
-          {aoAbandonar && (
-            <button
-              className="text-xs text-ink-muted underline"
-              onClick={() => setConfirmandoAbandono(true)}
-            >
-              Abandonar
-            </button>
-          )}
         </div>
+        <h1 className="h1">{atual.nome}</h1>
+        <p className="text-sm text-ink-muted num">
+          Série {proximaSerie > atual.series ? atual.series : proximaSerie} de {atual.series}
+          {!porTempo && carga > 0 && ` · ${carga} kg`}
+          {!porTempo && ` · ${reps} reps`}
+        </p>
       </header>
 
       <IndicadorPendencia />
@@ -199,6 +235,13 @@ export function SessaoTreino({
               Continuar treinando
             </button>
           </div>
+        </div>
+      )}
+
+      {!descansando && !terminouExercicio && (
+        <div className="text-center my-5">
+          <div className="display text-6xl num">{proximaSerie}<span className="text-ink-terciario">/{atual.series}</span></div>
+          <span className="overline text-ink-muted">série atual</span>
         </div>
       )}
 
@@ -235,7 +278,9 @@ export function SessaoTreino({
           do descanso não há nada a digitar, e um modal exigiria fechar. */}
       {descansando != null ? (
         <div className="card flex flex-col items-center gap-3 py-8">
-          <span className="overline text-ink-muted">Descanso</span>
+          <span className="overline text-ink-muted flex items-center gap-1">
+            <Timer size={14} /> Descanso
+          </span>
           <div className="display text-6xl num text-treino-ink">
             {String(Math.floor(segundosRestantes / 60)).padStart(2, "0")}:
             {String(segundosRestantes % 60).padStart(2, "0")}
@@ -256,38 +301,71 @@ export function SessaoTreino({
         </div>
       ) : (
         <>
-          {/* ---- Entrada: carga e reps ------------------------------ */}
-          <div className="flex gap-3">
-            {!porTempo && (
-              <label className="flex-1">
-                <div className="text-sm text-ink-muted mb-1">
-                  Carga (kg){atual.unilateral && <span className="text-ink-fraco"> · por lado</span>}
+          {/* ---- Entrada: reps e carga, por stepper ------------------
+              Parte sempre do valor sugerido (progressão ou última carga),
+              então o toque típico é só um ajuste fino — não construir o
+              número do zero. */}
+          {porTempo ? (
+            <p className="text-center text-sm text-ink-muted mb-3">
+              Por tempo: {atual.duracaoSeg}s nesta série.
+            </p>
+          ) : (
+            <>
+              <div className="mb-4">
+                <div className="text-sm text-ink-muted mb-2">
+                  Repetições <span className="text-ink-terciario">({atual.repsMin}–{atual.repsMax})</span>
                 </div>
-                <input
-                  className="campo campo-num"
-                  value={carga}
-                  onChange={(e) => setCarga(e.target.value)}
-                  inputMode="decimal"
-                  enterKeyHint="done"
-                  aria-label="Carga em quilos"
-                />
-              </label>
-            )}
-            <label className="flex-1">
-              <div className="text-sm text-ink-muted mb-1">
-                {porTempo ? "Segundos" : `Reps (${atual.repsMin}–${atual.repsMax})`}
+                <div className="stepper">
+                  <button
+                    type="button"
+                    className="stepper-btn"
+                    onClick={() => setReps((r) => Math.max(0, r - 1))}
+                    disabled={reps <= 0}
+                    aria-label="Diminuir repetições"
+                  >
+                    −
+                  </button>
+                  <div className="stepper-valor num">{reps}</div>
+                  <button
+                    type="button"
+                    className="stepper-btn"
+                    onClick={() => setReps((r) => Math.min(50, r + 1))}
+                    aria-label="Aumentar repetições"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-              <input
-                className="campo campo-num"
-                value={porTempo ? String(atual.duracaoSeg) : reps}
-                onChange={(e) => setReps(e.target.value)}
-                inputMode="numeric"
-                enterKeyHint="done"
-                readOnly={porTempo}
-                aria-label={porTempo ? "Duração em segundos" : "Repetições"}
-              />
-            </label>
-          </div>
+
+              <div className="mb-2">
+                <div className="text-sm text-ink-muted mb-2">
+                  Peso{atual.unilateral && <span className="text-ink-terciario"> · por lado</span>}
+                </div>
+                <div className="stepper">
+                  <button
+                    type="button"
+                    className="stepper-btn"
+                    onClick={() => setCarga((c) => Math.max(0, Math.round((c - 2.5) * 10) / 10))}
+                    disabled={carga <= 0}
+                    aria-label="Diminuir peso"
+                  >
+                    −
+                  </button>
+                  <div className="stepper-valor num">
+                    {carga}<span className="unidade">kg</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="stepper-btn"
+                    onClick={() => setCarga((c) => Math.min(500, Math.round((c + 2.5) * 10) / 10))}
+                    aria-label="Aumentar peso"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Explica de onde veio o número. Sem isso a sugestão parece
               mágica — e a pessoa não sabe se pode confiar. */}
@@ -296,7 +374,7 @@ export function SessaoTreino({
           )}
 
           <button className="btn btn-treino btn-bloco mt-5" onClick={registrar}>
-            Registrar série {proximaSerie}
+            Concluir série {proximaSerie}
           </button>
         </>
       )}

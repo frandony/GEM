@@ -15,6 +15,33 @@ import {
 } from "../lib/dados";
 import type { ExercicioDaSessao } from "./SessaoTreino";
 
+/**
+ * Grupos musculares únicos (ordem de aparição) e uma estimativa de
+ * duração — nem `sessoes` nem `sessao_exercicios` guardam duração, então
+ * é uma conta aproximada: cada série custa ~40s de execução + o descanso
+ * dela. Não é cronômetro, é só pra dar noção do tamanho do treino.
+ */
+function resumoDaSessao(exercicios: ExercicioDaSessao[]): {
+  grupos: string;
+  minutosEstimados: number;
+  descansoMedio: number;
+} {
+  const gruposUnicos = [...new Set(exercicios.map((e) => e.grupoPrimario).filter(Boolean))];
+  const listaGrupos = gruposUnicos.join(", ");
+  const grupos = listaGrupos ? listaGrupos.charAt(0).toUpperCase() + listaGrupos.slice(1) : "";
+
+  const segundosTotais = exercicios.reduce((s, e) => s + e.series * (40 + e.descansoSeg), 0);
+  const descansoMedio = exercicios.length
+    ? Math.round(exercicios.reduce((s, e) => s + e.descansoSeg, 0) / exercicios.length)
+    : 0;
+
+  return {
+    grupos,
+    minutosEstimados: Math.round(segundosTotais / 60 / 5) * 5,
+    descansoMedio,
+  };
+}
+
 /* =====================================================================
    Editar o plano.
    =====================================================================
@@ -124,16 +151,26 @@ export function EditarPlano() {
       )}
 
       <div className="flex flex-col gap-6">
-        {sessoes.map((s) => (
+        {sessoes.map((s) => {
+          const resumo = resumoDaSessao(s.exercicios);
+          return (
           <section key={s.id} className="card">
-            <div className="flex items-baseline justify-between mb-4">
+            <div className="flex items-baseline justify-between mb-1">
               <h2 className="h2">
                 Treino {s.letra} — {s.nome}
               </h2>
               <span className="badge badge-treino num">
-                {s.exercicios.length} exercícios
+                {s.exercicios.length} {s.exercicios.length === 1 ? "exercício" : "exercícios"}
               </span>
             </div>
+            {resumo.grupos && (
+              <p className="text-sm text-ink-muted mb-1">{resumo.grupos}</p>
+            )}
+            {s.exercicios.length > 0 && (
+              <p className="text-xs text-ink-terciario num mb-4">
+                ~{resumo.minutosEstimados} min · {resumo.descansoMedio}s descanso médio
+              </p>
+            )}
 
             {s.exercicios.length === 0 ? (
               <p className="text-sm text-ink-fraco">
@@ -154,7 +191,8 @@ export function EditarPlano() {
               </div>
             )}
           </section>
-        ))}
+          );
+        })}
       </div>
 
       <ZonaDePerigo

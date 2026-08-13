@@ -154,6 +154,85 @@ export async function carregarProgramaAtivo(
   return { programa, proxima: proxima ?? null };
 }
 
+export interface ResumoSemanal {
+  treinosFeitos: number;
+  treinosMeta: number;
+  minutosTreino: number;
+  volumeKg: number;
+  minutosEstudo: number;
+}
+
+/**
+ * Últimos 7 dias (hoje incluso), no fuso do usuário. Sem agregado pronto
+ * pra "minutos de treino" nem "volume" — soma na hora a partir de
+ * `treino_sessoes`/`series_registros`. `resumos_diarios` já resolve
+ * treinos feitos e minutos de estudo (mantido por trigger).
+ */
+export async function carregarResumoSemanal(
+  userId: string,
+  timezone: string,
+): Promise<ResumoSemanal> {
+  const hoje = hojeNoFuso(timezone);
+  const seteDiasAtras = new Date(`${hoje}T00:00:00Z`);
+  seteDiasAtras.setUTCDate(seteDiasAtras.getUTCDate() - 6);
+  const inicio = seteDiasAtras.toISOString().slice(0, 10);
+
+  const [resumos, programa, sessoes] = await Promise.all([
+    supabase
+      .from("resumos_diarios")
+      .select("treinou,minutos_estudo")
+      .eq("user_id", userId)
+      .gte("data", inicio)
+      .lte("data", hoje),
+    supabase
+      .from("programas")
+      .select("frequencia_semanal")
+      .eq("user_id", userId)
+      .eq("ativo", true)
+      .maybeSingle(),
+    supabase
+      .from("treino_sessoes")
+      .select("id,iniciada_em,finalizada_em")
+      .eq("user_id", userId)
+      .eq("status", "concluida")
+      .gte("data", inicio)
+      .lte("data", hoje),
+  ]);
+
+  const treinosFeitos = (resumos.data ?? []).filter((r) => r.treinou).length;
+  const minutosEstudo = (resumos.data ?? []).reduce(
+    (soma, r) => soma + (r.minutos_estudo ?? 0),
+    0,
+  );
+  const treinosMeta = programa.data?.frequencia_semanal ?? 0;
+
+  const listaSessoes = sessoes.data ?? [];
+  const minutosTreino = listaSessoes.reduce((soma, s) => {
+    if (!s.finalizada_em) return soma;
+    const min = (new Date(s.finalizada_em).getTime() - new Date(s.iniciada_em).getTime()) / 60000;
+    return soma + Math.max(0, min);
+  }, 0);
+
+  let volumeKg = 0;
+  const idsSessoes = listaSessoes.map((s) => s.id);
+  if (idsSessoes.length > 0) {
+    const { data: series } = await supabase
+      .from("series_registros")
+      .select("carga_kg,reps")
+      .in("treino_sessao_id", idsSessoes)
+      .not("carga_kg", "is", null);
+    volumeKg = (series ?? []).reduce((soma, r) => soma + (r.carga_kg ?? 0) * (r.reps ?? 0), 0);
+  }
+
+  return {
+    treinosFeitos,
+    treinosMeta,
+    minutosTreino: Math.round(minutosTreino),
+    volumeKg: Math.round(volumeKg),
+    minutosEstudo,
+  };
+}
+
 interface LinhaSessaoExercicio {
   id: string;
   exercicio_id: number;
@@ -163,7 +242,7 @@ interface LinhaSessaoExercicio {
   reps_max: number | null;
   duracao_seg: number | null;
   descanso_seg: number;
-  exercicios: { nome: string; unilateral: boolean } | null;
+  exercicios: { nome: string; unilateral: boolean; grupo_primario: string } | null;
 }
 
 export async function carregarExerciciosDaSessao(
@@ -177,7 +256,7 @@ export async function carregarExerciciosDaSessao(
       // pras duas), então o PostgREST enxerga DOIS caminhos possíveis e
       // recusa o embed sem dizer qual. Sem o hint, a tela de treino
       // ficava em branco (o catch engolia o erro em silêncio).
-      "id,exercicio_id,ordem,series,reps_min,reps_max,duracao_seg,descanso_seg,exercicios!sessao_exercicios_exercicio_id_fkey(nome,unilateral)",
+      "id,exercicio_id,ordem,series,reps_min,reps_max,duracao_seg,descanso_seg,exercicios!sessao_exercicios_exercicio_id_fkey(nome,unilateral,grupo_primario)",
     )
     .eq("sessao_id", sessaoId)
     .order("ordem", { ascending: true })
@@ -199,6 +278,7 @@ export async function carregarExerciciosDaSessao(
     duracaoSeg: l.duracao_seg,
     descansoSeg: l.descanso_seg,
     unilateral: l.exercicios?.unilateral ?? false,
+    grupoPrimario: l.exercicios?.grupo_primario ?? "",
   }));
 }
 
@@ -518,6 +598,17 @@ export async function marcarBloco(
     })
     .eq("id", blocoId);
   if (error) throw new Error(error.message);
+}
+
+// `materias` não tem coluna de cor — cicla numa paleta fixa pela posição
+// da matéria na lista do usuário, pra ficar estável entre Home e Estudo
+// (mesma matéria, mesma cor, em qualquer tela).
+const PALETA_DISCIPLINA = ["estudo", "roxo", "atencao"] as const;
+export function corDaDisciplina(materiaId: string | null, materias: Materia[]): string {
+  if (!materiaId) return "var(--estudo)";
+  const i = materias.findIndex((m) => m.id === materiaId);
+  const token = PALETA_DISCIPLINA[i < 0 ? 0 : i % PALETA_DISCIPLINA.length];
+  return `var(--${token})`;
 }
 
 export async function criarMateriaSimples(

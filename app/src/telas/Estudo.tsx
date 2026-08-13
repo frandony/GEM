@@ -1,16 +1,19 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { Check, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import {
   carregarBlocosDoDia,
   carregarMaterias,
   carregarPerfil,
+  corDaDisciplina,
   criarMateriaSimples,
   hojeNoFuso,
   marcarBloco,
   type BlocoEstudo,
   type Materia,
 } from "../lib/dados";
+import { Toast } from "../componentes/Toast";
 
 const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
   leitura: "Leitura",
@@ -18,6 +21,8 @@ const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
   revisao: "Revisão",
   marco: "Marco",
 };
+
+const DURACAO_POMODORO = 25 * 60;
 
 export function Estudo() {
   const { sessao } = useAuth();
@@ -27,6 +32,29 @@ export function Estudo() {
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
   const [criando, setCriando] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Timer Pomodoro — mesma lógica de relógio (Date.now(), não setInterval
+  // acumulado) do descanso em SessaoTreino.tsx, adaptada pra suportar
+  // pausa: enquanto rodando, um efeito recalcula contra um alvo fixo;
+  // ao pausar, `restante` já está congelado no último valor calculado.
+  const [restante, setRestante] = useState(DURACAO_POMODORO);
+  const [rodando, setRodando] = useState(false);
+
+  useEffect(() => {
+    if (!rodando) return;
+    const alvo = Date.now() + restante * 1000;
+    const tique = setInterval(() => {
+      const restam = Math.max(0, Math.ceil((alvo - Date.now()) / 1000));
+      setRestante(restam);
+      if (restam <= 0) {
+        setRodando(false);
+        setToast("Pomodoro concluído!");
+      }
+    }, 250);
+    return () => clearInterval(tique);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rodando]);
 
   async function carregar() {
     const perfil = await carregarPerfil(userId);
@@ -55,7 +83,8 @@ export function Estudo() {
   if (carregando) {
     return (
       <div className="tela">
-        <div className="vazio">Carregando…</div>
+        <div className="skeleton" style={{ height: "2.5rem", width: "10rem" }} />
+        <div className="skeleton mt-4" style={{ height: "13rem" }} />
       </div>
     );
   }
@@ -78,41 +107,109 @@ export function Estudo() {
 
   const pendentes = blocos.filter((b) => b.status === "pendente");
   const feitos = blocos.filter((b) => b.status !== "pendente");
+  const minutos = Math.floor(restante / 60);
+  const segundos = restante % 60;
 
   return (
     <div className="tela">
-      <h1 className="h1 mb-1">Estudo</h1>
-      <p className="text-sm text-ink-muted mb-6">
-        {materias.length} {materias.length === 1 ? "matéria ativa" : "matérias ativas"}
-      </p>
+      <Toast mensagem={toast} onFechar={() => setToast(null)} />
 
-      <h2 className="overline text-ink-muted mb-2">Hoje</h2>
+      <span className="text-sm text-ink-muted">Sessão de estudo</span>
+      <h1 className="h1 mb-4">Blocos de hoje</h1>
+
+      {/* ---- Timer Pomodoro ------------------------------------------- */}
+      <div className="card mb-6 flex flex-col items-center gap-4 py-6" style={{ borderRadius: "1.25rem" }}>
+        <div className="text-center">
+          <div className="display text-6xl num">
+            {String(minutos).padStart(2, "0")}:{String(segundos).padStart(2, "0")}
+          </div>
+          <span className="text-xs text-ink-terciario">Foco total · Pomodoro</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            className="stepper-btn"
+            style={{ borderRadius: "999px" }}
+            onClick={() => {
+              setRodando(false);
+              setRestante(DURACAO_POMODORO);
+            }}
+            aria-label="Reiniciar pomodoro"
+          >
+            <RotateCcw size={20} />
+          </button>
+          <button
+            type="button"
+            className="stepper-btn"
+            style={{
+              borderRadius: "999px",
+              width: "3.5rem",
+              height: "3.5rem",
+              background: "var(--treino)",
+              borderColor: "var(--treino)",
+              color: "var(--bg)",
+            }}
+            onClick={() => setRodando((r) => !r)}
+            disabled={restante <= 0}
+            aria-label={rodando ? "Pausar" : "Iniciar"}
+          >
+            {rodando ? <Pause size={22} /> : <Play size={22} />}
+          </button>
+          <button
+            type="button"
+            className="stepper-btn"
+            style={{ borderRadius: "999px" }}
+            onClick={() => {
+              setRodando(false);
+              setRestante(DURACAO_POMODORO);
+              setToast("Pomodoro pulado");
+            }}
+            aria-label="Pular pomodoro"
+          >
+            <SkipForward size={20} />
+          </button>
+        </div>
+      </div>
+
+      <span className="overline text-ink-muted mb-2 block">Disciplinas</span>
       {blocos.length === 0 ? (
         <div className="vazio mb-6">
           <p>Nenhum bloco de estudo planejado para hoje.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2 mb-6">
+        <div className="card mb-6">
           {pendentes.map((b) => (
-            <div key={b.id} className="card card-estudo flex items-center justify-between gap-3">
-              <div>
-                <span className="overline text-estudo-ink">
-                  {TIPO_ROTULO[b.tipo]} · {b.hora.slice(0, 5)} · {b.duracao_min} min
-                </span>
+            <button
+              key={b.id}
+              type="button"
+              className="subject-row w-full text-left"
+              style={{ "--cor": corDaDisciplina(b.materia_id, materias) } as CSSProperties}
+              onClick={() => void concluirBloco(b)}
+            >
+              <span className="subject-row__cor" />
+              <div className="subject-row__texto">
                 <div className="h3">{b.titulo}</div>
+                <div className="text-xs text-ink-terciario">
+                  {TIPO_ROTULO[b.tipo]} · {b.hora.slice(0, 5)} · {b.duracao_min} min planejados
+                </div>
               </div>
-              <button className="btn btn-estudo" onClick={() => void concluirBloco(b)}>
-                Concluir
-              </button>
-            </div>
+              <span className="subject-row__caixa" aria-checked="false" role="checkbox" />
+            </button>
           ))}
           {feitos.map((b) => (
-            <div key={b.id} className="card flex items-center justify-between gap-3 opacity-60">
-              <div>
-                <span className="overline text-ink-muted">{TIPO_ROTULO[b.tipo]}</span>
-                <div className="h3">{b.titulo}</div>
+            <div
+              key={b.id}
+              className="subject-row"
+              style={{ "--cor": corDaDisciplina(b.materia_id, materias) } as CSSProperties}
+            >
+              <span className="subject-row__cor" />
+              <div className="subject-row__texto">
+                <div className="h3 text-ink-muted">{b.titulo}</div>
+                <div className="text-xs text-ink-terciario">{b.duracao_min} min planejados</div>
               </div>
-              <span className="badge badge-ok">{b.status}</span>
+              <span className="subject-row__caixa" aria-checked="true" role="checkbox">
+                <Check size={14} />
+              </span>
             </div>
           ))}
         </div>
