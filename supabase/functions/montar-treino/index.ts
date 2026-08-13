@@ -377,7 +377,7 @@ Deno.serve(async (req: Request) => {
 
     try {
       const catalogo = await carregarCatalogo(supabase, usuario.id);
-      const plano = templateFallback(corpo.divisao, catalogo);
+      const plano = templateFallback(corpo.divisao, catalogo, corpo.enfase);
       const salvo = await persistir(supabase, corpo, plano, true);
 
       return json(req, {
