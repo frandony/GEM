@@ -16,6 +16,14 @@ import {
   volumePorGrupo,
 } from "./validacao.ts";
 import { templateFallback } from "./fallback.ts";
+import {
+  calcularNivelEfetivo,
+  equipamentosExcluidosPorAcesso,
+  excluirIds,
+  idsExcluidosPorCondicao,
+  idsExcluidosPorLesao,
+  type PerfilTreino,
+} from "../_shared/perfilTreino.ts";
 
 // ---------------------------------------------------------------------------
 // Regras do domínio. Prefixo ESTÁVEL — não interpolar nada por usuário aqui,
@@ -100,9 +108,28 @@ lombar não entram nesta conta):
 Se ainda ficar fora da faixa depois de realocar sessões, ajuste séries
 dentro dos limites abaixo até fechar — antes de finalizar.
 
-# FAIXAS DE SÉRIES, REPS E DESCANSO — a validação rejeita o que sair daqui
-- Composto: 3 a 5 séries, 5 a 10 reps, 90 a 180s de descanso
-- Isolamento: 2 a 4 séries, 10 a 15 reps, 45 a 90s de descanso
+# OBJETIVO DO ALUNO — MUDA A FAIXA DE SÉRIES/REPS/DESCANSO, NÃO A ESTRUTURA
+"objetivo" (vem no user prompt) escolhe a LINHA da tabela abaixo. Estrutura
+da sessão, ordem composto→isolamento, distribuição de grupos e ênfase são
+as MESMAS pra qualquer objetivo — só a faixa numérica muda.
+
+| objetivo         | Composto: séries/reps/descanso | Isolamento: séries/reps/descanso | RPE alvo |
+|------------------|---------------------------------|-----------------------------------|----------|
+| hipertrofia      | 3-5 / 6-10 / 90-150s            | 2-4 / 10-15 / 45-90s              | 8-9      |
+| forca            | 4-5 / 3-6 / 150-240s            | 2-3 / 6-10 / 90-120s              | 8-9      |
+| emagrecimento    | 3 / 10-15 / 30-60s              | 2-3 / 12-15 / 30-45s              | 7-8      |
+| condicionamento  | 3 / 12-15 / 20-30s              | 2-3 / 12-15 / 20-30s              | 7-8      |
+| saude_geral      | 2-3 / 10-12 / 60-90s            | 2 / 12-15 / 45-60s                | 6-7      |
+| reabilitacao     | 2 / 12-15 / 60-90s              | 2 / 12-15 / 45-60s                | 5-6      |
+
+RPE não é campo de saída — é só a intensidade subjetiva que a combinação de
+séries/reps/descanso escolhida deve produzir; não inventar campo novo no
+JSON por causa disso.
+
+Sem "objetivo" no user prompt (chamada antiga), use a linha "hipertrofia" —
+é o comportamento anterior a esta tabela existir.
+
+# FAIXAS COMPLEMENTARES — não variam por objetivo
 - Abdômen/panturrilha (complemento): 2 a 4 séries; 10 a 20 reps se
   medida="reps", 20 a 60s se medida="tempo"; 30 a 60s de descanso
 - Sessão inteira: 4 a 7 exercícios, 10 a 22 séries no total
@@ -240,6 +267,61 @@ interface Corpo {
    --------------------------------------------------------------------- */
 const ORCAMENTO_IA_MS = Number(Deno.env.get("LLM_ORCAMENTO_MS") ?? 110_000);
 
+// Perfil "vazio": mesmos defaults das colunas da migration 20. Cobre quem
+// ainda não preencheu perfil_treino (conta anterior ao onboarding rico) —
+// sem lesão/condição conhecida e nível básico, o lado seguro.
+const PERFIL_PADRAO: PerfilTreino = {
+  idade: null,
+  nivel_declarado: "básico",
+  tempo_parado: null,
+  lesoes: [],
+  condicoes_saude: [],
+  objetivo: "hipertrofia",
+  acesso_equipamento: "academia_completa",
+  sono: null,
+  estresse: null,
+};
+
+/**
+ * Carrega perfil_treino do usuário (ou o padrão seguro, se ainda não
+ * preencheu) e devolve o catálogo já filtrado por nível efetivo, lesão,
+ * condição de saúde e tipo de acesso a equipamento — tudo resolvido ANTES
+ * do prompt, mesma filosofia de equipamentos_indisponiveis.
+ */
+async function carregarCatalogoDoAluno(
+  supabase: ReturnType<typeof clienteDoUsuario>,
+  userId: string,
+) {
+  const { data } = await supabase
+    .from("perfil_treino")
+    .select(
+      "idade,nivel_declarado,tempo_parado,lesoes,condicoes_saude,objetivo,acesso_equipamento,sono,estresse",
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const perfil: PerfilTreino = data ?? PERFIL_PADRAO;
+  const nivelEfetivo = calcularNivelEfetivo(perfil);
+
+  let catalogo = await carregarCatalogo(supabase, userId, {
+    nivelEfetivo,
+    idsExcluidos: idsExcluidosPorLesao(perfil.lesoes),
+    equipamentosExtras: equipamentosExcluidosPorAcesso(perfil.acesso_equipamento),
+  });
+
+  // Condição de saúde mira padrão de movimento carregado, não um id fixo —
+  // só dá pra calcular depois de ver o catálogo já carregado (ver
+  // _shared/perfilTreino.ts).
+  if (perfil.condicoes_saude.length > 0) {
+    catalogo = excluirIds(
+      catalogo,
+      idsExcluidosPorCondicao(catalogo.lista, perfil.condicoes_saude),
+    );
+  }
+
+  return { catalogo, perfil, nivelEfetivo };
+}
+
 Deno.serve(async (req: Request) => {
   const inicio = Date.now();
   const prazoFinal = inicio + ORCAMENTO_IA_MS;
@@ -268,11 +350,11 @@ Deno.serve(async (req: Request) => {
   const modo = corpo.modo ?? "completo";
 
   try {
-    const catalogo = await carregarCatalogo(supabase, usuario.id);
+    const { catalogo, perfil } = await carregarCatalogoDoAluno(supabase, usuario.id);
     if (catalogo.lista.length < 20) {
       return erro(
         req,
-        "sobraram poucos exercícios no catálogo — revise os equipamentos marcados como indisponíveis",
+        "sobraram poucos exercícios no catálogo — revise os equipamentos marcados como indisponíveis, o nível declarado e as lesões/condições de saúde",
         422,
       );
     }
@@ -287,6 +369,7 @@ Deno.serve(async (req: Request) => {
       `frequencia_semanal: ${corpo.frequencia_semanal}`,
       `divisao: ${corpo.divisao}`,
       `enfase: ${corpo.enfase}`,
+      `objetivo: ${perfil.objetivo}`,
       `modo: ${modo}`,
     ];
 
@@ -326,6 +409,7 @@ Deno.serve(async (req: Request) => {
         validarPlano(plano, catalogo, {
           divisao: corpo.divisao,
           enfase: corpo.enfase,
+          objetivo: perfil.objetivo,
         }),
     );
 
@@ -376,7 +460,7 @@ Deno.serve(async (req: Request) => {
     console.error("montar-treino caiu no fallback:", motivo, e);
 
     try {
-      const catalogo = await carregarCatalogo(supabase, usuario.id);
+      const { catalogo } = await carregarCatalogoDoAluno(supabase, usuario.id);
       const plano = templateFallback(corpo.divisao, catalogo, corpo.enfase);
       const salvo = await persistir(supabase, corpo, plano, true);
 

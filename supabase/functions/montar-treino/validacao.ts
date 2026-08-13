@@ -5,6 +5,7 @@ import {
   PADROES_COMPOSTOS,
   regiaoDoGrupo,
 } from "../_shared/catalogo.ts";
+import type { Objetivo } from "../_shared/perfilTreino.ts";
 
 type TipoExercicio = "composto" | "isolamento" | "complemento";
 
@@ -16,21 +17,57 @@ function tipoDoExercicio(e: Exercicio): TipoExercicio {
   return PADROES_COMPOSTOS.has(e.padrao_movimento) ? "composto" : "isolamento";
 }
 
-/** Espelha o prompt (SYSTEM_REGRAS, seção FAIXAS). Fonte única: mudar aqui
-    sem mudar lá (ou vice-versa) desalinha o que a IA lê do que é cobrada. */
-const FAIXAS: Record<
-  TipoExercicio,
-  {
-    series: readonly [number, number];
-    reps: readonly [number, number];
-    duracao?: readonly [number, number];
-    descanso: readonly [number, number];
-  }
-> = {
-  composto: { series: [3, 5], reps: [5, 10], descanso: [90, 180] },
-  isolamento: { series: [2, 4], reps: [10, 15], descanso: [45, 90] },
-  complemento: { series: [2, 4], reps: [10, 20], duracao: [20, 60], descanso: [30, 60] },
+type Faixa = {
+  series: readonly [number, number];
+  reps: readonly [number, number];
+  duracao?: readonly [number, number];
+  descanso: readonly [number, number];
 };
+
+// A faixa de complemento (abdômen/panturrilha) não varia por objetivo —
+// espelha "FAIXAS COMPLEMENTARES" do prompt.
+const FAIXA_COMPLEMENTO: Faixa = {
+  series: [2, 4],
+  reps: [10, 20],
+  duracao: [20, 60],
+  descanso: [30, 60],
+};
+
+/** Espelha o prompt (SYSTEM_REGRAS, seção OBJETIVO). Fonte única: mudar
+    aqui sem mudar lá (ou vice-versa) desalinha o que a IA lê do que é
+    cobrada. Sem objetivo declarado, cai em "hipertrofia" — mesmo default
+    do prompt, para chamadas antigas sem perfil_treino. */
+const FAIXAS_POR_OBJETIVO: Record<Objetivo, Record<"composto" | "isolamento", Faixa>> = {
+  hipertrofia: {
+    composto: { series: [3, 5], reps: [6, 10], descanso: [90, 150] },
+    isolamento: { series: [2, 4], reps: [10, 15], descanso: [45, 90] },
+  },
+  forca: {
+    composto: { series: [4, 5], reps: [3, 6], descanso: [150, 240] },
+    isolamento: { series: [2, 3], reps: [6, 10], descanso: [90, 120] },
+  },
+  emagrecimento: {
+    composto: { series: [3, 3], reps: [10, 15], descanso: [30, 60] },
+    isolamento: { series: [2, 3], reps: [12, 15], descanso: [30, 45] },
+  },
+  condicionamento: {
+    composto: { series: [3, 3], reps: [12, 15], descanso: [20, 30] },
+    isolamento: { series: [2, 3], reps: [12, 15], descanso: [20, 30] },
+  },
+  saude_geral: {
+    composto: { series: [2, 3], reps: [10, 12], descanso: [60, 90] },
+    isolamento: { series: [2, 2], reps: [12, 15], descanso: [45, 60] },
+  },
+  reabilitacao: {
+    composto: { series: [2, 2], reps: [12, 15], descanso: [60, 90] },
+    isolamento: { series: [2, 2], reps: [12, 15], descanso: [45, 60] },
+  },
+};
+
+function faixaDoTipo(tipo: TipoExercicio, objetivo: Objetivo): Faixa {
+  if (tipo === "complemento") return FAIXA_COMPLEMENTO;
+  return FAIXAS_POR_OBJETIVO[objetivo][tipo];
+}
 
 export interface ExercicioGerado {
   exercicio_id: number;
@@ -68,10 +105,11 @@ export interface PlanoGerado {
 export function validarPlano(
   plano: PlanoGerado,
   catalogo: Catalogo,
-  contexto: { divisao: string; enfase: string },
+  contexto: { divisao: string; enfase: string; objetivo?: Objetivo },
 ): { erros: string[]; avisos: string[] } {
   const erros: string[] = [];
   const avisos: string[] = [];
+  const objetivo = contexto.objetivo ?? "hipertrofia";
 
   // --- 5. número e letras das sessões batem com a divisão ---------------
   const esperadas = LETRAS_POR_DIVISAO[contexto.divisao] ?? [];
@@ -137,9 +175,9 @@ export function validarPlano(
         }
       }
 
-      // --- 13. faixas de séries/reps/duração/descanso por tipo ----------
+      // --- 13. faixas de séries/reps/duração/descanso por tipo e objetivo -
       const tipo = tipoDoExercicio(doCatalogo);
-      const faixa = FAIXAS[tipo];
+      const faixa = faixaDoTipo(tipo, objetivo);
 
       if (ex.series < faixa.series[0] || ex.series > faixa.series[1]) {
         erros.push(

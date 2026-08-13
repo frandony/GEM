@@ -36,6 +36,81 @@ export function hojeNoFuso(timezone: string): string {
 }
 
 /* ---------------------------------------------------------------------
+   Perfil de treino — onboarding rico (migration 20). Tabela própria,
+   privada ao dono: diferente de `profiles`, não é visível pro grupo.
+   --------------------------------------------------------------------- */
+
+export type Sexo = "feminino" | "masculino" | "outro";
+export type Experiencia = "nenhuma" | "musculacao" | "crossfit" | "calistenia";
+export type TempoParado = "ativo" | "ate_6_meses" | "mais_6_meses";
+export type Lesao = "coluna" | "joelho" | "ombro" | "punho";
+export type CondicaoSaude = "hipertensao" | "hernia_discal";
+export type Objetivo =
+  | "hipertrofia"
+  | "forca"
+  | "emagrecimento"
+  | "condicionamento"
+  | "saude_geral"
+  | "reabilitacao";
+export type Horario = "manha" | "tarde" | "noite";
+export type AcessoEquipamento =
+  | "academia_completa"
+  | "academia_condominio"
+  | "home_gym"
+  | "sem_equipamento";
+export type Trabalho = "sedentario" | "ativo";
+export type Qualidade = "bom" | "regular" | "ruim";
+export type NivelSubjetivo = "baixo" | "moderado" | "alto";
+export type Dieta = "deficit" | "manutencao" | "superavit";
+
+export interface PerfilTreino {
+  idade: number | null;
+  sexo: Sexo | null;
+  peso_kg: number | null;
+  altura_cm: number | null;
+  nivel_declarado: "básico" | "intermediário" | "avançado";
+  ja_treinou: boolean;
+  tempo_parado: TempoParado | null;
+  experiencia: Experiencia;
+  lesoes: Lesao[];
+  condicoes_saude: CondicaoSaude[];
+  objetivo: Objetivo;
+  tempo_sessao_min: number | null;
+  horario_preferido: Horario | null;
+  acesso_equipamento: AcessoEquipamento;
+  trabalho: Trabalho | null;
+  sono: Qualidade | null;
+  estresse: NivelSubjetivo | null;
+  dieta: Dieta | null;
+}
+
+export async function carregarPerfilTreino(userId: string): Promise<PerfilTreino | null> {
+  const { data, error } = await supabase
+    .from("perfil_treino")
+    .select(
+      "idade,sexo,peso_kg,altura_cm,nivel_declarado,ja_treinou,tempo_parado,experiencia,lesoes,condicoes_saude,objetivo,tempo_sessao_min,horario_preferido,acesso_equipamento,trabalho,sono,estresse,dieta",
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.warn("perfil de treino indisponível:", error.message);
+    return null;
+  }
+  return data;
+}
+
+/** Upsert: a tela de onboarding grava tudo de uma vez, sempre a linha inteira. */
+export async function salvarPerfilTreino(
+  userId: string,
+  dados: PerfilTreino,
+): Promise<void> {
+  const { error } = await supabase
+    .from("perfil_treino")
+    .upsert({ user_id: userId, ...dados });
+  if (error) throw new Error(`não foi possível salvar seu perfil: ${error.message}`);
+}
+
+/* ---------------------------------------------------------------------
    Treino
    --------------------------------------------------------------------- */
 
