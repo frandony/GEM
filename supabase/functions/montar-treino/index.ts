@@ -140,10 +140,15 @@ medida="tempo" → preencha duracao_seg, reps_min e reps_max nulos. Nunca
 misture os dois nem deixe o par errado nulo.
 
 # SUBSTITUTOS
-Cada exercício leva EXATAMENTE 3 substitutos. Cada substituto precisa: ser
-do mesmo grupo_primario e mesmo padrao_movimento do titular; ter
-equipamento diferente do titular quando houver opção; nunca ser o próprio
-id do titular; nunca ser um id que já está na mesma sessão.
+Cada exercício leva ATÉ 3 substitutos — quantos o catálogo fornecido tiver
+disponíveis para aquele grupo_primario/padrao_movimento, podendo ser 0, 1,
+2 ou 3. NUNCA invente um id fora do catálogo só para completar 3: um
+catálogo filtrado por nível baixo ou por equipamento restrito costuma ter
+poucas opções em alguns padrões, e devolver menos de 3 é o certo nesse
+caso. Cada substituto precisa: ser do mesmo grupo_primario e mesmo
+padrao_movimento do titular; ter equipamento diferente do titular quando
+houver opção; nunca ser o próprio id do titular; nunca ser um id que já
+está na mesma sessão.
 
 # NÃO REPETIR EXERCÍCIO
 Nunca repita o mesmo id na mesma sessão. Evite repetir entre sessões do
