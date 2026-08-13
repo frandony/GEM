@@ -241,7 +241,7 @@ export function SessaoTreino({
       {!descansando && !terminouExercicio && (
         <div className="text-center my-5">
           <div className="display text-6xl num">{proximaSerie}<span className="text-ink-terciario">/{atual.series}</span></div>
-          <span className="overline text-ink-muted">série atual</span>
+          <span className="rotulo-secao text-ink-muted">série atual</span>
         </div>
       )}
 
@@ -278,7 +278,7 @@ export function SessaoTreino({
           do descanso não há nada a digitar, e um modal exigiria fechar. */}
       {descansando != null ? (
         <div className="card flex flex-col items-center gap-3 py-8">
-          <span className="overline text-ink-muted flex items-center gap-1">
+          <span className="rotulo-secao text-ink-muted flex items-center gap-1">
             <Timer size={14} /> Descanso
           </span>
           <div className="display text-6xl num text-treino-ink">

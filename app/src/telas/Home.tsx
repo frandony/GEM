@@ -116,7 +116,7 @@ export function Home() {
           {streak != null && streak > 0 && (
             <div className="text-right">
               <div className="display text-3xl text-ok-ink">{streak}</div>
-              <span className="overline text-ink-muted">semanas</span>
+              <span className="rotulo-secao text-ink-muted">semanas</span>
             </div>
           )}
           <div className="avatar">{iniciais(perfil.nome)}</div>
@@ -127,7 +127,7 @@ export function Home() {
         {/* ---- Treino de hoje ------------------------------------------- */}
         <Link to="/treino" className="card card-treino block">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="overline text-treino-ink">Treino de hoje</span>
+            <span className="rotulo-secao text-treino-ink">Treino de hoje</span>
             {perfil.usa_treino && exercicios && (
               <span className="badge badge-treino">
                 {exercicios.length} {exercicios.length === 1 ? "exercício" : "exercícios"}
@@ -184,7 +184,7 @@ export function Home() {
         {perfil.usa_estudo && (
           <Link to="/estudo" className="card card-estudo block">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="overline text-estudo-ink">Estudo de hoje</span>
+              <span className="rotulo-secao text-estudo-ink">Estudo de hoje</span>
               {materias.length > 0 && (
                 <span className="badge badge-estudo">
                   {materias.length} {materias.length === 1 ? "disciplina" : "disciplinas"}
@@ -229,7 +229,7 @@ export function Home() {
       {/* ---- Resumo da semana ----------------------------------------- */}
       {resumo && (
         <section className="mb-6">
-          <span className="overline text-ink-muted mb-2 block">Resumo da semana</span>
+          <span className="rotulo-secao text-ink-muted mb-2 block">Resumo da semana</span>
           <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             <div className="stat-pill">
               <div className="stat-pill-valor num">
@@ -260,7 +260,7 @@ export function Home() {
           visualmente presentes (o mockup pede) mas inertes, em vez de
           linkar pra uma rota que não existe. */}
       <section className="mb-8">
-        <span className="overline text-ink-muted mb-2 block">Ações rápidas</span>
+        <span className="rotulo-secao text-ink-muted mb-2 block">Ações rápidas</span>
         <div className="grid grid-cols-2 gap-3">
           <Link to="/treino" className="action-tile" style={{ "--tile-cor": "var(--treino-ink)", "--tile-cor-fraca": "var(--treino-fraco)" } as CSSProperties}>
             <span className="action-tile__icone">

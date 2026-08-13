@@ -171,7 +171,7 @@ export function Estudo() {
         </div>
       </div>
 
-      <span className="overline text-ink-muted mb-2 block">Disciplinas</span>
+      <span className="rotulo-secao text-ink-muted mb-2 block">Disciplinas</span>
       {blocos.length === 0 ? (
         <div className="vazio mb-6">
           <p>Nenhum bloco de estudo planejado para hoje.</p>

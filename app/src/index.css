@@ -73,7 +73,11 @@
     font-weight: 500;
     line-height: 1.4;
   }
-  .overline {
+  /* Nome NUNCA pode ser ".overline" — o Tailwind já tem uma utility com
+     esse nome (`text-decoration-line: overline`) que ganha da nossa por
+     ordem de camada (utilities depois de components), e o efeito é uma
+     risca no texto que ninguém pediu. Já aconteceu uma vez. */
+  .rotulo-secao {
     display: block;
     font-size: var(--t-overline);
     font-weight: 500;

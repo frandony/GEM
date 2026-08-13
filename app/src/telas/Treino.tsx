@@ -182,7 +182,7 @@ export function Treino() {
 
       {proxima ? (
         <div className="card card-treino">
-          <span className="overline text-treino-ink mb-1">Próxima sessão</span>
+          <span className="rotulo-secao text-treino-ink mb-1">Próxima sessão</span>
           <div className="h2 mb-4">
             Treino {proxima.letra} — {proxima.nome}
           </div>

@@ -491,7 +491,7 @@ export function Onboarding() {
 function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-4 pt-4" style={{ borderTop: "1px solid var(--hairline)" }}>
-      <h2 className="overline text-ink-muted">{titulo}</h2>
+      <h2 className="rotulo-secao text-ink-muted">{titulo}</h2>
       {children}
     </section>
   );
