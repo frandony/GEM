@@ -77,9 +77,22 @@ const INFERIOR_POSTERIOR: Sessao = {
 
 const TEMPLATES: Record<string, PorEnfase> = {
   AB: {
+    // Desenho do usuário (2026-08-13), verificado exercício a exercício
+    // contra o catálogo. Substitui um placeholder sintético que estava
+    // aqui antes.
+    //
+    // "Remada baixa na polia" e "Hip thrust" nasceram desenhados como
+    // acessório (3×10-15, 60s), mas os dois são padrão COMPOSTO no
+    // catálogo (puxar horizontal / dominante de quadril) — a validação
+    // de domínio só reconhece composto OU isolamento, sem terceiro nível
+    // de "composto leve". Decisão do usuário: redosar como composto
+    // (4×6-10, 120s), que é o que a atribuição automática abaixo já faz
+    // sozinha por causa de PADROES_COMPOSTOS — não precisou de código
+    // novo. Ambas as sessões ficam nas faixas: A = 22 séries (no teto),
+    // B = 21, proporção 48,8% inferior (dentro de 42,5–57,5%).
     equilibrado: [
-      { nome: "Superior", vagas: [PEITO, COSTAS_V, OMBRO, COSTAS_H, TRICEPS, BICEPS] },
-      { nome: "Inferior", vagas: [QUADRI, POSTERIOR, QUADRI_ISO, POSTERIOR_ISO, PANTURRILHA, ABDOMEN] },
+      { nome: "Superior", vagas: [PEITO, COSTAS_V, OMBRO, COSTAS_H, BICEPS, TRICEPS] },
+      { nome: "Inferior", vagas: [QUADRI, POSTERIOR, GLUTEO, QUADRI_ISO, POSTERIOR_ISO, PANTURRILHA] },
     ],
     // Sem dia para realocar: a ênfase vira quantidade de trabalho por lado.
     inferior: [
