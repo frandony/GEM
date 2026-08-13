@@ -63,6 +63,16 @@ Compostos SEMPRE vêm antes de isolamentos na sessão; dentro dos compostos,
 o de maior carga/mais articulações primeiro. Abdômen e panturrilha sempre
 por último, depois de tudo.
 
+TAMANHO DO MÚSCULO TEM PRIORIDADE SOBRE composto/isolamento quando peito
+ou costas dividem sessão com ombro, bíceps ou tríceps: peito/costas
+(músculo grande) SEMPRE vêm antes de ombro/bíceps/tríceps (músculo
+pequeno), mesmo que o de ombro/bíceps/tríceps seja composto e o de
+peito/costas seja isolamento. A ordem completa de uma sessão assim é:
+1) compostos de peito/costas, 2) isolamentos de peito/costas,
+3) compostos de ombro/bíceps/tríceps, 4) isolamentos de ombro/bíceps/
+tríceps, 5) abdômen/panturrilha. Fora desse caso (ex: pernas), a regra
+antiga vale sem mudança: só composto antes de isolamento.
+
 # DIVISÃO = NÚMERO EXATO DE SESSÕES
 "divisao" determina exatamente quantas sessões gerar — nunca mais, nunca
 menos, sem letra repetida ou inventada: AB→A,B · ABC→A,B,C · ABCD→A,B,C,D ·
@@ -108,6 +118,18 @@ lombar não entram nesta conta):
 Se ainda ficar fora da faixa depois de realocar sessões, ajuste séries
 dentro dos limites abaixo até fechar — antes de finalizar.
 
+# ÊNFASE SUPERIOR — SESSÕES DE PEITO E DE COSTAS GANHAM 7 EXERCÍCIOS
+Só quando enfase="superior" (nunca em "equilibrado" nem "inferior"): a
+sessão cujo grupo principal é peito usa EXATAMENTE 7 exercícios — 3 de
+peito, 2 de tríceps, 2 de ombro. A sessão cujo grupo principal é costas
+usa EXATAMENTE 7 — 3 de costas, 2 de bíceps, 2 de ombro. Isso substitui o
+alvo de 5-6 só para essas duas sessões; as outras do ciclo (pernas, ou
+qualquer sessão que combine outros grupos) continuam mirando 5-6.
+Vale para ABC, ABCD e ABCDE, onde peito e costas têm sessão própria.
+Não vale para AB — lá peito e costas dividem uma única sessão "Superior"
+com o resto do corpo, então essa sessão segue o alvo geral de 5-6 (até o
+teto de 22 séries), sem a proporção fixa de 7.
+
 # OBJETIVO DO ALUNO — MUDA A FAIXA DE SÉRIES/REPS/DESCANSO, NÃO A ESTRUTURA
 "objetivo" (vem no user prompt) escolhe a LINHA da tabela abaixo. Estrutura
 da sessão, ordem composto→isolamento, distribuição de grupos e ênfase são
@@ -135,8 +157,9 @@ Sem "objetivo" no user prompt (chamada antiga), use a linha "hipertrofia" —
 - Sessão inteira: **mire em 5 a 6 exercícios** sempre que a distribuição de
   grupos da sessão permitir — é o alvo, não o teto nem o piso. 4 exercícios
   só quando a sessão tiver poucos grupos pra cobrir; 7 só quando o volume
-  ou o número de grupos secundários realmente exigir. Limite aceito: 4 a 7.
-  Séries no total: 10 a 22
+  ou o número de grupos secundários realmente exigir — ou quando for a
+  sessão de peito/costas sob ênfase "superior" (ver seção própria, sempre 7
+  nesse caso). Limite aceito: 4 a 7. Séries no total: 10 a 22
 
 # MEDIDA DO EXERCÍCIO
 medida="reps" no catálogo → preencha reps_min e reps_max, duracao_seg nulo.
@@ -185,15 +208,19 @@ ciclo COMPLETO (existentes + novas), não só das sessões novas.
 # ORDEM DE MONTAGEM DE CADA SESSÃO
 1. Decida quantas sessões do ciclo vão pra cada lado (ver ÊNFASE)
 2. Grupos musculares desta sessão específica, pela distribuição acima
-3. Compostos primeiro: maior carga/mais articulações do grupo principal,
-   depois os demais, do maior pro menor
-4. Isolamentos do grupo principal, depois de grupos secundários
+3. Se o grupo principal é peito ou costas e enfase="superior": use a
+   composição fixa de 7 da seção ÊNFASE SUPERIOR em vez do passo 8 normal
+4. Compostos de peito/costas primeiro (maior carga/mais articulações),
+   depois isolamentos de peito/costas, depois compostos de ombro/bíceps/
+   tríceps, depois isolamentos de ombro/bíceps/tríceps — músculo grande
+   sempre antes do pequeno. Fora peito/costas+ombro/bíceps/tríceps, vale
+   só composto antes de isolamento, do maior pro menor
 5. Abdômen/panturrilha por último, se couberem
 6. Para cada slot: grupo_primario e padrao_movimento certos pro tipo,
    comum=1 antes de 2 antes de 3, sem repetir na sessão
 7. Séries/reps/descanso dentro da faixa do tipo
 8. Confira o total da sessão (10-22 séries, alvo de 5-6 exercícios, 4-7
-   como limite) e ajuste
+   como limite — ou 7 fixo se o passo 3 se aplicou) e ajuste
 9. Gere até 3 substitutos de cada exercício, o quanto o catálogo permitir
 10. Confira a ênfase do ciclo completo e o limite de comum=3 antes de
     devolver`;

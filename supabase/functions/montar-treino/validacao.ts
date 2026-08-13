@@ -9,6 +9,11 @@ import type { Objetivo } from "../_shared/perfilTreino.ts";
 
 type TipoExercicio = "composto" | "isolamento" | "complemento";
 
+// Espelha "TAMANHO DO MÚSCULO NA ORDEM DA SESSÃO" do prompt: peito/costas
+// sempre antes de ombro/bíceps/tríceps quando dividem sessão.
+const GRUPOS_GRANDES = new Set(["peito", "costas"]);
+const GRUPOS_PEQUENOS = new Set(["ombro", "bíceps", "tríceps"]);
+
 /** Abdômen e panturrilha são complemento — nem composto nem isolamento. */
 function tipoDoExercicio(e: Exercicio): TipoExercicio {
   if (e.grupo_primario === "abdômen" || e.grupo_primario === "panturrilha") {
@@ -270,24 +275,24 @@ export function validarPlano(
       );
     }
 
-    // Compostos primeiro, isolamento no fim.
+    // Peito/costas (músculo grande) antes de ombro/bíceps/tríceps (músculo
+    // pequeno) antes do resto; dentro de cada bloco, composto antes de
+    // isolamento. Fora do bloco peito/costas + ombro/bíceps/tríceps, isso se
+    // reduz à regra antiga (só composto antes de isolamento).
     const ordenados = [...sessao.exercicios].sort((a, b) => a.ordem - b.ordem);
-    const ehComposto = (e: ExercicioGerado) =>
-      PADROES_COMPOSTOS.has(
-        catalogo.porId.get(e.exercicio_id)?.padrao_movimento ?? "",
-      );
-    const ultimoComposto = ordenados.reduce(
-      (idx, e, i) => (ehComposto(e) ? i : idx),
-      -1,
-    );
-    const primeiroIsolamento = ordenados.findIndex((e) => !ehComposto(e));
-    if (
-      primeiroIsolamento !== -1 &&
-      ultimoComposto !== -1 &&
-      primeiroIsolamento < ultimoComposto
-    ) {
+    const prioridade = (e: ExercicioGerado) => {
+      const doCatalogo = catalogo.porId.get(e.exercicio_id);
+      const grupo = doCatalogo?.grupo_primario ?? "";
+      const tier = GRUPOS_GRANDES.has(grupo) ? 0 : GRUPOS_PEQUENOS.has(grupo) ? 1 : 2;
+      const composto = PADROES_COMPOSTOS.has(doCatalogo?.padrao_movimento ?? "");
+      return tier * 2 + (composto ? 0 : 1);
+    };
+    const prioridades = ordenados.map(prioridade);
+    const foraDeOrdem = prioridades.some((p, i) => i > 0 && p < prioridades[i - 1]);
+    if (foraDeOrdem) {
       avisos.push(
-        `${rotulo}: há exercício de isolamento antes de um composto — compostos vêm primeiro`,
+        `${rotulo}: ordem errada — peito/costas antes de ombro/bíceps/tríceps, ` +
+          `composto antes de isolamento dentro de cada grupo`,
       );
     }
   }
