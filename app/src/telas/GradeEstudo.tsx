@@ -271,6 +271,16 @@ export function GradeEstudo() {
           </div>
         </div>
       </div>
+
+      {slots.length > 0 ? (
+        <Link className="btn btn-estudo btn-bloco mt-6" to="/estudo/montar">
+          Montar plano de estudo
+        </Link>
+      ) : (
+        <p className="text-sm text-ink-muted text-center mt-6">
+          Adicione pelo menos um horário pra poder montar o plano.
+        </p>
+      )}
     </div>
   );
 }
