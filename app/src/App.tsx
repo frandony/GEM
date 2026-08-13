@@ -48,7 +48,7 @@ function NaoEncontrado() {
   return (
     <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
       <div className="vazio w-full">
-        <span className="chip chip-atencao">Arquivo não encontrado</span>
+        <span className="badge badge-atencao">Arquivo não encontrado</span>
         <p className="num text-sm">{pathname}</p>
         <a className="btn btn-treino" href="/">
           Ir para a Início

@@ -159,10 +159,8 @@ export function SessaoTreino({
       {/* ---- Cabeçalho: onde estou ---------------------------------- */}
       <header className="flex items-baseline justify-between mb-1">
         <div>
-          <div className="text-xs uppercase tracking-wide text-ink-muted">
-            Treino {letra}
-          </div>
-          <h1 className="text-xl font-semibold">{atual.nome}</h1>
+          <span className="overline text-ink-muted">Treino {letra}</span>
+          <h1 className="h1">{atual.nome}</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm text-ink-muted num">
@@ -237,7 +235,7 @@ export function SessaoTreino({
           do descanso não há nada a digitar, e um modal exigiria fechar. */}
       {descansando != null ? (
         <div className="card flex flex-col items-center gap-3 py-8">
-          <div className="text-xs uppercase tracking-wide text-ink-muted">Descanso</div>
+          <span className="overline text-ink-muted">Descanso</span>
           <div className="display text-6xl num text-treino-ink">
             {String(Math.floor(segundosRestantes / 60)).padStart(2, "0")}:
             {String(segundosRestantes % 60).padStart(2, "0")}
@@ -248,7 +246,7 @@ export function SessaoTreino({
         </div>
       ) : terminouExercicio ? (
         <div className="card flex flex-col gap-3 items-center py-6">
-          <span className="chip chip-ok">Exercício concluído</span>
+          <span className="badge badge-ok">Exercício concluído</span>
           <button
             className="btn btn-treino btn-bloco"
             onClick={() => (ultimoExercicio ? aoFinalizar() : setIndice((i) => i + 1))}

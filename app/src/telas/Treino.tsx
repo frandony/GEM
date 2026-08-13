@@ -115,7 +115,7 @@ export function Treino() {
     return (
       <div className="tela">
         <div className="vazio">
-          <span className="chip chip-treino">Sem treino montado</span>
+          <span className="badge badge-treino">Sem treino montado</span>
           <p>Monte seu plano — leva menos de um minuto para configurar.</p>
           <Link className="btn btn-treino" to="/onboarding">
             Montar treino
@@ -147,7 +147,7 @@ export function Treino() {
     return (
       <div className="tela">
         <div className="vazio">
-          <span className="chip chip-atencao">Algo deu errado</span>
+          <span className="badge badge-atencao">Algo deu errado</span>
           <p>{estado.mensagem}</p>
           {estado.treinoSessaoIdParaAbandonar && (
             <button
@@ -171,7 +171,7 @@ export function Treino() {
   return (
     <div className="tela">
       <header className="flex items-baseline justify-between mb-4">
-        <h1 className="text-xl font-semibold">Treino</h1>
+        <h1 className="h1">Treino</h1>
         {/* Único caminho até a edição do plano. Sem ele, depois do
             onboarding o plano ficava congelado para sempre: a tela de
             montar treino só aparecia para quem NÃO tinha plano. */}
@@ -182,10 +182,8 @@ export function Treino() {
 
       {proxima ? (
         <div className="card card-treino">
-          <div className="text-xs uppercase tracking-wide text-treino-ink mb-1">
-            Próxima sessão
-          </div>
-          <div className="text-lg font-semibold mb-4">
+          <span className="overline text-treino-ink mb-1">Próxima sessão</span>
+          <div className="h2 mb-4">
             Treino {proxima.letra} — {proxima.nome}
           </div>
           <button

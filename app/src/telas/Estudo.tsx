@@ -63,7 +63,7 @@ export function Estudo() {
   if (materias.length === 0) {
     return (
       <div className="tela">
-        <h1 className="text-xl font-semibold mb-4">Estudo</h1>
+        <h1 className="h1 mb-4">Estudo</h1>
         <NovaMateria
           onCriada={async () => {
             if (sessao) {
@@ -81,12 +81,12 @@ export function Estudo() {
 
   return (
     <div className="tela">
-      <h1 className="text-xl font-semibold mb-1">Estudo</h1>
+      <h1 className="h1 mb-1">Estudo</h1>
       <p className="text-sm text-ink-muted mb-6">
         {materias.length} {materias.length === 1 ? "matéria ativa" : "matérias ativas"}
       </p>
 
-      <h2 className="text-sm text-ink-muted uppercase tracking-wide mb-2">Hoje</h2>
+      <h2 className="overline text-ink-muted mb-2">Hoje</h2>
       {blocos.length === 0 ? (
         <div className="vazio mb-6">
           <p>Nenhum bloco de estudo planejado para hoje.</p>
@@ -96,10 +96,10 @@ export function Estudo() {
           {pendentes.map((b) => (
             <div key={b.id} className="card card-estudo flex items-center justify-between gap-3">
               <div>
-                <div className="text-xs text-estudo-ink uppercase tracking-wide">
+                <span className="overline text-estudo-ink">
                   {TIPO_ROTULO[b.tipo]} · {b.hora.slice(0, 5)} · {b.duracao_min} min
-                </div>
-                <div className="font-semibold">{b.titulo}</div>
+                </span>
+                <div className="h3">{b.titulo}</div>
               </div>
               <button className="btn btn-estudo" onClick={() => void concluirBloco(b)}>
                 Concluir
@@ -109,12 +109,10 @@ export function Estudo() {
           {feitos.map((b) => (
             <div key={b.id} className="card flex items-center justify-between gap-3 opacity-60">
               <div>
-                <div className="text-xs text-ink-muted uppercase tracking-wide">
-                  {TIPO_ROTULO[b.tipo]}
-                </div>
-                <div className="font-semibold">{b.titulo}</div>
+                <span className="overline text-ink-muted">{TIPO_ROTULO[b.tipo]}</span>
+                <div className="h3">{b.titulo}</div>
               </div>
-              <span className="chip chip-ok">{b.status}</span>
+              <span className="badge badge-ok">{b.status}</span>
             </div>
           ))}
         </div>

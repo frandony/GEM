@@ -6,34 +6,13 @@
    ===================================================================== */
 
 @layer base {
-  /* As três famílias do site, servidas localmente — 72 KB no total.
-     Subconjunto `latin` (U+0000–00FF) basta para português: á, ê, ã, ç
-     e õ estão todos no Latin-1. O `latin-ext` é para tcheco e polonês,
-     e seriam 40 KB a mais sem um caractere usado.
-
-     `swap` de propósito: na academia com 4G ruim, ver o treino importa
-     mais que ver a tipografia certa. */
-  @font-face {
-    font-family: "IBM Plex Sans";
-    src: url("/fontes/plex-sans.woff2") format("woff2-variations");
-    /* Fonte VARIÁVEL: um arquivo cobre 400 e 600. Declarar dois pesos
-       apontando para o mesmo arquivo faria o navegador baixar duas vezes. */
-    font-weight: 100 700;
-    font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+2000-206F, U+20AC;
-  }
-  @font-face {
-    font-family: "IBM Plex Mono";
-    src: url("/fontes/plex-mono.woff2") format("woff2");
-    font-weight: 500; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+2000-206F;
-  }
-  @font-face {
-    font-family: "Instrument Serif";
-    src: url("/fontes/instrument-serif.woff2") format("woff2");
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+2000-206F;
-  }
+  /* Redesign 2026-08: as 3 fontes carregadas (IBM Plex Sans/Mono,
+     Instrument Serif) saíram — `system-ui` já dá a fonte nativa da
+     plataforma sem custo de rede nenhum, e o pedido explícito do
+     redesign foi limitar peso a 400/500 (a variável do Plex cobria até
+     700, que não usamos mais). `.num` continua com stack monoespaçado
+     — agora do SISTEMA — porque o que evita o número pular na academia
+     é `tabular-nums`, não a fonte em si. */
 
   html {
     background: var(--bg);
@@ -62,13 +41,50 @@
     font-feature-settings: "tnum" 1;
   }
 
-  /* Serifada SÓ em número grande de display — streak, volume da semana.
-     Nunca em rótulo pequeno: linda em hero, ilegível a 12px na academia. */
+  /* Número grande de display — streak, volume da semana. Só a
+     letter-spacing negativa distingue de um texto comum agora; antes
+     do redesign também trocava de fonte (serifada). */
   .display {
     font-family: var(--fonte-display);
-    font-weight: 400;
+    font-weight: 500;
     line-height: var(--lh-tight);
+    letter-spacing: -0.02em;
+  }
+
+  /* Hierarquia por tamanho/letter-spacing, não por peso — o redesign
+     limita peso a 400/500 em todo o app. Ver design/fitness_app_redesign_
+     guide.md §3: a tabela do documento lista peso 600 pra h1/h2/overline,
+     mas a REGRA do mesmo documento diz "400 e 500 apenas, não usar
+     600/700" — sigo a regra. */
+  .h1 {
+    font-size: var(--t-h1);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .h2 {
+    font-size: var(--t-h2);
+    font-weight: 500;
+    line-height: 1.3;
     letter-spacing: -0.01em;
+  }
+  .h3 {
+    font-size: var(--t-h3);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .overline {
+    display: block;
+    font-size: var(--t-overline);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .micro {
+    font-size: var(--t-micro);
+    font-weight: 500;
+    line-height: 1.2;
   }
 
   /* 16px de mínimo em campo: abaixo disso o Safari do iPhone dá zoom
@@ -128,12 +144,23 @@
     }
   }
 
-  /* ---- Card --------------------------------------------------------- */
+  /* ---- Card ---------------------------------------------------------
+     Superfície translúcida sobre o fundo, não um tom sólido — resolve
+     "cards pesados demais" do redesign (P02) sem inventar uma cor nova.
+     Hover só onde hover existe de verdade: em touch, `:hover` gruda
+     depois do toque e o card fica com o fundo mudado até o próximo
+     toque em outro lugar. */
   .card {
     background: var(--surface);
     border: 1px solid var(--hairline);
     border-radius: var(--r-lg);
     padding: var(--e-4);
+    transition: background var(--d-entrar) var(--ease-out);
+  }
+  @media (hover: hover) {
+    a.card:hover, button.card:hover {
+      background: var(--surface-hover);
+    }
   }
   .card-alta { background: var(--surface-alta); }
 
@@ -153,7 +180,7 @@
     min-height: var(--toque-min);
     padding-inline: var(--e-5);
     border-radius: var(--r-md);
-    font-weight: 600;
+    font-weight: 500;
     transition: background var(--d-entrar) var(--ease-out),
                 transform var(--d-sair) var(--ease-out),
                 opacity var(--d-entrar) var(--ease-out);
@@ -176,13 +203,16 @@
      sempre assim — alcance do polegar, sem mira. */
   .btn-bloco { display: flex; width: 100%; }
 
-  /* ---- Chip de estado ---------------------------------------------- */
+  /* ---- Chip de estado ------------------------------------------------
+     Uso: FILTRO/SELEÇÃO — as opções da Onboarding (divisão, ênfase,
+     nível...), onde o alvo de toque conta mais que o formato. Pra
+     status/contagem que só informa (não se toca), ver `.badge` abaixo. */
   .chip {
     display: inline-flex; align-items: center; gap: var(--e-1);
     padding: var(--e-1) var(--e-2);
     border-radius: var(--r-sm);
     font-size: var(--t-xs);
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: 0.02em;
     text-transform: uppercase;
   }
@@ -190,6 +220,107 @@
   .chip-atencao { background: var(--atencao-fraco); color: var(--atencao-ink); }
   .chip-treino  { background: var(--treino-fraco);  color: var(--treino-ink); }
   .chip-estudo  { background: var(--estudo-fraco);  color: var(--estudo-ink); }
+
+  /* ---- Badge ----------------------------------------------------------
+     Uso: STATUS/CONTAGEM informativa dentro de um card — "5 exercícios",
+     "3/4 treinos". Pill (raio total), nunca clicável — se precisar de
+     toque, é `.chip` ou `.btn`. */
+  .badge {
+    display: inline-flex; align-items: center; gap: var(--e-1);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--r-pill);
+    font-size: var(--t-xs);
+    font-weight: 500;
+  }
+  .badge-ok      { background: var(--ok-fraco);      color: var(--ok-ink); }
+  .badge-atencao { background: var(--atencao-fraco); color: var(--atencao-ink); }
+  .badge-treino  { background: var(--treino-fraco);  color: var(--treino-ink); }
+  .badge-estudo  { background: var(--estudo-fraco);  color: var(--estudo-ink); }
+
+  /* ---- Avatar ---------------------------------------------------------
+     Iniciais sobre gradiente do acento — usa a cor do módulo em contexto
+     (treino por padrão; passar --avatar-de/--avatar-para pra variar). */
+  .avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    width: var(--avatar-tam, 2.25rem);
+    height: var(--avatar-tam, 2.25rem);
+    border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--avatar-de, var(--treino)), var(--avatar-para, var(--treino-ink)));
+    color: var(--bg);
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  /* ---- Barra de progresso ----------------------------------------------
+     Preenchimento anima por `transform` (não `width`) — mais barato pro
+     navegador recalcular, mesmo efeito visual. Cor vem de fora
+     (--progresso-cor), padrão treino. */
+  .progress-bar {
+    position: relative;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--surface-alta);
+    overflow: hidden;
+  }
+  .progress-bar > span {
+    display: block;
+    height: 100%;
+    width: 100%;
+    border-radius: var(--r-pill);
+    background: var(--progresso-cor, var(--treino));
+    transform-origin: left;
+    transform: scaleX(var(--progresso, 0));
+    transition: transform var(--d-mover) var(--ease-mover);
+  }
+
+  /* ---- Linha de exercício -----------------------------------------------
+     Ícone + texto + ação. A ação (editar) fica quase invisível até o
+     usuário mostrar intenção — hover no desktop, foco por teclado, ou
+     sempre visível a baixa opacidade no touch (onde não existe hover
+     pra revelar nada). Substitui o link "Editar" sublinhado, que era
+     fácil de tocar sem querer (achado P03 do redesign). */
+  .exercise-row {
+    display: flex; align-items: center; gap: var(--e-3);
+    padding-block: var(--e-3);
+  }
+  .exercise-row + .exercise-row {
+    border-top: 1px solid var(--hairline);
+  }
+  .exercise-row__icone {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem; height: 2.25rem;
+    border-radius: var(--r-md);
+    background: var(--surface-alta);
+    color: var(--ink-muted);
+  }
+  .exercise-row__icone svg,
+  .exercise-row__acao svg {
+    width: 18px; height: 18px;
+  }
+  .exercise-row__texto { flex: 1; min-width: 0; }
+  .exercise-row__acao {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    /* Alvo de toque real (48px, o mesmo padrão do resto do app — ver
+       --toque-min em tokens.css), não os 44px do spec: aqui é usado com
+       a mão suada e o braço cansado. */
+    width: var(--toque-min); height: var(--toque-min);
+    border-radius: var(--r-md);
+    color: var(--ink-muted);
+    opacity: 0.6;
+    transition: opacity var(--d-entrar) var(--ease-out),
+                background var(--d-entrar) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .exercise-row__acao { opacity: 0; }
+    .exercise-row:hover .exercise-row__acao,
+    .exercise-row:focus-within .exercise-row__acao {
+      opacity: 1;
+    }
+    .exercise-row__acao:hover { background: var(--surface-alta); }
+  }
 
   /* ---- Campo -------------------------------------------------------- */
   .campo {
@@ -230,11 +361,13 @@
   }
   .nav-item {
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 2px;
-    font-size: var(--t-xs);
-    color: var(--ink-muted);
+    justify-content: center; gap: 4px;
+    font-size: var(--t-micro);
+    font-weight: 500;
+    color: var(--ink-terciario);
     transition: color var(--d-entrar) var(--ease-out);
   }
+  .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
   .nav-item[aria-current="page"] { color: var(--ink); }
 
   @media (min-width: 64rem) {

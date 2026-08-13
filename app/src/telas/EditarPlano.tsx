@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
+import { Dumbbell, Pencil, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   LIMITES,
@@ -72,7 +73,7 @@ export function EditarPlano() {
     return (
       <div className="tela">
         <div className="vazio">
-          <span className="chip chip-atencao">Não deu para abrir seu plano</span>
+          <span className="badge badge-atencao">Não deu para abrir seu plano</span>
           <p>
             Seu plano continua salvo — o que falhou foi a leitura. Não monte
             outro por causa disto.
@@ -93,7 +94,7 @@ export function EditarPlano() {
     return (
       <div className="tela">
         <div className="vazio">
-          <span className="chip chip-treino">Sem plano ativo</span>
+          <span className="badge badge-treino">Sem plano ativo</span>
           <p>Você ainda não tem um treino montado.</p>
           <Link className="btn btn-treino" to="/onboarding">
             Montar treino
@@ -106,7 +107,7 @@ export function EditarPlano() {
   return (
     <div className="tela">
       <header className="flex items-baseline justify-between mb-1">
-        <h1 className="text-xl font-semibold">Meu plano</h1>
+        <h1 className="h1">Meu plano</h1>
         <Link className="text-sm text-ink-muted underline" to="/treino">
           Voltar
         </Link>
@@ -126,10 +127,10 @@ export function EditarPlano() {
         {sessoes.map((s) => (
           <section key={s.id} className="card">
             <div className="flex items-baseline justify-between mb-4">
-              <h2 className="text-lg font-semibold">
+              <h2 className="h2">
                 Treino {s.letra} — {s.nome}
               </h2>
-              <span className="text-xs text-ink-muted num">
+              <span className="badge badge-treino num">
                 {s.exercicios.length} exercícios
               </span>
             </div>
@@ -189,11 +190,16 @@ function LinhaExercicio({
   const [modo, setModo] = useState<Modo>("fechado");
   const porTempo = exercicio.duracaoSeg != null;
 
+  const aberto = modo !== "fechado";
+
   return (
     <div className="rounded-md border border-hairline p-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <div>
-          <div className="font-medium">{exercicio.nome}</div>
+      <div className="exercise-row">
+        <span className="exercise-row__icone">
+          <Dumbbell size={18} />
+        </span>
+        <div className="exercise-row__texto">
+          <div className="h3">{exercicio.nome}</div>
           <div className="text-xs text-ink-muted num">
             {exercicio.series}×
             {porTempo
@@ -203,10 +209,12 @@ function LinhaExercicio({
           </div>
         </div>
         <button
-          className="text-xs text-ink-muted underline shrink-0"
+          className="exercise-row__acao"
+          style={aberto ? { opacity: 1 } : undefined}
           onClick={() => setModo((m) => (m === "fechado" ? "ajustar" : "fechado"))}
+          aria-label={aberto ? "Fechar edição" : "Editar exercício"}
         >
-          {modo === "fechado" ? "Editar" : "Fechar"}
+          {aberto ? <X size={18} /> : <Pencil size={18} />}
         </button>
       </div>
 
@@ -527,7 +535,7 @@ function ZonaDePerigo({ onExcluir }: { onExcluir: () => Promise<void> }) {
 
   return (
     <section className="mt-10 pt-6" style={{ borderTop: "1px solid var(--hairline)" }}>
-      <h2 className="text-sm font-semibold mb-1">Excluir plano</h2>
+      <h2 className="text-sm font-medium mb-1">Excluir plano</h2>
       <p className="text-sm text-ink-muted mb-4">
         Apaga as sessões e os exercícios para você montar outro do zero. Seu
         histórico de treinos, o streak e o grupo não são afetados.

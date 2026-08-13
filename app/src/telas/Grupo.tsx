@@ -48,7 +48,7 @@ export function Grupo() {
 
   return (
     <div className="tela">
-      <h1 className="text-xl font-semibold mb-6">Grupo</h1>
+      <h1 className="h1 mb-6">Grupo</h1>
 
       {grupos.length === 0 ? (
         <div className="vazio mb-6">
@@ -59,7 +59,7 @@ export function Grupo() {
           {grupos.map((g) => (
             <div key={g.id} className="card">
               <div className="flex items-baseline justify-between mb-3">
-                <h2 className="text-lg font-semibold">{g.nome}</h2>
+                <h2 className="h2">{g.nome}</h2>
                 <span className="text-xs text-ink-muted num">código {g.codigo_convite}</span>
               </div>
               <div className="flex flex-col gap-2">
@@ -67,7 +67,7 @@ export function Grupo() {
                   <div key={m.user_id} className="flex items-center justify-between">
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2 text-sm text-ink-muted">
-                      {m.treinou_hoje && <span className="chip chip-ok">hoje</span>}
+                      {m.treinou_hoje && <span className="badge badge-ok">hoje</span>}
                       <span className="num">{m.streak} sem.</span>
                     </div>
                   </div>

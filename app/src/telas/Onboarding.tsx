@@ -155,7 +155,7 @@ export function Onboarding() {
     return (
       <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
         <div className="vazio w-full">
-          <span className="chip chip-treino">Montando seu treino</span>
+          <span className="badge badge-treino">Montando seu treino</span>
           <p>
             A IA está lendo o catálogo inteiro e escolhendo os exercícios certos para você.
             Costuma levar entre 15 segundos e 2 minutos — não feche o app.
@@ -167,7 +167,7 @@ export function Onboarding() {
 
   return (
     <div className="tela">
-      <h1 className="text-xl font-semibold mb-1">Vamos montar seu treino</h1>
+      <h1 className="h1 mb-1">Vamos montar seu treino</h1>
       <p className="text-sm text-ink-muted mb-6">
         Isso roda uma vez — dá para ajustar exercício por exercício depois.
       </p>
@@ -491,7 +491,7 @@ export function Onboarding() {
 function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-4 pt-4" style={{ borderTop: "1px solid var(--hairline)" }}>
-      <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wide">{titulo}</h2>
+      <h2 className="overline text-ink-muted">{titulo}</h2>
       {children}
     </section>
   );

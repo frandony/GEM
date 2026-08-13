@@ -52,7 +52,7 @@ export function AuthCallback() {
   if (erro) {
     return (
       <Moldura>
-        <span className="chip chip-atencao">{erro.titulo}</span>
+        <span className="badge badge-atencao">{erro.titulo}</span>
         <p>{erro.detalhe}</p>
         <Link className="btn btn-treino" to="/login" replace>
           {erro.podeReenviar ? "Reenviar confirmação" : "Voltar ao login"}
@@ -64,7 +64,7 @@ export function AuthCallback() {
   if (desistiu && !sessao && !carregando) {
     return (
       <Moldura>
-        <span className="chip chip-atencao">Não consegui confirmar</span>
+        <span className="badge badge-atencao">Não consegui confirmar</span>
         <p>
           Este link não trouxe uma sessão válida. Ele pode já ter sido usado, ou
           o endereço deste site pode não estar liberado no painel do Supabase.

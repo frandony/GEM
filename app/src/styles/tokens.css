@@ -1,53 +1,58 @@
 /* =====================================================================
    Design tokens — App Estudo + Treino
    =====================================================================
-   Paleta e tipografia herdadas de franciscogomes.com, remapeadas para
-   semântica de PRODUTO em vez de seções de portfólio.
+   Paleta herdada de franciscogomes.com, remapeada para semântica de
+   PRODUTO em vez de seções de portfólio: cor carrega significado de
+   domínio (qual módulo é este, isto está feito ou pendente, o streak
+   está vivo), não decoração — decoração em app de uso diário é ruído.
 
-   O que veio igual: fundo, superfície, tinta, fio de cabelo, as quatro
-   cores de acento com o par base/ink, as três famílias tipográficas, os
-   raios pequenos e a gramática de movimento.
-
-   O que mudou, e por quê: no portfólio as quatro cores nomeiam seções
-   institucionais. Aqui cor precisa carregar significado de domínio —
-   qual módulo é este, isto está feito ou pendente, o streak está vivo.
-   Cor decorativa em app de uso diário vira ruído; cor com significado
-   vira atalho de leitura.
+   Redesign 2026-08 (ver design/fitness_app_redesign_*): cards passam de
+   fundo sólido pra superfície translúcida, tipografia larga pra uma
+   família só (system-ui, pesos 400/500), raio de card cresce. As cores
+   de identidade de módulo (treino=teal, estudo=roxo) são mantidas —
+   é a melhor parte do sistema anterior, e nenhum spec genérico de app
+   fitness tem essa distinção.
    ===================================================================== */
 
 :root {
   /* ---------------------------------------------------------------
-     Superfícies — do site, sem alteração
-     Fundo quase preto com viés azul. Não é cinza neutro: a diferença
-     é sutil na captura e óbvia no aparelho.
+     Superfícies — redesign 2026-08 (spec design/fitness_app_redesign_*)
+     Fundo quase preto, cards em transparência sobre ele em vez de tom
+     sólido — o mesmo fundo lido em profundidades diferentes, não uma
+     cor nova por camada. É o que resolve "cards pesados demais" (P02).
      --------------------------------------------------------------- */
-  --bg:            #0a0c10;
-  --surface:       #12151c;
+  --bg:            #0d0d0f;
+  --surface:       rgba(255,255,255,0.04);
   /* Terceiro degrau, derivado: o site não precisava, um app precisa.
      Card sobre card acontece o tempo todo (sessão dentro do dia). */
-  --surface-alta:  #171b24;
+  --surface-alta:  rgba(255,255,255,0.08);
+  --surface-hover: rgba(255,255,255,0.06);
 
-  --ink:           #ededf2;
-  --ink-muted:     #ededf29e;   /* 62% — rótulo, metadado */
-  --ink-fraco:     #ededf257;   /* 34% — placeholder, desabilitado */
-  --hairline:      #ededf21a;   /* 10% — borda de card, divisória */
-  --hairline-forte:#ededf233;   /* 20% — borda de campo com foco */
+  --ink:           #ffffff;
+  --ink-muted:     rgba(255,255,255,0.70);  /* rótulo, descrição */
+  --ink-terciario: rgba(255,255,255,0.50);  /* metadado, timestamp */
+  --ink-fraco:     rgba(255,255,255,0.30);  /* placeholder, desabilitado — valor inalterado */
+  --hairline:      rgba(255,255,255,0.06);  /* borda de card, divisória */
+  --hairline-forte:rgba(255,255,255,0.10);  /* borda default de campo */
+  --hairline-foco: rgba(255,255,255,0.30);  /* foco de campo */
 
   /* ---------------------------------------------------------------
-     Acentos — as quatro do site, com papel de domínio
-     Cada uma mantém o par do original: `base` para preenchimento e
-     traço, `ink` (clareada) para TEXTO sobre fundo escuro. Essa é a
-     melhor ideia do seu sistema — contraste resolvido na origem, não
-     remendado depois.
+     Acentos — identidade de módulo. Mantidos do site original: é a
+     melhor parte do sistema anterior, e o spec novo não tem essa
+     noção (usa uma cor só). Cada um guarda o par `base` (preenchimento/
+     traço) + `ink` (clareada, pra TEXTO sobre fundo escuro).
      --------------------------------------------------------------- */
   --treino:        #00e5cc;     /* era "inteligência" */
   --treino-ink:    #2eead5;
   --estudo:        #7c4dff;     /* era "visibilidade" */
   --estudo-ink:    #ac8fff;
-  --ok:            #a3e635;     /* era "matéria" — streak vivo, concluído */
-  --ok-ink:        #b4eb59;
-  --atencao:       #ff6b35;     /* era "estrutura" — pendência, aviso */
-  --atencao-ink:   #ff7a49;
+  /* Verde do spec novo (status "sucesso") — não é identidade de módulo,
+     é status do sistema (concluído, streak vivo), por isso pode adotar
+     a cor nova sem perder a distinção treino/estudo. */
+  --ok:            #30d158;
+  --ok-ink:        #4ade7a;
+  --atencao:       #ff9f0a;
+  --atencao-ink:   #ffb340;
 
   /* Quinta cor, DERIVADA — o site não tem destrutivo porque portfólio
      não apaga nada. App apaga: abandonar treino, sair do grupo, excluir
@@ -56,19 +61,26 @@
   --perigo:        #ff4f5e;
   --perigo-ink:    #ff8089;
 
-  /* Versões a 12% para preenchimento de chip e faixa de estado. */
+  /* Alpha derivado das cores acima — 12%, pra preenchimento de chip/badge
+     e faixa de estado. Precisa acompanhar o hex se a cor base mudar. */
   --treino-fraco:  #00e5cc1f;
   --estudo-fraco:  #7c4dff1f;
-  --ok-fraco:      #a3e6351f;
-  --atencao-fraco: #ff6b351f;
+  --ok-fraco:      rgba(48,209,88,0.12);
+  --atencao-fraco: rgba(255,159,10,0.12);
   --perigo-fraco:  #ff4f5e1f;
 
   /* ---------------------------------------------------------------
-     Tipografia — as três famílias do site, com papéis separados
+     Tipografia — redesign 2026-08: uma família só (system-ui), pesos
+     limitados a 400/500. As 3 famílias antigas (IBM Plex Sans/Mono,
+     Instrument Serif) saíram — hierarquia agora vem de tamanho e
+     letter-spacing, não de peso nem de fonte trocada. `--fonte-num`
+     continua um stack monoespaçado do SISTEMA (não mais Plex Mono):
+     o que evita o número pular na academia é `tabular-nums`, que
+     fonte de sistema também suporta.
      --------------------------------------------------------------- */
-  --fonte-ui:      "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --fonte-num:     "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
-  --fonte-display: "Instrument Serif", ui-serif, Georgia, serif;
+  --fonte-ui:      system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fonte-num:     ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  --fonte-display: var(--fonte-ui);
 
   /* Escala mobile-first. 16px de base é inegociável: abaixo disso o
      Safari do iPhone dá zoom automático ao focar um campo. */
@@ -80,17 +92,30 @@
   --t-2xl:  1.75rem;   /* 28 — número grande */
   --t-3xl:  2.5rem;    /* 40 — display (streak, carga da série) */
 
+  /* Escala de hierarquia do redesign — usada pelas classes .display/.h1/
+     .h2/.h3/.overline/.micro em index.css. Separada da escala acima
+     (que já está em uso em componentes existentes) pra não reabrir
+     ajuste fino em tudo que já funciona. */
+  --t-display:  1.75rem;   /* 28 */
+  --t-h1:       1.25rem;   /* 20 */
+  --t-h2:       1.0625rem; /* 17 */
+  --t-h3:       0.9375rem; /* 15 */
+  --t-overline: 0.6875rem; /* 11 */
+  --t-micro:    0.625rem;  /* 10 */
+
   --lh-tight:   1.15;
   --lh-normal:  1.5;
   --lh-relaxed: 1.625;
 
   /* ---------------------------------------------------------------
-     Forma — os raios do site. Pequenos de propósito.
-     Cantos muito arredondados leem como app de consumo; este é sóbrio.
+     Forma — redesign 2026-08: card cresce pra 16px (era 12), o resto
+     mantém os raios pequenos originais (cantos muito arredondados leem
+     como app de consumo; este é sóbrio).
      --------------------------------------------------------------- */
-  --r-sm: 0.25rem;   /* 4  — chip, badge */
+  --r-sm: 0.25rem;   /* 4  — chip */
   --r-md: 0.5rem;    /* 8  — botão, campo */
-  --r-lg: 0.75rem;   /* 12 — card (o --radius-xl do site) */
+  --r-lg: 1rem;      /* 16 — card */
+  --r-pill: 999px;   /* badge, avatar redondo */
 
   /* ---------------------------------------------------------------
      Espaçamento — escala de 4px, igual à do Tailwind do site
@@ -136,11 +161,14 @@
   --color-bg:            var(--bg);
   --color-surface:       var(--surface);
   --color-surface-alta:  var(--surface-alta);
+  --color-surface-hover: var(--surface-hover);
   --color-ink:           var(--ink);
   --color-ink-muted:     var(--ink-muted);
+  --color-ink-terciario: var(--ink-terciario);
   --color-ink-fraco:     var(--ink-fraco);
   --color-hairline:      var(--hairline);
   --color-hairline-forte:var(--hairline-forte);
+  --color-hairline-foco: var(--hairline-foco);
 
   --color-treino:        var(--treino);
   --color-treino-ink:    var(--treino-ink);
@@ -165,6 +193,7 @@
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
+  --radius-pill: var(--r-pill);
 
   /* Breakpoints. Mobile-first: o padrão é o celular, e cada uma destas
      é um "a partir de". `sm` em 480 e não 640 porque a diferença que

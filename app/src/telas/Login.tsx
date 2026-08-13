@@ -53,13 +53,13 @@ export function Login() {
     return (
       <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
         <div className="vazio w-full">
-          <span className="chip chip-ok">Quase lá</span>
+          <span className="badge badge-ok">Quase lá</span>
           <p>Enviamos um link de confirmação para {email}. Abra o e-mail para ativar sua conta.</p>
           <p className="text-xs text-ink-muted">
             O link vale por 1 hora e abre neste mesmo endereço.
           </p>
           {reenviado ? (
-            <span className="chip chip-ok">E-mail reenviado</span>
+            <span className="badge badge-ok">E-mail reenviado</span>
           ) : (
             <button className="btn btn-neutro" onClick={aoReenviar} disabled={enviando}>
               {enviando ? "Enviando…" : "Não recebi — reenviar"}
@@ -136,7 +136,7 @@ export function Login() {
 
         {ofereceReenvio &&
           (reenviado ? (
-            <span className="chip chip-ok">E-mail de confirmação reenviado</span>
+            <span className="badge badge-ok">E-mail de confirmação reenviado</span>
           ) : (
             <button
               className="btn btn-neutro"
