@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import { Check, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
+import { Link } from "react-router";
+import { Calendar, Check, Pause, Play, RotateCcw, SkipForward, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import {
@@ -11,6 +12,7 @@ import {
   hojeNoFuso,
   marcarBloco,
   type BlocoEstudo,
+  type EventoNovo,
   type Materia,
 } from "../lib/dados";
 import { Toast } from "../componentes/Toast";
@@ -92,7 +94,12 @@ export function Estudo() {
   if (materias.length === 0) {
     return (
       <div className="tela">
-        <h1 className="h1 mb-4">Estudo</h1>
+        <header className="flex items-baseline justify-between mb-4">
+          <h1 className="h1">Estudo</h1>
+          <Link className="text-sm text-ink-muted underline" to="/estudo/grade">
+            Grade
+          </Link>
+        </header>
         <NovaMateria
           onCriada={async () => {
             if (sessao) {
@@ -114,8 +121,23 @@ export function Estudo() {
     <div className="tela">
       <Toast mensagem={toast} onFechar={() => setToast(null)} />
 
-      <span className="text-sm text-ink-muted">Sessão de estudo</span>
-      <h1 className="h1 mb-4">Blocos de hoje</h1>
+      <header className="flex items-baseline justify-between mb-4">
+        <div>
+          <span className="text-sm text-ink-muted">Sessão de estudo</span>
+          <h1 className="h1">Blocos de hoje</h1>
+        </div>
+        <Link className="text-sm text-ink-muted underline" to="/estudo/grade">
+          Grade
+        </Link>
+      </header>
+
+      <Link to="/estudo/montar" className="card card-estudo block mb-6">
+        <span className="rotulo-secao text-estudo-ink mb-1">Plano de estudo</span>
+        <div className="h2">Montar plano de estudo</div>
+        <p className="text-sm text-ink-muted mt-1">
+          A IA estima o esforço de cada tópico e distribui na sua grade de horários.
+        </p>
+      </Link>
 
       {/* ---- Timer Pomodoro ------------------------------------------- */}
       <div className="card mb-6 flex flex-col items-center gap-4 py-6" style={{ borderRadius: "1.25rem" }}>
@@ -234,8 +256,22 @@ export function Estudo() {
 function NovaMateria({ onCriada }: { onCriada: () => void | Promise<void> }) {
   const [nome, setNome] = useState("");
   const [topicos, setTopicos] = useState(["", "", ""]);
+  const [eventos, setEventos] = useState<EventoNovo[]>([]);
+  const [tipoEventoNovo, setTipoEventoNovo] = useState<"prova" | "entrega">("prova");
+  const [dataEventoNovo, setDataEventoNovo] = useState("");
+  const [descEventoNovo, setDescEventoNovo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  function adicionarEvento() {
+    if (!dataEventoNovo) return;
+    setEventos((atual) => [
+      ...atual,
+      { tipo: tipoEventoNovo, data: dataEventoNovo, descricao: descEventoNovo.trim() || null },
+    ]);
+    setDataEventoNovo("");
+    setDescEventoNovo("");
+  }
 
   async function aoSubmeter(e: FormEvent) {
     e.preventDefault();
@@ -250,6 +286,7 @@ function NovaMateria({ onCriada }: { onCriada: () => void | Promise<void> }) {
       await criarMateriaSimples(
         nome.trim(),
         nomesTopicos.map((n) => ({ nome: n, dificuldade: null })),
+        eventos,
       );
       await onCriada();
     } catch (e) {
@@ -285,6 +322,69 @@ function NovaMateria({ onCriada }: { onCriada: () => void | Promise<void> }) {
           onClick={() => setTopicos((atual) => [...atual, ""])}
         >
           + tópico
+        </button>
+      </div>
+
+      <div>
+        <div className="text-sm text-ink-muted mb-1">
+          Provas e entregas <span className="text-ink-terciario">(opcional)</span>
+        </div>
+        {/* Prova cobre a matéria inteira automaticamente (a RPC liga todo
+            tópico já cadastrado a ela) — não precisa escolher quais. */}
+        {eventos.length > 0 && (
+          <div className="flex flex-col gap-2 mb-3">
+            {eventos.map((ev, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-md border border-hairline px-3 py-2">
+                <Calendar size={16} className="text-ink-muted shrink-0" />
+                <span className="text-sm flex-1">
+                  {ev.tipo === "prova" ? "Prova" : "Entrega"} em {ev.data.split("-").reverse().join("/")}
+                  {ev.descricao && ` — ${ev.descricao}`}
+                </span>
+                <button
+                  type="button"
+                  className="text-ink-muted shrink-0"
+                  onClick={() => setEventos((atual) => atual.filter((_, j) => j !== i))}
+                  aria-label="Remover evento"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 mb-2">
+          <button
+            type="button"
+            className={tipoEventoNovo === "prova" ? "chip chip-estudo" : "chip"}
+            onClick={() => setTipoEventoNovo("prova")}
+          >
+            Prova
+          </button>
+          <button
+            type="button"
+            className={tipoEventoNovo === "entrega" ? "chip chip-estudo" : "chip"}
+            onClick={() => setTipoEventoNovo("entrega")}
+          >
+            Entrega
+          </button>
+        </div>
+        <div className="flex gap-2 mb-2">
+          <input
+            className="campo flex-1"
+            type="date"
+            value={dataEventoNovo}
+            onChange={(e) => setDataEventoNovo(e.target.value)}
+            aria-label="Data do evento"
+          />
+        </div>
+        <input
+          className="campo mb-2"
+          placeholder="Descrição (opcional)"
+          value={descEventoNovo}
+          onChange={(e) => setDescEventoNovo(e.target.value)}
+        />
+        <button type="button" className="btn btn-neutro" onClick={adicionarEvento} disabled={!dataEventoNovo}>
+          + evento
         </button>
       </div>
 

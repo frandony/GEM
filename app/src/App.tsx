@@ -8,6 +8,8 @@ import { Home } from "./telas/Home";
 import { Treino } from "./telas/Treino";
 import { EditarPlano } from "./telas/EditarPlano";
 import { Estudo } from "./telas/Estudo";
+import { GradeEstudo } from "./telas/GradeEstudo";
+import { MontarPlanoEstudo } from "./telas/MontarPlanoEstudo";
 import { Grupo } from "./telas/Grupo";
 
 /** Só entra quem tem sessão. Sem isso, qualquer rota do app é pública. */
@@ -89,6 +91,8 @@ export function App() {
               <Route path="/treino" element={<Treino />} />
               <Route path="/treino/plano" element={<EditarPlano />} />
               <Route path="/estudo" element={<Estudo />} />
+              <Route path="/estudo/grade" element={<GradeEstudo />} />
+              <Route path="/estudo/montar" element={<MontarPlanoEstudo />} />
               <Route path="/grupo" element={<Grupo />} />
             </Route>
           </Route>

@@ -611,19 +611,178 @@ export function corDaDisciplina(materiaId: string | null, materias: Materia[]): 
   return `var(--${token})`;
 }
 
+/* ---------------------------------------------------------------------
+   Grade de horários — pré-requisito duro da Fase B (montar-estudo):
+   sem nenhum slot ativo, a function devolve 422 direto. CRUD simples,
+   sem RPC — RLS já é "dono", igual equipamentos_indisponiveis.
+   --------------------------------------------------------------------- */
+
+export interface SlotGrade {
+  id: string;
+  /** 0 = domingo, igual à convenção de `grade_slots.dia_semana` e de
+      `Date.getDay()` — não precisa converter em lugar nenhum. */
+  diaSemana: number;
+  hora: string;
+  duracaoMin: number;
+}
+
+export async function carregarGrade(userId: string): Promise<SlotGrade[]> {
+  const { data, error } = await supabase
+    .from("grade_slots")
+    .select("id,dia_semana,hora,duracao_min")
+    .eq("user_id", userId)
+    .eq("ativo", true)
+    .order("dia_semana", { ascending: true })
+    .order("hora", { ascending: true });
+  if (error) {
+    console.warn("grade indisponível:", error.message);
+    return [];
+  }
+  return data.map((s) => ({
+    id: s.id,
+    diaSemana: s.dia_semana,
+    hora: String(s.hora).slice(0, 5),
+    duracaoMin: s.duracao_min,
+  }));
+}
+
+export async function adicionarSlot(
+  userId: string,
+  slot: { diaSemana: number; hora: string; duracaoMin: number },
+): Promise<void> {
+  const { error } = await supabase.from("grade_slots").insert({
+    id: novoId(),
+    user_id: userId,
+    dia_semana: slot.diaSemana,
+    hora: slot.hora,
+    duracao_min: slot.duracaoMin,
+  });
+  if (error) {
+    // UNIQUE (user_id, dia_semana, hora): já existe compromisso nesse horário.
+    if (error.code === "23505") throw new Error("Você já tem um horário marcado nesse dia e hora.");
+    throw new Error(error.message);
+  }
+}
+
+export async function removerSlot(slotId: string): Promise<void> {
+  const { error } = await supabase.from("grade_slots").delete().eq("id", slotId);
+  if (error) throw new Error(error.message);
+}
+
+export interface LimitesEstudo {
+  maxBlocosDia: number;
+  maxMinutosDia: number;
+  /** 0 = domingo, mesma convenção de SlotGrade.diaSemana. */
+  diaLeve: number | null;
+}
+
+const LIMITES_ESTUDO_PADRAO: LimitesEstudo = { maxBlocosDia: 2, maxMinutosDia: 180, diaLeve: null };
+
+export async function carregarLimites(userId: string): Promise<LimitesEstudo> {
+  const { data } = await supabase
+    .from("limites_estudo")
+    .select("max_blocos_dia,max_minutos_dia,dia_leve")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data) return LIMITES_ESTUDO_PADRAO;
+  return {
+    maxBlocosDia: data.max_blocos_dia,
+    maxMinutosDia: data.max_minutos_dia,
+    diaLeve: data.dia_leve,
+  };
+}
+
+export async function salvarLimites(userId: string, limites: LimitesEstudo): Promise<void> {
+  const { error } = await supabase.from("limites_estudo").upsert({
+    user_id: userId,
+    max_blocos_dia: limites.maxBlocosDia,
+    max_minutos_dia: limites.maxMinutosDia,
+    dia_leve: limites.diaLeve,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export interface EventoNovo {
+  tipo: "prova" | "entrega";
+  data: string;
+  descricao: string | null;
+}
+
 export async function criarMateriaSimples(
   nome: string,
   topicos: Array<{ nome: string; dificuldade: "facil" | "medio" | "dificil" | null }>,
+  eventos: EventoNovo[] = [],
 ): Promise<string> {
   const { data, error } = await supabase.rpc("salvar_materia_com_topicos", {
     p_nome: nome,
     p_topicos: topicos,
     p_origem: "manual",
     p_confianca: "alta",
-    p_eventos: [],
+    p_eventos: eventos,
   });
   if (error) throw new Error(error.message);
   return data as string;
+}
+
+export interface TopicoParaMontagem {
+  id: string;
+  nome: string;
+  blocosEstimados: number | null;
+}
+
+export interface EventoDaMateria {
+  id: string;
+  tipo: "prova" | "entrega";
+  data: string;
+  descricao: string | null;
+}
+
+export interface MateriaParaMontagem {
+  id: string;
+  nome: string;
+  topicos: TopicoParaMontagem[];
+  eventos: EventoDaMateria[];
+}
+
+interface LinhaMateriaParaMontagem {
+  id: string;
+  nome: string;
+  topicos: Array<{ id: string; nome: string; blocos_estimados: number | null }>;
+  eventos: Array<{ id: string; tipo: "prova" | "entrega"; data: string; descricao: string | null }>;
+}
+
+/**
+ * Matérias ativas com tópicos (pra saber quais ainda não têm
+ * `blocos_estimados`, ou seja, precisam de diagnóstico) e eventos (pra
+ * mostrar "prova em 20/09" na tela de montar plano).
+ */
+export async function carregarMateriasParaMontagem(userId: string): Promise<MateriaParaMontagem[]> {
+  const { data, error } = await supabase
+    .from("materias")
+    .select("id,nome,topicos(id,nome,blocos_estimados),eventos(id,tipo,data,descricao)")
+    .eq("user_id", userId)
+    .eq("ativa", true)
+    .order("criada_em", { ascending: true })
+    .returns<LinhaMateriaParaMontagem[]>();
+  if (error) {
+    console.warn("matérias para montagem indisponíveis:", error.message);
+    return [];
+  }
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    nome: m.nome,
+    topicos: (m.topicos ?? []).map((t) => ({
+      id: t.id,
+      nome: t.nome,
+      blocosEstimados: t.blocos_estimados,
+    })),
+    eventos: (m.eventos ?? []).map((e) => ({
+      id: e.id,
+      tipo: e.tipo,
+      data: e.data,
+      descricao: e.descricao,
+    })),
+  }));
 }
 
 /* ---------------------------------------------------------------------
