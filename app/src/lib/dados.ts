@@ -199,37 +199,49 @@ export interface SessaoDoPlano {
   id: string;
   letra: string;
   nome: string;
-  ordem: number;
+  /** Ordem da sessão no rodízio. A coluna chama `posicao`, não `ordem` —
+      `ordem` é de `sessao_exercicios`, que é outra tabela. */
+  posicao: number;
   exercicios: ExercicioDaSessao[];
 }
 
-/** O plano inteiro, para a tela de edição. */
+/**
+ * O plano inteiro, para a tela de edição.
+ *
+ * `null` significa **não existe plano ativo**, e só isso. Falha de
+ * consulta LANÇA: as duas coisas são indistinguíveis para quem chama se
+ * ambas devolverem null, e a tela acaba dizendo "monte seu treino" para
+ * quem tem um plano — que foi exatamente o que aconteceu quando esta
+ * função pedia a coluna `ordem`, que não existe em `sessoes`.
+ */
 export async function carregarPlanoCompleto(userId: string): Promise<{
   programaId: string;
   sessoes: SessaoDoPlano[];
 } | null> {
-  const { data: programa } = await supabase
+  const { data: programa, error: erroPrograma } = await supabase
     .from("programas")
     .select("id")
     .eq("user_id", userId)
     .eq("ativo", true)
     .maybeSingle();
+
+  if (erroPrograma) throw new Error(`não deu para ler o programa: ${erroPrograma.message}`);
   if (!programa) return null;
 
   const { data: sessoes, error } = await supabase
     .from("sessoes")
-    .select("id,letra,nome,ordem")
+    .select("id,letra,nome,posicao")
     .eq("programa_id", programa.id)
-    .order("ordem", { ascending: true })
-    .returns<Array<{ id: string; letra: string; nome: string; ordem: number }>>();
+    .order("posicao", { ascending: true })
+    .returns<Array<{ id: string; letra: string; nome: string; posicao: number }>>();
 
-  if (error || !sessoes) {
-    console.warn("sessões do plano indisponíveis:", error?.message);
-    return null;
-  }
+  if (error) throw new Error(`não deu para ler as sessões: ${error.message}`);
 
   const comExercicios = await Promise.all(
-    sessoes.map(async (s) => ({ ...s, exercicios: await carregarExerciciosDaSessao(s.id) })),
+    (sessoes ?? []).map(async (s) => ({
+      ...s,
+      exercicios: await carregarExerciciosDaSessao(s.id),
+    })),
   );
   return { programaId: programa.id, sessoes: comExercicios };
 }

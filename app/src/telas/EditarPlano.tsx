@@ -38,11 +38,21 @@ export function EditarPlano() {
   const [sessoes, setSessoes] = useState<SessaoDoPlano[] | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  // Separado de `erro` porque muda a TELA, não só a mensagem: falha ao
+  // carregar não pode cair no estado "sem plano", que oferece montar
+  // outro e faria a pessoa refazer um plano que existe.
+  const [falhouAoCarregar, setFalhouAoCarregar] = useState<string | null>(null);
 
   async function carregar() {
-    const plano = await carregarPlanoCompleto(userId);
-    setSessoes(plano?.sessoes ?? null);
-    setCarregando(false);
+    try {
+      const plano = await carregarPlanoCompleto(userId);
+      setSessoes(plano?.sessoes ?? null);
+      setFalhouAoCarregar(null);
+    } catch (e) {
+      setFalhouAoCarregar(e instanceof Error ? e.message : "erro desconhecido");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   useEffect(() => {
@@ -54,6 +64,27 @@ export function EditarPlano() {
     return (
       <div className="tela">
         <div className="vazio">Carregando…</div>
+      </div>
+    );
+  }
+
+  if (falhouAoCarregar) {
+    return (
+      <div className="tela">
+        <div className="vazio">
+          <span className="chip chip-atencao">Não deu para abrir seu plano</span>
+          <p>
+            Seu plano continua salvo — o que falhou foi a leitura. Não monte
+            outro por causa disto.
+          </p>
+          <p className="text-xs text-ink-fraco num">{falhouAoCarregar}</p>
+          <button className="btn btn-treino" onClick={() => void carregar()}>
+            Tentar de novo
+          </button>
+          <Link className="btn btn-neutro" to="/treino">
+            Voltar
+          </Link>
+        </div>
       </div>
     );
   }
