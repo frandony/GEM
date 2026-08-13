@@ -51,8 +51,21 @@ allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:5173"
-additional_redirect_urls = ["http://127.0.0.1:5173", "http://localhost:5173"]
+# Domínio de produção. Este valor é o destino padrão de TODO link de e-mail
+# quando a URL pedida pelo cliente não está na lista abaixo — foi por isso
+# que confirmar conta parou de funcionar ao trocar para megs.digital: o
+# link continuava apontando para o endereço antigo.
+#
+# ATENÇÃO: este arquivo configura o stack LOCAL. O projeto na nuvem tem a
+# própria configuração, no painel (Authentication → URL Configuration), e
+# ela NÃO muda com `db push`. Só `supabase config push` sincroniza as duas.
+site_url = "https://www.megs.digital"
+additional_redirect_urls = [
+  "https://www.megs.digital/auth/callback",
+  "https://megs.digital/auth/callback",
+  "http://127.0.0.1:5173/auth/callback",
+  "http://localhost:5173/auth/callback",
+]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10

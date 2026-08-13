@@ -65,6 +65,10 @@ export function SessaoTreino({
   const [carga, setCarga] = useState("");
   const [reps, setReps] = useState("");
   const [descansando, setDescansando] = useState<number | null>(null);
+  // Abandonar descarta a sessão inteira e é irreversível. Um toque só,
+  // num link pequeno ao lado do contador, é fácil demais de acertar sem
+  // querer com o polegar.
+  const [confirmandoAbandono, setConfirmandoAbandono] = useState(false);
 
   const atual = exercicios[indice];
   const jaFeitas = atual ? (feitas[atual.sessaoExercicioId] ?? []) : [];
@@ -167,7 +171,7 @@ export function SessaoTreino({
           {aoAbandonar && (
             <button
               className="text-xs text-ink-muted underline"
-              onClick={() => aoAbandonar(atual.exercicioId)}
+              onClick={() => setConfirmandoAbandono(true)}
             >
               Abandonar
             </button>
@@ -176,6 +180,29 @@ export function SessaoTreino({
       </header>
 
       <IndicadorPendencia />
+
+      {confirmandoAbandono && aoAbandonar && (
+        <div className="card mt-4" role="alertdialog" aria-label="Confirmar abandono">
+          <p className="mb-1">Abandonar este treino?</p>
+          <p className="text-sm text-ink-muted mb-4">
+            {/* Diz o que sobrevive: as séries já registradas foram para a fila
+                e não somem. O que se perde é a sessão em si. */}
+            As séries que você já registrou ficam salvas. A sessão é encerrada
+            como abandonada e o treino {letra} continua sendo o próximo.
+          </p>
+          <div className="flex gap-2">
+            <button
+              className="btn btn-perigo"
+              onClick={() => aoAbandonar(atual.exercicioId)}
+            >
+              Sim, abandonar
+            </button>
+            <button className="btn btn-neutro" onClick={() => setConfirmandoAbandono(false)}>
+              Continuar treinando
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ---- Séries: o que já foi ----------------------------------- */}
       <div className="flex gap-2 my-5" role="list" aria-label="Séries">

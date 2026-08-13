@@ -185,6 +185,189 @@ export async function abandonarTreinoSessao(
 }
 
 /* ---------------------------------------------------------------------
+   Plano de treino — editar e excluir
+
+   Tudo aqui é escrita direta na tabela, sem RPC nova: a RLS já dá ao
+   dono UPDATE e DELETE em `sessoes` e `sessao_exercicios`, e as
+   invariantes que importam (faixa de séries, reps XOR tempo, exercício
+   repetido na mesma sessão) são CHECKs e UNIQUEs do schema. Duplicar
+   essas regras numa RPC seria a segunda definição da mesma coisa — o
+   erro que já custou caro no `fallback.ts`.
+   --------------------------------------------------------------------- */
+
+export interface SessaoDoPlano {
+  id: string;
+  letra: string;
+  nome: string;
+  ordem: number;
+  exercicios: ExercicioDaSessao[];
+}
+
+/** O plano inteiro, para a tela de edição. */
+export async function carregarPlanoCompleto(userId: string): Promise<{
+  programaId: string;
+  sessoes: SessaoDoPlano[];
+} | null> {
+  const { data: programa } = await supabase
+    .from("programas")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!programa) return null;
+
+  const { data: sessoes, error } = await supabase
+    .from("sessoes")
+    .select("id,letra,nome,ordem")
+    .eq("programa_id", programa.id)
+    .order("ordem", { ascending: true })
+    .returns<Array<{ id: string; letra: string; nome: string; ordem: number }>>();
+
+  if (error || !sessoes) {
+    console.warn("sessões do plano indisponíveis:", error?.message);
+    return null;
+  }
+
+  const comExercicios = await Promise.all(
+    sessoes.map(async (s) => ({ ...s, exercicios: await carregarExerciciosDaSessao(s.id) })),
+  );
+  return { programaId: programa.id, sessoes: comExercicios };
+}
+
+export interface Substituto {
+  exercicio_id: number;
+  nome: string;
+  equipamento: string;
+  comum: number;
+  /** `ia` = veio do plano gerado; `catalogo` = mesmo grupo e padrão. */
+  origem: "ia" | "catalogo";
+  posicao: number;
+}
+
+export async function substitutosDoExercicio(
+  sessaoExercicioId: string,
+): Promise<Substituto[]> {
+  // Sem tipos gerados do banco, o supabase-js supõe que toda RPC devolve
+  // um objeto só — mas esta é `returns table`. O cast é o que reconcilia.
+  const { data, error } = await supabase.rpc("substitutos_do_exercicio", {
+    p_sessao_exercicio_id: sessaoExercicioId,
+  });
+  if (error) throw new Error(error.message);
+  return (data as unknown as Substituto[] | null) ?? [];
+}
+
+/**
+ * Troca permanente do exercício no molde. Registra em `plano_alteracoes`
+ * junto — é o que permite desfazer depois de fechar o app, e é coleta do
+ * dia 1 (§10 do plano).
+ *
+ * O histórico não é tocado: `series_registros` guarda `exercicio_id` por
+ * série, então o que já foi levantado continua sendo do exercício antigo.
+ */
+export async function trocarExercicioDoPlano(
+  userId: string,
+  sessaoExercicioId: string,
+  exercicioAntigoId: number,
+  exercicioNovoId: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from("sessao_exercicios")
+    .update({ exercicio_id: exercicioNovoId })
+    .eq("id", sessaoExercicioId);
+
+  if (error) {
+    // UNIQUE (sessao_id, exercicio_id): o exercício escolhido já está
+    // nesta sessão. A mensagem crua do Postgres não diz isso.
+    if (error.code === "23505") {
+      throw new Error("Esse exercício já está nesta sessão. Escolha outro.");
+    }
+    throw new Error(error.message);
+  }
+
+  const { error: erroLog } = await supabase.from("plano_alteracoes").insert({
+    id: novoId(),
+    user_id: userId,
+    sessao_exercicio_id: sessaoExercicioId,
+    exercicio_antigo_id: exercicioAntigoId,
+    exercicio_novo_id: exercicioNovoId,
+  });
+  // A troca já aconteceu e é o que a pessoa pediu. Perder o registro do
+  // "desfazer" é ruim, mas desfazer a troca por causa dele seria pior.
+  if (erroLog) console.warn("troca não registrada em plano_alteracoes:", erroLog.message);
+}
+
+export interface ParametrosDoExercicio {
+  series: number;
+  repsMin: number | null;
+  repsMax: number | null;
+  descansoSeg: number;
+}
+
+/** Limites espelhados dos CHECKs do schema (migration 05). */
+export const LIMITES = {
+  series: { min: 1, max: 10 },
+  reps: { min: 1, max: 100 },
+  descanso: { min: 15, max: 300 },
+} as const;
+
+export async function atualizarParametrosDoExercicio(
+  sessaoExercicioId: string,
+  p: ParametrosDoExercicio,
+): Promise<void> {
+  const { error } = await supabase
+    .from("sessao_exercicios")
+    .update({
+      series: p.series,
+      reps_min: p.repsMin,
+      reps_max: p.repsMax,
+      descanso_seg: p.descansoSeg,
+    })
+    .eq("id", sessaoExercicioId);
+  if (error) {
+    if (error.code === "23514") {
+      throw new Error(
+        `Valor fora da faixa aceita: séries ${LIMITES.series.min}–${LIMITES.series.max}, ` +
+          `reps ${LIMITES.reps.min}–${LIMITES.reps.max}, ` +
+          `descanso ${LIMITES.descanso.min}–${LIMITES.descanso.max}s.`,
+      );
+    }
+    throw new Error(error.message);
+  }
+}
+
+export async function removerExercicioDoPlano(sessaoExercicioId: string): Promise<void> {
+  const { error } = await supabase
+    .from("sessao_exercicios")
+    .delete()
+    .eq("id", sessaoExercicioId);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Apaga o programa ativo inteiro (sessões e exercícios vão junto, por
+ * cascade) para que outro possa ser montado.
+ *
+ * O histórico **sobrevive**: `treino_sessoes.sessao_id` é
+ * `on delete set null`, e a letra e o nome da sessão ficam congelados na
+ * própria linha. O streak, que sai de `treino_sessoes`, não muda.
+ */
+export async function excluirProgramaAtivo(userId: string): Promise<void> {
+  const emAndamento = await sessaoEmAndamento(userId);
+  if (emAndamento) {
+    throw new Error(
+      "Você tem um treino em andamento. Finalize ou abandone antes de excluir o plano.",
+    );
+  }
+
+  const { error } = await supabase
+    .from("programas")
+    .delete()
+    .eq("user_id", userId)
+    .eq("ativo", true);
+  if (error) throw new Error(error.message);
+}
+
+/* ---------------------------------------------------------------------
    Estudo
    --------------------------------------------------------------------- */
 

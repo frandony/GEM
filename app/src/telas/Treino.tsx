@@ -170,7 +170,15 @@ export function Treino() {
   const { proxima, timezone } = estado;
   return (
     <div className="tela">
-      <h1 className="text-xl font-semibold mb-4">Treino</h1>
+      <header className="flex items-baseline justify-between mb-4">
+        <h1 className="text-xl font-semibold">Treino</h1>
+        {/* Único caminho até a edição do plano. Sem ele, depois do
+            onboarding o plano ficava congelado para sempre: a tela de
+            montar treino só aparecia para quem NÃO tinha plano. */}
+        <Link className="text-sm text-ink-muted underline" to="/treino/plano">
+          Meu plano
+        </Link>
+      </header>
 
       {proxima ? (
         <div className="card card-treino">
@@ -191,6 +199,9 @@ export function Treino() {
       ) : (
         <div className="vazio">
           <p>Seu plano não tem sessões configuradas.</p>
+          <Link className="btn btn-neutro" to="/treino/plano">
+            Ver o plano
+          </Link>
         </div>
       )}
 

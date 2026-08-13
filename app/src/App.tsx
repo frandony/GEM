@@ -1,10 +1,12 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { Nav } from "./componentes/Nav";
 import { Login } from "./telas/Login";
+import { AuthCallback } from "./telas/AuthCallback";
 import { Onboarding } from "./telas/Onboarding";
 import { Home } from "./telas/Home";
 import { Treino } from "./telas/Treino";
+import { EditarPlano } from "./telas/EditarPlano";
 import { Estudo } from "./telas/Estudo";
 import { Grupo } from "./telas/Grupo";
 
@@ -30,6 +32,32 @@ function SomenteVisitante() {
   return <Outlet />;
 }
 
+/**
+ * Rota desconhecida. Caminho normal volta para a Início; caminho que
+ * PARECE arquivo (tem extensão) não: se `/icones/192.png` cair aqui, é
+ * porque o arquivo não existe no servidor, e mandar a pessoa para a
+ * Início esconde justamente o que está quebrado. Era isso que deixava a
+ * tela presa em "Carregando…" ao abrir um asset inexistente.
+ */
+function NaoEncontrado() {
+  const { pathname } = useLocation();
+  const pareceArquivo = /\.[a-z0-9]{2,5}$/i.test(pathname);
+
+  if (!pareceArquivo) return <Navigate to="/" replace />;
+
+  return (
+    <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
+      <div className="vazio w-full">
+        <span className="chip chip-atencao">Arquivo não encontrado</span>
+        <p className="num text-sm">{pathname}</p>
+        <a className="btn btn-treino" href="/">
+          Ir para a Início
+        </a>
+      </div>
+    </div>
+  );
+}
+
 /** Casca com a barra de navegação — onboarding fica fora dela de propósito. */
 function ComNav() {
   return (
@@ -49,17 +77,23 @@ export function App() {
             <Route path="/login" element={<Login />} />
           </Route>
 
+          {/* Fora dos dois guardas: quem chega aqui vem do link do e-mail e
+              ainda não tem sessão, mas também não pode ser mandado ao login
+              antes de o token do fragmento ser lido. */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
+
           <Route element={<Protegido />}>
             <Route path="/onboarding" element={<Onboarding />} />
             <Route element={<ComNav />}>
               <Route path="/" element={<Home />} />
               <Route path="/treino" element={<Treino />} />
+              <Route path="/treino/plano" element={<EditarPlano />} />
               <Route path="/estudo" element={<Estudo />} />
               <Route path="/grupo" element={<Grupo />} />
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NaoEncontrado />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

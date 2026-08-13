@@ -129,17 +129,27 @@ function CriarGrupo({
     }
   }
 
+  // O botão desabilitado é o feedback. Antes o clique com campo vazio caía
+  // num `return` silencioso: nada acontecia, nenhuma mensagem, e parecia
+  // que o botão estava quebrado.
+  const vazio = !nome.trim();
+
   return (
-    <form onSubmit={aoSubmeter} className="flex gap-2">
-      <input
-        className="campo"
-        placeholder="Nome do grupo"
-        value={nome}
-        onChange={(e) => setNome(e.target.value)}
-      />
-      <button className="btn btn-neutro" type="submit" disabled={enviando}>
-        Criar
-      </button>
+    <form onSubmit={aoSubmeter} className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <input
+          className="campo"
+          placeholder="Nome do grupo"
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          maxLength={40}
+          aria-label="Nome do grupo"
+        />
+        <button className="btn btn-neutro" type="submit" disabled={enviando || vazio}>
+          {enviando ? "Criando…" : "Criar"}
+        </button>
+      </div>
+      {vazio && <p className="text-xs text-ink-fraco">Dê um nome ao grupo para criar.</p>}
     </form>
   );
 }
@@ -169,18 +179,28 @@ function EntrarGrupo({
     }
   }
 
+  // O código tem 6 caracteres — antes disso o botão nem tenta.
+  const incompleto = codigo.trim().length < 6;
+
   return (
-    <form onSubmit={aoSubmeter} className="flex gap-2">
-      <input
-        className="campo"
-        placeholder="Código de convite"
-        value={codigo}
-        onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-        maxLength={6}
-      />
-      <button className="btn btn-neutro" type="submit" disabled={enviando}>
-        Entrar
-      </button>
+    <form onSubmit={aoSubmeter} className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <input
+          className="campo campo-num"
+          placeholder="Código de convite"
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+          maxLength={6}
+          autoCapitalize="characters"
+          aria-label="Código de convite"
+        />
+        <button className="btn btn-neutro" type="submit" disabled={enviando || incompleto}>
+          {enviando ? "Entrando…" : "Entrar"}
+        </button>
+      </div>
+      {incompleto && (
+        <p className="text-xs text-ink-fraco">O código do convite tem 6 caracteres.</p>
+      )}
     </form>
   );
 }

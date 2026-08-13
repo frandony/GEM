@@ -9,20 +9,31 @@ como rodar, e as decisões tomadas durante a implementação**.
 
 ## 1. Estado atual
 
-**Backend em construção. Frontend ainda não começou** — decisão do usuário:
-backend primeiro, front depois.
+**Backend completo e em produção. Frontend completo e no ar em
+https://www.megs.digital** (Vercel, PWA instalável).
 
 ```
 ├── 00_PLANO.md … 06_schema_v1.sql   ← specs de produto (não editar sem pedir)
 ├── CLAUDE.md                        ← este arquivo
-├── scripts/gerar-seed.mjs           ← CSV → seed.sql (valida enums, falha cedo)
-└── supabase/
-    ├── config.toml
-    ├── seed.sql                     ← 163 exercícios (GERADO — não editar à mão)
-    ├── migrations/                  ← 15 arquivos, ordem numérica
-    └── functions/
-        ├── _shared/{cors,supabase,anthropic,catalogo}.ts
-        └── montar-treino/{index,validacao,fallback}.ts
+├── scripts/
+│   ├── gerar-seed.mjs               ← CSV → seed.sql (valida enums, falha cedo)
+│   └── gerar-icones.mjs             ← PNGs do PWA a partir dos tokens de cor
+├── supabase/
+│   ├── config.toml
+│   ├── seed.sql                     ← 163 exercícios (GERADO — não editar à mão)
+│   ├── migrations/                  ← 18 arquivos, ordem numérica
+│   └── functions/
+│       ├── _shared/{cors,supabase,llm,catalogo}.ts
+│       ├── montar-treino/{index,validacao,fallback}.ts
+│       ├── montar-estudo/  extrair-topicos/
+│       ├── disparar-notificacoes/   diagnostico-ia/
+└── app/                             ← front React + Vite (PWA)
+    ├── vercel.json                  ← rewrite de SPA — ver NOTAS-DEPLOY.md
+    ├── public/icones/               ← GERADOS por scripts/gerar-icones.mjs
+    └── src/
+        ├── lib/{supabase,auth,dados,fila,progressao,montarTreino}.ts
+        └── telas/{Login,AuthCallback,Onboarding,Home,Treino,
+                   EditarPlano,SessaoTreino,Estudo,Grupo}.tsx
 ```
 
 ### Pronto
@@ -138,11 +149,53 @@ não achado. **Reavaliar depois de semanas de uso real**, aí sim vale podar.
 
 ### Falta
 
-- [ ] `deno check supabase/functions/**/*.ts` — o TypeScript nunca foi
-      compilado (Deno não está instalado nesta máquina)
-- [ ] Deploy das 4 Edge Functions + `supabase secrets set`
-- [ ] Popular `private.config` com `projeto_url` e `cron_secret`
-- [ ] Frontend inteiro
+- [ ] `deno check supabase/functions/**/*.ts` — Deno não está instalado nesta
+      máquina (as funções compilam no deploy, que é `ACTIVE` nas 5)
+- [ ] Popular `private.config` com `projeto_url` e `cron_secret` (o push fica
+      em silêncio até isso existir — de propósito)
+- [ ] UI de push/service worker de notificação no cliente
+- [ ] `extrair-topicos` não tem tela: Estudo só cria matéria manualmente
+- [ ] Feed e revisão semanal não têm tela
+- [ ] Nenhum teste automatizado — só `tsc --noEmit` e `vite build`
+
+---
+
+## 1b. Autenticação — a pegadinha do domínio próprio
+
+Depois da troca para `megs.digital`, confirmar conta parou de funcionar.
+Eram **duas** causas somadas, e nenhuma aparecia no console do navegador:
+
+1. **`emailRedirectTo` nunca era enviado.** Sem ele, o link do e-mail aponta
+   para o *Site URL* do projeto — que continuou sendo o endereço antigo.
+   Corrigido em `app/src/lib/supabase.ts` (`urlDeRetornoDeAuth()`).
+2. **A Vercel devolvia 404 de verdade em qualquer rota do SPA.** Medido:
+   `/treino`, `/auth/callback` e `/rota-inexistente` respondiam 404
+   `text/plain`. Passou meses despercebido porque **o service worker do PWA
+   servia o `index.html` do cache** para quem já tinha o app aberto. O link
+   do e-mail abre no navegador do app de e-mail, sem service worker — e
+   batia na 404. Corrigido por `app/vercel.json` (ver `app/NOTAS-DEPLOY.md`).
+
+**O que ainda depende do painel do Supabase** (não dá para fazer por
+migration nem por MCP — `db push` não toca em config de Auth):
+
+> Authentication → URL Configuration
+> - **Site URL:** `https://www.megs.digital`
+> - **Redirect URLs:** `https://www.megs.digital/auth/callback`,
+>   `https://megs.digital/auth/callback`,
+>   `http://localhost:5173/auth/callback`
+
+Sem isso o Supabase **ignora o `emailRedirectTo` em silêncio** e usa o Site
+URL. `supabase/config.toml` já tem os mesmos valores, mas ele configura o
+stack **local**; só `supabase config push` sincroniza com a nuvem.
+
+**Não existe 2FA/MFA neste app** — `auth.mfa_factors` está vazio e não há
+código de MFA. O que era chamado de "autenticação de dois fatores" é a
+confirmação de conta por e-mail, que é o que foi corrigido.
+
+**Fluxo escolhido: `implicit`, não `pkce`** (explícito em `supabase.ts`). No
+PKCE o verificador fica no localStorage do navegador que pediu o cadastro:
+quem se cadastra no celular e abre o e-mail no notebook trava em "code
+verifier missing". Implícito funciona entre aparelhos.
 
 ---
 
@@ -177,13 +230,11 @@ npm install -g supabase        # ou: scoop install supabase
 irm https://deno.land/install.ps1 | iex
 ```
 
-### Repositório git — **pendência real**
+### Repositório git — resolvido
 
-`git rev-parse --show-toplevel` devolve `C:/Users/rgama`: o repositório foi
-inicializado na **pasta pessoal inteira**, não no projeto. Por isso
-`git status` lista `AppData`, `NTUSER.DAT`, etc. Antes de qualquer commit,
-decidir com o usuário: `git init` dentro da pasta do projeto, ou mover o
-projeto para fora do repo pessoal. **Não commitar nada até resolver.**
+Repositório próprio na pasta do projeto, remoto `github.com/frandony/GEM`,
+branch `main`. (Uma versão antiga deste arquivo dizia que o repo tinha sido
+inicializado na pasta pessoal — não é mais o caso.)
 
 ---
 
@@ -242,6 +293,21 @@ node scripts/gerar-seed.mjs
 
 O script valida cada valor contra os enums e **falha antes de escrever** se o
 CSV divergir do schema.
+
+### Frontend
+
+```powershell
+cd app
+npm ci
+npm run dev            # http://localhost:5173 — exige app/.env preenchido
+npm run lint           # tsc --noEmit
+npm run build          # tsc -b && vite build
+node ../scripts/gerar-icones.mjs   # regera app/public/icones/ dos tokens
+```
+
+Deploy é automático pela Vercel no push para `main`. O **Root Directory** do
+projeto na Vercel precisa ser `app` — senão o `vercel.json` não é lido e as
+rotas voltam a dar 404.
 
 ---
 
@@ -421,12 +487,40 @@ Itens 4 e 5 decidem se o app é usado de verdade.
 
 ---
 
-## 8. Ao retomar
+## 8. Edição do plano de treino (front)
+
+`app/src/telas/EditarPlano.tsx`, alcançável por "Meu plano" na tela de Treino.
+Antes disso o plano ficava **congelado para sempre** depois do onboarding: a
+tela de montar treino só aparecia para quem *não* tinha plano.
+
+Três operações por exercício — ajustar (séries/reps/descanso), trocar
+(`substitutos_do_exercicio`: 3 da IA + catálogo do mesmo grupo e padrão) e
+remover — mais excluir o plano inteiro.
+
+**Nenhuma RPC nova.** A RLS já dá UPDATE/DELETE ao dono, e as invariantes
+são CHECK e UNIQUE do schema (`ck_reps_xor_tempo`, `series between 1 and 10`,
+`unique (sessao_id, exercicio_id)`). Reescrever essas regras numa RPC seria
+a segunda definição da mesma coisa — o erro que já custou caro no
+`fallback.ts`. O cliente traduz `23505` e `23514` para português e valida
+antes de enviar, mas o banco continua sendo a autoridade.
+
+**Excluir o plano não apaga histórico.** Verificado contra o banco real, com
+DELETE dentro de bloco revertido: `treino_sessoes` 12 → 12,
+`series_registros` 98 → 98, `sessoes` 6 → 3. As execuções que apontavam para
+as sessões apagadas ficam com `sessao_id` nulo (`on delete set null`) e
+seguem legíveis pela letra e nome congelados na própria linha. Streak e
+grupo não são afetados.
+
+---
+
+## 9. Ao retomar
 
 1. Ler este arquivo e `00_PLANO.md`.
 2. Conferir o que falta na seção 1.
 3. Antes de mexer em SQL, carregar a skill `postgres-best-practices`; antes de
    mexer em Edge Function que chama IA, carregar `claude-api`.
-4. **As migrations nunca rodaram contra um banco.** O primeiro `db push` vai
-   achar erro de digitação — é esperado. Rodar `supabase db advisors` logo
-   depois.
+4. Migrations e Edge Functions **já rodaram contra o banco de produção**
+   (`labkfsakestwjxmcmirj`). Migration nova = `supabase migration new`, nunca
+   editar uma já aplicada.
+5. Para mexer no front, `cd app && npm ci` primeiro — `node_modules` não é
+   commitado e o `tsc` não roda sem ele.

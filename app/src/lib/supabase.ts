@@ -16,8 +16,36 @@ export const supabase = createClient(url, chave, {
     persistSession: true,
     autoRefreshToken: true,
     storageKey: "treino-sessao",
+
+    // `implicit` explícito, não por acaso — e não `pkce`.
+    // No PKCE o verificador fica no localStorage do navegador que pediu o
+    // cadastro. Quem se cadastra no celular e abre o e-mail no notebook
+    // (ou no navegador embutido do Gmail) cai em "code verifier missing" e
+    // não tem como confirmar a conta. O implícito devolve o token no
+    // fragmento da URL e funciona em qualquer aparelho.
+    flowType: "implicit",
+
+    // Deixa explícito o que faz o /auth/callback funcionar: ao carregar,
+    // o cliente lê o fragmento da URL e grava a sessão sozinho.
+    detectSessionInUrl: true,
   },
 });
+
+/**
+ * Para onde o Supabase deve mandar a pessoa depois de clicar no link do
+ * e-mail. Precisa ser calculado em tempo de execução, não fixado em build:
+ * o mesmo bundle roda em localhost, no preview da Vercel e em
+ * megs.digital, e um valor fixo quebraria dois dos três.
+ *
+ * ATENÇÃO — isto sozinho não basta. Toda URL usada aqui precisa estar na
+ * allowlist do painel do Supabase (Authentication → URL Configuration →
+ * Redirect URLs). Se não estiver, o Supabase ignora o parâmetro em
+ * silêncio e usa o Site URL, que era o motivo dos links de confirmação
+ * continuarem indo para o endereço antigo depois da troca de domínio.
+ */
+export function urlDeRetornoDeAuth(): string {
+  return `${window.location.origin}/auth/callback`;
+}
 
 /**
  * `supabase.functions.invoke()` erra com "Edge Function returned a non-2xx

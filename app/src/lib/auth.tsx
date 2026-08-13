@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { supabase, urlDeRetornoDeAuth } from "./supabase";
 
 interface EstadoAuth {
   sessao: Session | null;
@@ -17,6 +17,8 @@ interface EstadoAuth {
     senha: string,
     nome: string,
   ) => Promise<{ erro: string | null; precisaConfirmarEmail: boolean }>;
+  /** Reenvia o e-mail de confirmação. Devolve a mensagem de erro, ou null. */
+  reenviarConfirmacao: (email: string) => Promise<string | null>;
   sair: () => Promise<void>;
 }
 
@@ -48,11 +50,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: senha,
-      options: { data: { nome } },
+      options: {
+        data: { nome },
+        // Sem isto o link do e-mail aponta para o Site URL do projeto — que
+        // continuou sendo o endereço antigo depois da mudança para
+        // megs.digital, e por isso confirmar a conta parava de funcionar.
+        emailRedirectTo: urlDeRetornoDeAuth(),
+      },
     });
     if (error) return { erro: error.message, precisaConfirmarEmail: false };
     // Se o projeto exige confirmação por e-mail, o signUp não devolve sessão.
     return { erro: null, precisaConfirmarEmail: !data.session };
+  }
+
+  async function reenviarConfirmacao(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: urlDeRetornoDeAuth() },
+    });
+    return error?.message ?? null;
   }
 
   async function sair() {
@@ -60,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Contexto.Provider value={{ sessao, carregando, entrar, criarConta, sair }}>
+    <Contexto.Provider
+      value={{ sessao, carregando, entrar, criarConta, reenviarConfirmacao, sair }}
+    >
       {children}
     </Contexto.Provider>
   );

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 
 export function Login() {
-  const { entrar, criarConta } = useAuth();
+  const { entrar, criarConta, reenviarConfirmacao } = useAuth();
   const [modo, setModo] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -10,20 +10,40 @@ export function Login() {
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [confirmarEmail, setConfirmarEmail] = useState(false);
+  // Aparece quando o login falha por conta não confirmada — o caso em que
+  // a pessoa está presa e o único caminho é um e-mail novo.
+  const [ofereceReenvio, setOfereceReenvio] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
 
   async function aoSubmeter(e: FormEvent) {
     e.preventDefault();
     setErro(null);
+    setOfereceReenvio(false);
     setEnviando(true);
     try {
       if (modo === "entrar") {
         const msg = await entrar(email, senha);
-        if (msg) setErro(traduzirErro(msg));
+        if (msg) {
+          setErro(traduzirErro(msg));
+          if (/not confirmed/i.test(msg)) setOfereceReenvio(true);
+        }
       } else {
         const r = await criarConta(email, senha, nome);
         if (r.erro) setErro(traduzirErro(r.erro));
         else if (r.precisaConfirmarEmail) setConfirmarEmail(true);
       }
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function aoReenviar() {
+    setEnviando(true);
+    setErro(null);
+    try {
+      const msg = await reenviarConfirmacao(email);
+      if (msg) setErro(traduzirErro(msg));
+      else setReenviado(true);
     } finally {
       setEnviando(false);
     }
@@ -35,6 +55,21 @@ export function Login() {
         <div className="vazio w-full">
           <span className="chip chip-ok">Quase lá</span>
           <p>Enviamos um link de confirmação para {email}. Abra o e-mail para ativar sua conta.</p>
+          <p className="text-xs text-ink-muted">
+            O link vale por 1 hora e abre neste mesmo endereço.
+          </p>
+          {reenviado ? (
+            <span className="chip chip-ok">E-mail reenviado</span>
+          ) : (
+            <button className="btn btn-neutro" onClick={aoReenviar} disabled={enviando}>
+              {enviando ? "Enviando…" : "Não recebi — reenviar"}
+            </button>
+          )}
+          {erro && (
+            <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>
+              {erro}
+            </p>
+          )}
           <button className="btn btn-neutro" onClick={() => setConfirmarEmail(false)}>
             Voltar
           </button>
@@ -99,6 +134,20 @@ export function Login() {
           </p>
         )}
 
+        {ofereceReenvio &&
+          (reenviado ? (
+            <span className="chip chip-ok">E-mail de confirmação reenviado</span>
+          ) : (
+            <button
+              className="btn btn-neutro"
+              type="button"
+              onClick={aoReenviar}
+              disabled={enviando}
+            >
+              Reenviar e-mail de confirmação
+            </button>
+          ))}
+
         <button className="btn btn-treino btn-bloco" type="submit" disabled={enviando}>
           {enviando ? "Um momento…" : modo === "entrar" ? "Entrar" : "Criar conta"}
         </button>
@@ -121,5 +170,13 @@ function traduzirErro(msg: string): string {
   if (/invalid login credentials/i.test(msg)) return "E-mail ou senha incorretos.";
   if (/user already registered/i.test(msg)) return "Já existe uma conta com este e-mail.";
   if (/password.*at least/i.test(msg)) return "A senha precisa de pelo menos 6 caracteres.";
+  if (/email not confirmed/i.test(msg))
+    return "Sua conta ainda não foi confirmada. Abra o link que enviamos por e-mail.";
+  // O Supabase limita e-mails transacionais por hora. Sem esta tradução a
+  // pessoa lê "over_email_send_rate_limit" e conclui que o app quebrou.
+  if (/rate limit|too many requests/i.test(msg))
+    return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+  if (/redirect|not allowed/i.test(msg))
+    return "Este endereço não está liberado no painel do Supabase.";
   return msg;
 }
