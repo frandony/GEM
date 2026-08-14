@@ -535,6 +535,160 @@ export async function excluirProgramaAtivo(userId: string): Promise<void> {
 }
 
 /* ---------------------------------------------------------------------
+   Histórico de treinos — sessões passadas, com o que foi realmente
+   registrado (não confundir com `carregarPlanoCompleto`, que é o MOLDE).
+   --------------------------------------------------------------------- */
+
+export interface SessaoHistorico {
+  id: string;
+  data: string;
+  sessaoLetra: string | null;
+  sessaoNome: string | null;
+  status: "concluida" | "abandonada";
+  iniciadaEm: string;
+  finalizadaEm: string | null;
+  totalSeries: number;
+  volumeKg: number;
+}
+
+const HISTORICO_POR_PAGINA = 15;
+
+/**
+ * Sessões concluídas ou abandonadas, mais recentes primeiro. Paginado por
+ * offset — pede uma linha a mais que o tamanho da página só para saber se
+ * existe próxima, sem precisar de `count`.
+ */
+export async function carregarHistoricoTreinos(
+  userId: string,
+  pagina: number,
+): Promise<{ sessoes: SessaoHistorico[]; temMais: boolean }> {
+  const de = pagina * HISTORICO_POR_PAGINA;
+  const ate = de + HISTORICO_POR_PAGINA;
+
+  const { data, error } = await supabase
+    .from("treino_sessoes")
+    .select("id,data,sessao_letra,sessao_nome,status,iniciada_em,finalizada_em")
+    .eq("user_id", userId)
+    .neq("status", "em_andamento")
+    .order("data", { ascending: false })
+    .order("iniciada_em", { ascending: false })
+    .range(de, ate)
+    .returns<
+      Array<{
+        id: string;
+        data: string;
+        sessao_letra: string | null;
+        sessao_nome: string | null;
+        status: "concluida" | "abandonada";
+        iniciada_em: string;
+        finalizada_em: string | null;
+      }>
+    >();
+
+  if (error || !data) {
+    console.warn("histórico de treinos indisponível:", error?.message);
+    return { sessoes: [], temMais: false };
+  }
+
+  const temMais = data.length > HISTORICO_POR_PAGINA;
+  const linhas = data.slice(0, HISTORICO_POR_PAGINA);
+  const ids = linhas.map((s) => s.id);
+
+  const porSessao = new Map<string, { series: number; volume: number }>();
+  if (ids.length > 0) {
+    const { data: series } = await supabase
+      .from("series_registros")
+      .select("treino_sessao_id,carga_kg,reps")
+      .in("treino_sessao_id", ids);
+    for (const r of series ?? []) {
+      const atual = porSessao.get(r.treino_sessao_id) ?? { series: 0, volume: 0 };
+      atual.series += 1;
+      atual.volume += (r.carga_kg ?? 0) * (r.reps ?? 0);
+      porSessao.set(r.treino_sessao_id, atual);
+    }
+  }
+
+  return {
+    sessoes: linhas.map((s) => ({
+      id: s.id,
+      data: s.data,
+      sessaoLetra: s.sessao_letra,
+      sessaoNome: s.sessao_nome,
+      status: s.status,
+      iniciadaEm: s.iniciada_em,
+      finalizadaEm: s.finalizada_em,
+      totalSeries: porSessao.get(s.id)?.series ?? 0,
+      volumeKg: Math.round(porSessao.get(s.id)?.volume ?? 0),
+    })),
+    temMais,
+  };
+}
+
+export interface SerieDoHistorico {
+  numeroSerie: number;
+  reps: number | null;
+  cargaKg: number | null;
+  duracaoSeg: number | null;
+}
+
+export interface ExercicioDoHistorico {
+  exercicioId: number;
+  nome: string;
+  series: SerieDoHistorico[];
+}
+
+/**
+ * Detalhe de uma sessão: séries de fato registradas, agrupadas por
+ * exercício na ordem em que foram feitas — não na ordem do molde, que
+ * pode ter mudado desde então.
+ */
+export async function carregarDetalheSessaoTreino(
+  treinoSessaoId: string,
+): Promise<ExercicioDoHistorico[]> {
+  const { data, error } = await supabase
+    .from("series_registros")
+    .select(
+      // Mesmo motivo do hint em `carregarExerciciosDaSessao`: a coluna
+      // `planejado_id` também referencia `exercicios`, então o embed sem
+      // hint fica ambíguo entre as duas FKs.
+      "exercicio_id,numero_serie,reps,carga_kg,duracao_seg,exercicios!series_registros_exercicio_id_fkey(nome)",
+    )
+    .eq("treino_sessao_id", treinoSessaoId)
+    .order("registrada_em", { ascending: true })
+    .returns<
+      Array<{
+        exercicio_id: number;
+        numero_serie: number;
+        reps: number | null;
+        carga_kg: number | null;
+        duracao_seg: number | null;
+        exercicios: { nome: string } | null;
+      }>
+    >();
+
+  if (error || !data) {
+    console.warn("detalhe da sessão indisponível:", error?.message);
+    return [];
+  }
+
+  const porExercicio = new Map<number, ExercicioDoHistorico>();
+  for (const r of data) {
+    let ex = porExercicio.get(r.exercicio_id);
+    if (!ex) {
+      ex = { exercicioId: r.exercicio_id, nome: r.exercicios?.nome ?? "Exercício", series: [] };
+      porExercicio.set(r.exercicio_id, ex);
+    }
+    ex.series.push({
+      numeroSerie: r.numero_serie,
+      reps: r.reps,
+      cargaKg: r.carga_kg,
+      duracaoSeg: r.duracao_seg,
+    });
+  }
+  return Array.from(porExercicio.values());
+}
+
+/* ---------------------------------------------------------------------
    Estudo
    --------------------------------------------------------------------- */
 
@@ -712,12 +866,14 @@ export async function criarMateriaSimples(
   nome: string,
   topicos: Array<{ nome: string; dificuldade: "facil" | "medio" | "dificil" | null }>,
   eventos: EventoNovo[] = [],
+  origem: "manual" | "pdf" = "manual",
+  confianca: "alta" | "media" | "baixa" = "alta",
 ): Promise<string> {
   const { data, error } = await supabase.rpc("salvar_materia_com_topicos", {
     p_nome: nome,
     p_topicos: topicos,
-    p_origem: "manual",
-    p_confianca: "alta",
+    p_origem: origem,
+    p_confianca: confianca,
     p_eventos: eventos,
   });
   if (error) throw new Error(error.message);

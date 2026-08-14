@@ -172,12 +172,17 @@ export function Treino() {
     <div className="tela">
       <header className="flex items-baseline justify-between mb-4">
         <h1 className="h1">Treino</h1>
-        {/* Único caminho até a edição do plano. Sem ele, depois do
-            onboarding o plano ficava congelado para sempre: a tela de
-            montar treino só aparecia para quem NÃO tinha plano. */}
-        <Link className="text-sm text-ink-muted underline" to="/treino/plano">
-          Meu plano
-        </Link>
+        <div className="flex items-baseline gap-3">
+          <Link className="text-sm text-ink-muted underline" to="/treino/historico">
+            Histórico
+          </Link>
+          {/* Único caminho até a edição do plano. Sem ele, depois do
+              onboarding o plano ficava congelado para sempre: a tela de
+              montar treino só aparecia para quem NÃO tinha plano. */}
+          <Link className="text-sm text-ink-muted underline" to="/treino/plano">
+            Meu plano
+          </Link>
+        </div>
       </header>
 
       {proxima ? (

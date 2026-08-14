@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { ChevronLeft, Timer } from "lucide-react";
 import { enfileirar, novoId } from "../lib/fila";
+import { notificarFimDoTimer } from "../lib/notificacaoTimer";
 import { explicarSugestao, sugestaoDeCarga, type Sugestao } from "../lib/progressao";
 import { IndicadorPendencia } from "../componentes/IndicadorPendencia";
 import { Toast } from "../componentes/Toast";
@@ -108,8 +109,12 @@ export function SessaoTreino({
     if (descansando == null) return;
     const fim = descansando;
     const tique = setInterval(() => {
-      if (Date.now() >= fim) setDescansando(null);
-      else setDescansando((d) => d); // força re-render
+      if (Date.now() >= fim) {
+        setDescansando(null);
+        notificarFimDoTimer();
+      } else {
+        setDescansando((d) => d); // força re-render
+      }
     }, 250);
     return () => clearInterval(tique);
   }, [descansando]);

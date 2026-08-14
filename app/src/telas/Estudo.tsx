@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link } from "react-router";
-import { Calendar, Check, Pause, Play, RotateCcw, SkipForward, X } from "lucide-react";
+import { Calendar, Check, Pause, Play, RotateCcw, SkipForward, Upload, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
+import { notificarFimDoTimer } from "../lib/notificacaoTimer";
+import { extrairTextoDoPdf } from "../lib/pdf";
+import { extrairTopicosDoTexto, type DataExtraidaDoPdf } from "../lib/extrairTopicos";
 import {
   carregarBlocosDoDia,
   carregarMaterias,
@@ -60,6 +63,7 @@ export function Estudo() {
       if (restam <= 0) {
         setRodando(false);
         setToast("Pomodoro concluído!");
+        notificarFimDoTimer();
       }
     }, 250);
     return () => clearInterval(tique);
@@ -280,6 +284,47 @@ function NovaMateria({
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Modo só decide qual entrada de tópico aparece. `origemAtual` e
+  // `confiancaAtual` são o que de fato vai pro banco — ficam "manual"/
+  // "alta" até uma extração de PDF ter sucesso, e não voltam atrás só
+  // porque a pessoa reabriu o modo manual pra ajustar um tópico.
+  const [modo, setModo] = useState<"manual" | "pdf">("manual");
+  const [origemAtual, setOrigemAtual] = useState<"manual" | "pdf">("manual");
+  const [confiancaAtual, setConfiancaAtual] = useState<"alta" | "media" | "baixa">("alta");
+  const [pdfEstado, setPdfEstado] = useState<"ocioso" | "lendo" | "analisando" | "erro">("ocioso");
+  const [pdfErro, setPdfErro] = useState<string | null>(null);
+  const [pdfNomeArquivo, setPdfNomeArquivo] = useState<string | null>(null);
+  const [pdfAvisos, setPdfAvisos] = useState<string[]>([]);
+  const [pdfDatas, setPdfDatas] = useState<DataExtraidaDoPdf[]>([]);
+
+  async function aoEscolherPdf(arquivo: File) {
+    setPdfNomeArquivo(arquivo.name);
+    setPdfErro(null);
+    setPdfAvisos([]);
+    setPdfDatas([]);
+    setPdfEstado("lendo");
+    try {
+      const texto = await extrairTextoDoPdf(arquivo);
+      setPdfEstado("analisando");
+      const extracao = await extrairTopicosDoTexto(texto);
+
+      setTopicos(extracao.topicos.length > 0 ? extracao.topicos.map((t) => t.nome) : [""]);
+      if (!nome.trim() && extracao.materiaDetectada) setNome(extracao.materiaDetectada);
+      setOrigemAtual("pdf");
+      setConfiancaAtual(extracao.confianca);
+      setPdfDatas(extracao.datasEncontradas);
+      setPdfAvisos(
+        extracao.topicos.length === 0
+          ? ["Nenhum tópico identificado neste arquivo — digite manualmente abaixo."]
+          : extracao.avisos,
+      );
+      setPdfEstado("ocioso");
+    } catch (e) {
+      setPdfErro(e instanceof Error ? e.message : "Não deu para ler o arquivo.");
+      setPdfEstado("erro");
+    }
+  }
+
   function adicionarEvento() {
     if (!dataEventoNovo) return;
     setEventos((atual) => [
@@ -304,6 +349,8 @@ function NovaMateria({
         nome.trim(),
         nomesTopicos.map((n) => ({ nome: n, dificuldade: null })),
         eventos,
+        origemAtual,
+        confiancaAtual,
       );
       await onCriada();
     } catch (e) {
@@ -335,6 +382,100 @@ function NovaMateria({
       </label>
 
       <div>
+        <div className="text-sm text-ink-muted mb-1">Como cadastrar os tópicos</div>
+        <div className="flex gap-2 mb-3">
+          <button
+            type="button"
+            className={modo === "manual" ? "chip chip-estudo" : "chip"}
+            onClick={() => setModo("manual")}
+          >
+            Digitar
+          </button>
+          <button
+            type="button"
+            className={modo === "pdf" ? "chip chip-estudo" : "chip"}
+            onClick={() => setModo("pdf")}
+          >
+            Importar PDF
+          </button>
+        </div>
+
+        {modo === "pdf" && (
+          <div className="flex flex-col gap-2 mb-3">
+            <label className="btn btn-neutro w-fit flex items-center gap-2" style={{ cursor: "pointer" }}>
+              <Upload size={16} />
+              {pdfNomeArquivo ? "Trocar arquivo" : "Escolher PDF do plano de ensino"}
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="sr-only"
+                onChange={(e) => {
+                  const arquivo = e.target.files?.[0];
+                  if (arquivo) void aoEscolherPdf(arquivo);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {pdfNomeArquivo && <p className="text-xs text-ink-terciario num">{pdfNomeArquivo}</p>}
+
+            {pdfEstado === "lendo" && <p className="text-sm text-ink-muted">Lendo o PDF…</p>}
+            {pdfEstado === "analisando" && (
+              <p className="text-sm text-ink-muted">
+                A IA está identificando os tópicos — pode levar até um minuto.
+              </p>
+            )}
+            {pdfEstado === "erro" && pdfErro && (
+              <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>{pdfErro}</p>
+            )}
+            {pdfEstado === "ocioso" && origemAtual === "pdf" && (
+              <div className="flex flex-col gap-1">
+                <span className="badge badge-estudo w-fit">
+                  {topicos.filter((t) => t.trim()).length} tópicos extraídos — revise abaixo antes de salvar
+                </span>
+                {confiancaAtual === "baixa" && (
+                  <p className="text-xs text-atencao-ink">Confiança baixa: confira cada tópico com atenção.</p>
+                )}
+                {pdfAvisos.map((a, i) => (
+                  <p key={i} className="text-xs text-ink-terciario">· {a}</p>
+                ))}
+              </div>
+            )}
+
+            {pdfDatas.length > 0 && (
+              <div className="mt-1">
+                <div className="text-sm text-ink-muted mb-1">Datas encontradas no documento</div>
+                <div className="flex flex-col gap-2">
+                  {pdfDatas.map((d, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-md border border-hairline px-3 py-2">
+                      <Calendar size={16} className="text-ink-muted shrink-0" />
+                      <span className="text-sm flex-1">
+                        {d.tipo === "prova" ? "Prova" : "Entrega"} — "{d.dataTexto}"
+                        {d.descricao && ` · ${d.descricao}`}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs text-estudo-ink underline shrink-0"
+                        onClick={() => {
+                          setTipoEventoNovo(d.tipo);
+                          setDescEventoNovo(d.descricao ?? "");
+                        }}
+                      >
+                        Usar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-ink-terciario mt-1">
+                  O texto da data não é confiável — escolha a data certa embaixo antes de adicionar.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {(modo === "manual" || origemAtual === "pdf") && (
+      <div>
         <div className="text-sm text-ink-muted mb-1">Tópicos</div>
         {topicos.map((t, i) => (
           <input
@@ -355,6 +496,7 @@ function NovaMateria({
           + tópico
         </button>
       </div>
+      )}
 
       <div>
         <div className="text-sm text-ink-muted mb-1">

@@ -30,6 +30,13 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
+        // pdf.js (core + worker) só é importado sob demanda em "Nova
+        // matéria → Importar PDF" — a maioria nunca abre essa tela. Sem
+        // isto, o chunk de ~330 KB entrava no precache do app inteiro
+        // (quase metade do precache total) só para instalar o PWA.
+        // Continua sendo baixado normalmente na hora do uso, só não é
+        // puxado de propósito no install.
+        globIgnores: ["**/pdf-*.js", "**/pdf.worker*"],
         // O catálogo de exercícios é global e quase imutável — vale cache
         // longo. Já as chamadas de dado do usuário nunca são cacheadas:
         // servir treino velho é pior que não servir.

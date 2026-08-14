@@ -18,7 +18,9 @@ import {
   type ResumoSemanal,
 } from "../lib/dados";
 import type { ExercicioDaSessao } from "./SessaoTreino";
-import { BarChart3, Dumbbell, Play, Settings, Timer } from "lucide-react";
+import { BarChart3, Dumbbell, Download, Play, Settings, Timer } from "lucide-react";
+import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
+import { Toast } from "../componentes/Toast";
 
 /** "Francisco Vasconcelos" → "FV". Só letras — número ou emoji no nome
     (existe gente assim) não vira parte da inicial. */
@@ -43,6 +45,8 @@ export function Home() {
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [resumo, setResumo] = useState<ResumoSemanal | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [exportando, setExportando] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   async function carregar() {
     const p = await carregarPerfil(userId);
@@ -82,6 +86,19 @@ export function Home() {
     void carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  async function exportar() {
+    setExportando(true);
+    try {
+      const dados = await exportarDadosDoUsuario(userId);
+      const hoje = hojeNoFuso(perfil?.timezone ?? "America/Sao_Paulo");
+      baixarComoJson(dados, `megs-digital-backup-${hoje}.json`);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Não deu para gerar o backup.");
+    } finally {
+      setExportando(false);
+    }
+  }
 
   if (carregando || !perfil) {
     return (
@@ -301,9 +318,17 @@ export function Home() {
         </div>
       </section>
 
-      <button className="btn btn-neutro" onClick={() => void sair()}>
-        Sair
-      </button>
+      <Toast mensagem={toast} onFechar={() => setToast(null)} />
+
+      <div className="flex flex-col gap-3">
+        <button className="btn btn-neutro flex items-center justify-center gap-2" onClick={() => void exportar()} disabled={exportando}>
+          <Download size={16} />
+          {exportando ? "Gerando backup…" : "Exportar meus dados"}
+        </button>
+        <button className="btn btn-neutro" onClick={() => void sair()}>
+          Sair
+        </button>
+      </div>
     </div>
   );
 }
