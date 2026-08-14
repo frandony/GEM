@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Calendar, Check, Pause, Play, RotateCcw, SkipForward, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -42,6 +42,14 @@ export function Estudo() {
   // ao pausar, `restante` já está congelado no último valor calculado.
   const [restante, setRestante] = useState(DURACAO_POMODORO);
   const [rodando, setRodando] = useState(false);
+
+  // O formulário de nova matéria abre no fim da página, embaixo da lista
+  // de disciplinas — sem isso, o toque em "Nova matéria" não muda nada
+  // visível na tela (o card nasce fora da viewport).
+  const formNovaMateriaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (criando) formNovaMateriaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [criando]);
 
   useEffect(() => {
     if (!rodando) return;
@@ -242,18 +250,27 @@ export function Estudo() {
           Nova matéria
         </button>
       ) : (
-        <NovaMateria
-          onCriada={async () => {
-            setCriando(false);
-            await carregar();
-          }}
-        />
+        <div ref={formNovaMateriaRef}>
+          <NovaMateria
+            onCriada={async () => {
+              setCriando(false);
+              await carregar();
+            }}
+            onCancelar={() => setCriando(false)}
+          />
+        </div>
       )}
     </div>
   );
 }
 
-function NovaMateria({ onCriada }: { onCriada: () => void | Promise<void> }) {
+function NovaMateria({
+  onCriada,
+  onCancelar,
+}: {
+  onCriada: () => void | Promise<void>;
+  onCancelar?: () => void;
+}) {
   const [nome, setNome] = useState("");
   const [topicos, setTopicos] = useState(["", "", ""]);
   const [eventos, setEventos] = useState<EventoNovo[]>([]);
@@ -298,6 +315,20 @@ function NovaMateria({ onCriada }: { onCriada: () => void | Promise<void> }) {
 
   return (
     <form onSubmit={aoSubmeter} className="card flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <span className="h2">Nova matéria</span>
+        {onCancelar && (
+          <button
+            type="button"
+            className="text-ink-muted shrink-0"
+            onClick={onCancelar}
+            aria-label="Cancelar"
+          >
+            <X size={20} />
+          </button>
+        )}
+      </div>
+
       <label>
         <div className="text-sm text-ink-muted mb-1">Nome da matéria</div>
         <input className="campo" value={nome} onChange={(e) => setNome(e.target.value)} />
@@ -384,7 +415,7 @@ function NovaMateria({ onCriada }: { onCriada: () => void | Promise<void> }) {
           onChange={(e) => setDescEventoNovo(e.target.value)}
         />
         <button type="button" className="btn btn-neutro" onClick={adicionarEvento} disabled={!dataEventoNovo}>
-          + evento
+          Adicionar evento
         </button>
       </div>
 
