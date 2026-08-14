@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { LevantadorPixel } from "../componentes/CarregandoIA";
 import { montarTreino, type PedidoMontarTreino } from "../lib/montarTreino";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -156,7 +157,8 @@ export function Onboarding() {
       <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
         <div className="vazio w-full">
           <span className="badge badge-treino">Montando seu treino</span>
-          <p>
+          <LevantadorPixel />
+          <p className="text-sm text-ink-muted">
             A IA está lendo o catálogo inteiro e escolhendo os exercícios certos para você.
             Costuma levar entre 15 segundos e 2 minutos — não feche o app.
           </p>

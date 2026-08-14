@@ -581,4 +581,16 @@
     animation: pulsar 2s var(--ease-mover) infinite;
   }
   @keyframes pulsar { 50% { opacity: 0.25; } }
+
+  /* ---- Mascote da tela de espera de IA ------------------------------
+     Sprite pixel-art de 2 poses que troca em `steps(1)` (sem crossfade
+     — é isso que dá a cara de sprite, não de ícone animado suave). */
+  .pixel-levantador {
+    width: 6.5rem;
+    height: 7.3rem;
+  }
+  .pixel-levantador__baixo { animation: pixel-levantador-baixo 1.6s steps(1) infinite; }
+  .pixel-levantador__cima  { animation: pixel-levantador-cima  1.6s steps(1) infinite; }
+  @keyframes pixel-levantador-baixo { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  @keyframes pixel-levantador-cima  { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
 }

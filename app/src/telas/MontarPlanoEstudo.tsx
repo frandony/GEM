@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { LevantadorPixel } from "../componentes/CarregandoIA";
 import { useAuth } from "../lib/auth";
 import { carregarGrade, carregarMateriasParaMontagem, carregarPerfil, hojeNoFuso } from "../lib/dados";
 import { rodarDiagnostico, rodarDistribuicao, type DiagnosticoResultado, type DistribuicaoResultado } from "../lib/montarEstudo";
@@ -155,7 +156,8 @@ export function MontarPlanoEstudo() {
       <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
         <div className="vazio w-full">
           <span className="badge badge-estudo">Avaliando</span>
-          <p>
+          <LevantadorPixel cor="var(--estudo)" />
+          <p className="text-sm text-ink-muted">
             Lendo os tópicos de <strong>{passo.materiaAtual}</strong>… A IA estima o
             esforço de cada um antes de calcular o ritmo ideal. Pode levar até um
             minuto por matéria — não feche o app.
@@ -170,7 +172,10 @@ export function MontarPlanoEstudo() {
       <div className="tela flex items-center" style={{ minHeight: "100dvh" }}>
         <div className="vazio w-full">
           <span className="badge badge-estudo">Montando sua semana</span>
-          <p>Distribuindo os tópicos na sua grade de horários — pode levar um pouco.</p>
+          <LevantadorPixel cor="var(--estudo)" />
+          <p className="text-sm text-ink-muted">
+            Distribuindo os tópicos na sua grade de horários — pode levar um pouco.
+          </p>
         </div>
       </div>
     );
