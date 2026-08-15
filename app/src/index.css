@@ -554,6 +554,48 @@
     }
   }
 
+  /* ---- Barra "nova versão disponível" -------------------------------
+     Ver componentes/AtualizacaoDisponivel.tsx para o porquê de existir.
+     Fica ACIMA da nav (z 50) e ABAIXO do toast (z 100): o toast confirma
+     algo que a pessoa acabou de fazer e tem prioridade sobre um aviso
+     do sistema que pode esperar.
+
+     Fundo opaco de propósito, diferente do `.nav` (que é translúcido com
+     blur): aqui há texto e dois botões, e translucidez sobre conteúdo
+     rolando por baixo derruba o contraste justamente onde é preciso ler. */
+  .barra-atualizacao {
+    position: fixed;
+    inset-inline: var(--e-4);
+    bottom: calc(var(--nav-h) + var(--safe-b) + var(--e-3));
+    z-index: 55;
+    max-width: 36rem;
+    margin-inline: auto;
+    display: flex; align-items: center; gap: var(--e-3);
+    padding: var(--e-3) var(--e-4);
+    background: var(--bg);
+    border: 1px solid var(--hairline-forte);
+    border-radius: var(--r-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  /* Botões menores que o padrão de 48px: esta barra não é a tarefa da
+     pessoa, e dois alvos de 48 empurrariam o texto para uma segunda linha
+     em tela estreita. Continuam acima do mínimo confortável para um aviso
+     que também pode ser ignorado. */
+  .barra-atualizacao .btn {
+    min-height: 2.25rem;
+    padding-inline: var(--e-4);
+    font-size: var(--t-sm);
+  }
+
+  @media (min-width: 64rem) {
+    /* No desktop a nav vira lateral de 12rem — a barra não pode mais
+       descontar a altura dela, e precisa sair de baixo da lateral. */
+    .barra-atualizacao {
+      inset-inline: calc(12rem + var(--e-4)) var(--e-4);
+      bottom: var(--e-4);
+    }
+  }
+
   /* ---- Estado vazio ------------------------------------------------
      Tem componente próprio porque no dia 1 TODA tela está vazia (§9 do
      plano). Tratar isso como caso de exceção é o erro clássico. */

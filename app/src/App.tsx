@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { Nav } from "./componentes/Nav";
+import { AtualizacaoDisponivel } from "./componentes/AtualizacaoDisponivel";
 import { Login } from "./telas/Login";
 import { AuthCallback } from "./telas/AuthCallback";
 import { Onboarding } from "./telas/Onboarding";
@@ -102,6 +103,11 @@ export function App() {
           <Route path="*" element={<NaoEncontrado />} />
         </Routes>
       </BrowserRouter>
+
+      {/* Fora do router de propósito: o aviso de versão nova não depende
+          de rota e precisa aparecer também em /login e /onboarding, que
+          ficam fora da casca com navegação. */}
+      <AtualizacaoDisponivel />
     </AuthProvider>
   );
 }

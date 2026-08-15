@@ -10,7 +10,15 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       // `prompt` e não `autoUpdate`: trocar o app por baixo no meio de um
-      // treino perde o estado da tela. A pessoa decide quando atualizar.
+      // treino perde o estado da tela. A pessoa decide quando atualizar —
+      // quem pergunta é `componentes/AtualizacaoDisponivel.tsx`.
+      //
+      // Esta opção só funciona EM PAR com aquele componente. Sozinha, ela
+      // deixa o service worker novo parado em `waiting` para sempre (foi o
+      // que aconteceu por meses). E não é preciso setar `injectRegister`:
+      // o import de `virtual:pwa-register/react` lá desliga sozinho a
+      // injeção do `registerSW.js` automático, então não há registro
+      // duplicado.
       includeAssets: ["fontes/*.woff2", "icones/*.png"],
       manifest: {
         name: "Estudo + Treino",
