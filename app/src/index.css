@@ -278,6 +278,30 @@
   .ver-tudo svg { flex-shrink: 0; }
   .ver-tudo:active { opacity: 0.6; }
 
+  /* ---- Excluir item de lista densa (tópico) --------------------------
+     Menor e mais discreto que qualquer `.btn`: numa lista de 10 tópicos,
+     dez botões de 48px gritando "perigo" o tempo todo seria pior que a
+     bagunça que resolvem. Fica cinza fraco em repouso, só fica vermelho
+     ao ser tocado/focado — a confirmação da ação é o toast depois, não
+     uma cor de alarme antes. */
+  .topico-excluir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--r-sm);
+    color: var(--ink-fraco);
+    transition: color var(--d-entrar) var(--ease-out),
+                background var(--d-entrar) var(--ease-out);
+  }
+  .topico-excluir:active { color: var(--perigo-ink); background: var(--perigo-fraco); }
+  .topico-excluir:disabled { opacity: 0.4; pointer-events: none; }
+  @media (hover: hover) {
+    .topico-excluir:hover { color: var(--perigo-ink); background: var(--perigo-fraco); }
+  }
+
   /* ---- Chip de estado ------------------------------------------------
      Uso: FILTRO/SELEÇÃO — as opções da Onboarding (divisão, ênfase,
      nível...), onde o alvo de toque conta mais que o formato. Pra

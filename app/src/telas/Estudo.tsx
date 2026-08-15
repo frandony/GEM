@@ -27,6 +27,7 @@ import {
 } from "../lib/extrairTopicos";
 import {
   arquivarMateria,
+  arquivarTopico,
   carregarBlocosDoDia,
   carregarMateriasParaMontagem,
   carregarPerfil,
@@ -37,6 +38,7 @@ import {
   type BlocoEstudo,
   type EventoNovo,
   type MateriaParaMontagem,
+  type TopicoParaMontagem,
 } from "../lib/dados";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import { useToast } from "../lib/toast";
@@ -387,6 +389,10 @@ export function Estudo() {
               setMateriaAberta(null);
               await carregar();
             }}
+            onTopicoExcluido={async (nomeTopico) => {
+              toast.sucesso(`Tópico "${nomeTopico}" excluído.`);
+              await carregar();
+            }}
             onErro={(msg) => toast.erro(msg)}
           />
         ))}
@@ -485,6 +491,7 @@ function LinhaDeMateria({
   aberta,
   onAlternar,
   onExcluida,
+  onTopicoExcluido,
   onErro,
 }: {
   materia: MateriaParaMontagem;
@@ -493,11 +500,35 @@ function LinhaDeMateria({
   aberta: boolean;
   onAlternar: () => void;
   onExcluida: () => void | Promise<void>;
+  onTopicoExcluido: (nomeTopico: string) => void | Promise<void>;
   onErro: (msg: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  // Id do tópico sendo excluído — não `boolean`, porque vários podem estar
+  // na lista ao mesmo tempo e só UM botão pode ficar "excluindo…" por vez.
+  const [excluindoTopico, setExcluindoTopico] = useState<string | null>(null);
+
+  /**
+   * Excluir tópico é ação LEVE de propósito, diferente da matéria: sem
+   * modal de confirmação em 2 passos. Numa lista de 10 tópicos, exigir
+   * confirmação pra cada um vira atrito que faz a pessoa desistir de
+   * arrumar a lista. O toast que confirma ("Tópico excluído") é o "OK,
+   * entendi" — se errar o dedo, a perda é um item numa lista, não uma
+   * matéria inteira com histórico.
+   */
+  async function excluirTopico(topico: TopicoParaMontagem) {
+    setExcluindoTopico(topico.id);
+    try {
+      await arquivarTopico(topico.id);
+      await onTopicoExcluido(topico.nome);
+    } catch (e) {
+      onErro(e instanceof Error ? e.message : "Não deu para excluir o tópico.");
+    } finally {
+      setExcluindoTopico(null);
+    }
+  }
 
   useEffect(() => {
     if (nova) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -571,7 +602,7 @@ function LinhaDeMateria({
             ) : (
               <ol className="flex flex-col gap-2">
                 {materia.topicos.map((t) => (
-                  <li key={t.id} className="flex items-baseline gap-2">
+                  <li key={t.id} className="flex items-center gap-2">
                     <span className="text-xs text-ink-fraco num shrink-0" style={{ width: "1.5rem" }}>
                       {t.ordem}.
                     </span>
@@ -587,6 +618,15 @@ function LinhaDeMateria({
                     {t.compreendido === false && (
                       <span className="badge badge-atencao shrink-0">revisar</span>
                     )}
+                    <button
+                      type="button"
+                      className="topico-excluir"
+                      onClick={() => void excluirTopico(t)}
+                      disabled={excluindoTopico === t.id}
+                      aria-label={`Excluir tópico "${t.nome}"`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </li>
                 ))}
               </ol>

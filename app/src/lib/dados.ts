@@ -994,6 +994,7 @@ interface LinhaMateriaParaMontagem {
     blocos_estimados: number | null;
     dificuldade: "facil" | "medio" | "dificil" | null;
     compreendido: boolean | null;
+    ativo: boolean;
   }>;
   eventos: Array<{ id: string; tipo: "prova" | "entrega"; data: string; descricao: string | null }>;
 }
@@ -1011,7 +1012,7 @@ export async function carregarMateriasParaMontagem(userId: string): Promise<Mate
   const { data, error } = await supabase
     .from("materias")
     .select(
-      "id,nome,topicos(id,nome,ordem,blocos_estimados,dificuldade,compreendido),eventos(id,tipo,data,descricao)",
+      "id,nome,topicos(id,nome,ordem,blocos_estimados,dificuldade,compreendido,ativo),eventos(id,tipo,data,descricao)",
     )
     .eq("user_id", userId)
     .eq("ativa", true)
@@ -1026,7 +1027,12 @@ export async function carregarMateriasParaMontagem(userId: string): Promise<Mate
   return (data ?? []).map((m) => ({
     id: m.id,
     nome: m.nome,
+    // Filtro em JS, não na query: um <select> embutido do PostgREST com
+    // filtro no aninhado (`topicos.ativo=eq.true`) precisaria de `!inner`,
+    // que vira INNER JOIN e sumiria com a matéria inteira quando TODOS os
+    // tópicos dela estivessem arquivados — o oposto do que se quer aqui.
     topicos: (m.topicos ?? [])
+      .filter((t) => t.ativo)
       .slice()
       .sort((a, b) => a.ordem - b.ordem)
       .map((t) => ({
@@ -1068,6 +1074,21 @@ export async function arquivarMateria(materiaId: string): Promise<void> {
     .update({ ativa: false })
     .eq("id", materiaId);
   if (error) throw new Error(`não deu para excluir a matéria: ${error.message}`);
+}
+
+/**
+ * Mesmo raciocínio de `arquivarMateria`, um nível abaixo: `ativo = false`
+ * no tópico, nunca DELETE. `blocos.topico_id` é `on delete set null`, e
+ * `ck_bloco_tem_alvo` (CHECK imediato) exige `topico_id` OU `evento_id`
+ * preenchido — um bloco comum sem evento violaria essa regra assim que o
+ * SET NULL rodasse, abortando a transação. Migration 21.
+ */
+export async function arquivarTopico(topicoId: string): Promise<void> {
+  const { error } = await supabase
+    .from("topicos")
+    .update({ ativo: false })
+    .eq("id", topicoId);
+  if (error) throw new Error(`não deu para excluir o tópico: ${error.message}`);
 }
 
 /* ---------------------------------------------------------------------
