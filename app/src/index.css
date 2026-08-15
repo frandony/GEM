@@ -710,19 +710,21 @@
   .campo:focus { border-color: var(--hairline-forte); outline: none; }
   .campo:focus-visible { border-color: var(--treino-ink); }
 
-  /* `select.campo` — a seta nativa é desenhada pelo sistema e some no
-     fundo escuro, então trocamos por uma própria em background-image.
-     `color-scheme: dark` é o que faz o menu suspenso (que é renderizado
-     pelo SO, fora do alcance do CSS) vir escuro em vez de branco. */
+  /* `select.campo` — SÓ `color-scheme: dark`. Isso sozinho já resolve o
+     essencial: o menu suspenso (renderizado pelo SO/navegador, fora do
+     alcance do resto do CSS) vem escuro em vez de branco, e a setinha
+     nativa já se adapta ao tema sem precisar desenhar outra.
+
+     Por que não `appearance: none` + seta própria em background-image
+     (era o que existia antes): no Chromium (testado no Brave, mas é bug
+     do motor, não do navegador) essa combinação faz o menu suspenso ser
+     medido pela caixa INTEIRA do `<select>` — com o `min-height` e o
+     `padding` de `.campo`, cada `<option>` da lista virava um bloco de
+     ~90px, e a lista de 11 itens ficava um mural em branco com só um
+     item visível por vez. `appearance: none` sozinho já é o gatilho
+     comum desse bug; não vale o risco por uma seta mais bonita. */
   select.campo {
-    appearance: none;
     color-scheme: dark;
-    padding-right: var(--e-8);
-    background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
-                      linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
-    background-position: right var(--e-4) center, calc(100% - var(--e-4) + 5px) center;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
   }
 
   /* Campo de carga e reps. Grande, monoespaçado, centralizado — é o que
