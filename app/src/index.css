@@ -260,6 +260,24 @@
   .voltar svg { flex-shrink: 0; }
   .voltar:active { opacity: 0.6; }
 
+  /* ---- Link "ver tudo" -------------------------------------------------
+     O par de `.voltar`: leva de um recorte (3 últimos treinos) pra lista
+     completa. Chevron pra DIREITA — aqui a pessoa vai pra frente, pra
+     mais detalhe, não voltando. Mesma altura/cor/toque de `.voltar` de
+     propósito: são as duas metades da mesma linguagem de navegação
+     secundária, e precisam pesar igual na tela. */
+  .ver-tudo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--e-1);
+    min-height: 2rem;
+    font-size: var(--t-sm);
+    color: var(--ink-muted);
+    width: fit-content;
+  }
+  .ver-tudo svg { flex-shrink: 0; }
+  .ver-tudo:active { opacity: 0.6; }
+
   /* ---- Chip de estado ------------------------------------------------
      Uso: FILTRO/SELEÇÃO — as opções da Onboarding (divisão, ênfase,
      nível...), onde o alvo de toque conta mais que o formato. Pra

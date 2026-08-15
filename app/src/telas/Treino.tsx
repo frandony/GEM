@@ -4,6 +4,7 @@ import { Dumbbell, Flame, History, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { AvisoDeFormulario } from "../componentes/MensagemErro";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
+import { VerTudo } from "../componentes/VerTudo";
 import { SessaoTreino, type ExercicioDaSessao } from "./SessaoTreino";
 import {
   abandonarTreinoSessao,
@@ -343,11 +344,9 @@ export function Treino() {
 
           {extras.ultimos.length > 0 && (
             <section className="mb-6">
-              <div className="flex items-baseline justify-between mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <span className="rotulo-secao text-ink-muted">Últimos treinos</span>
-                <Link className="text-sm text-ink-muted underline" to="/treino/historico">
-                  ver todos
-                </Link>
+                <VerTudo to="/treino/historico" />
               </div>
               <div className="card">
                 {extras.ultimos.map((s) => (
