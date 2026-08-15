@@ -18,7 +18,13 @@ import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { notificarFimDoTimer } from "../lib/notificacaoTimer";
 import { extrairTextoDoPdf } from "../lib/pdf";
-import { extrairTopicosDoTexto, type DataExtraidaDoPdf } from "../lib/extrairTopicos";
+import {
+  extrairTopicosDoTexto,
+  gerarTopicosPeloNome,
+  type DataExtraidaDoPdf,
+  type ExtracaoDeTopicos,
+  type OrigemDosTopicos,
+} from "../lib/extrairTopicos";
 import {
   arquivarMateria,
   carregarBlocosDoDia,
@@ -639,42 +645,73 @@ function NovaMateria({
 
   // Modo só decide qual entrada de tópico aparece. `origemAtual` e
   // `confiancaAtual` são o que de fato vai pro banco — ficam "manual"/
-  // "alta" até uma extração de PDF ter sucesso, e não voltam atrás só
-  // porque a pessoa reabriu o modo manual pra ajustar um tópico.
-  const [modo, setModo] = useState<"manual" | "pdf">("manual");
-  const [origemAtual, setOrigemAtual] = useState<"manual" | "pdf">("manual");
+  // "alta" até uma extração ter sucesso, e não voltam atrás só porque a
+  // pessoa reabriu o modo manual pra ajustar um tópico.
+  const [modo, setModo] = useState<"manual" | "pdf" | "ia">("manual");
+  const [origemAtual, setOrigemAtual] = useState<OrigemDosTopicos>("manual");
   const [confiancaAtual, setConfiancaAtual] = useState<"alta" | "media" | "baixa">("alta");
-  const [pdfEstado, setPdfEstado] = useState<"ocioso" | "lendo" | "analisando" | "erro">("ocioso");
-  const [pdfErro, setPdfErro] = useState<string | null>(null);
+  const [curso, setCurso] = useState("");
+  // Estado compartilhado pelos DOIS caminhos de IA (PDF e por nome): o
+  // fluxo depois da resposta é idêntico — revisar a lista e salvar —,
+  // então duplicar seria só chance de os dois divergirem.
+  const [iaEstado, setIaEstado] = useState<"ocioso" | "lendo" | "analisando" | "erro">("ocioso");
+  const [iaErro, setIaErro] = useState<string | null>(null);
   const [pdfNomeArquivo, setPdfNomeArquivo] = useState<string | null>(null);
-  const [pdfAvisos, setPdfAvisos] = useState<string[]>([]);
+  const [iaAvisos, setIaAvisos] = useState<string[]>([]);
   const [pdfDatas, setPdfDatas] = useState<DataExtraidaDoPdf[]>([]);
+
+  /** Ponto único onde uma extração vira estado do formulário. */
+  function aplicarExtracao(extracao: ExtracaoDeTopicos, vazioMsg: string) {
+    setTopicos(extracao.topicos.length > 0 ? extracao.topicos.map((t) => t.nome) : [""]);
+    if (!nome.trim() && extracao.materiaDetectada) setNome(extracao.materiaDetectada);
+    setOrigemAtual(extracao.origem);
+    setConfiancaAtual(extracao.confianca);
+    setPdfDatas(extracao.datasEncontradas);
+    setIaAvisos(extracao.topicos.length === 0 ? [vazioMsg] : extracao.avisos);
+    setIaEstado("ocioso");
+    limpar("topico");
+  }
 
   async function aoEscolherPdf(arquivo: File) {
     setPdfNomeArquivo(arquivo.name);
-    setPdfErro(null);
-    setPdfAvisos([]);
+    setIaErro(null);
+    setIaAvisos([]);
     setPdfDatas([]);
-    setPdfEstado("lendo");
+    setIaEstado("lendo");
     try {
       const texto = await extrairTextoDoPdf(arquivo);
-      setPdfEstado("analisando");
-      const extracao = await extrairTopicosDoTexto(texto);
-
-      setTopicos(extracao.topicos.length > 0 ? extracao.topicos.map((t) => t.nome) : [""]);
-      if (!nome.trim() && extracao.materiaDetectada) setNome(extracao.materiaDetectada);
-      setOrigemAtual("pdf");
-      setConfiancaAtual(extracao.confianca);
-      setPdfDatas(extracao.datasEncontradas);
-      setPdfAvisos(
-        extracao.topicos.length === 0
-          ? ["Nenhum tópico identificado neste arquivo — digite manualmente abaixo."]
-          : extracao.avisos,
+      setIaEstado("analisando");
+      aplicarExtracao(
+        await extrairTopicosDoTexto(texto),
+        "Nenhum tópico identificado neste arquivo — digite manualmente abaixo.",
       );
-      setPdfEstado("ocioso");
     } catch (e) {
-      setPdfErro(e instanceof Error ? e.message : "Não deu para ler o arquivo.");
-      setPdfEstado("erro");
+      setIaErro(e instanceof Error ? e.message : "Não deu para ler o arquivo.");
+      setIaEstado("erro");
+    }
+  }
+
+  /**
+   * Gera os tópicos só com o nome da matéria — sem documento nenhum.
+   * Usa o campo "Nome da matéria" lá de cima, então valida ele primeiro:
+   * sem isso, o toque no botão não faria nada e a pessoa não saberia por quê.
+   */
+  async function gerarPeloNome() {
+    setIaErro(null);
+    if (!validar([{ campo: "nome", valido: !!nome.trim(), mensagem: "Dê um nome à matéria primeiro." }])) {
+      return;
+    }
+    setIaAvisos([]);
+    setPdfDatas([]);
+    setIaEstado("analisando");
+    try {
+      aplicarExtracao(
+        await gerarTopicosPeloNome(nome.trim(), curso),
+        "A IA não conseguiu listar tópicos para essa matéria — digite manualmente abaixo.",
+      );
+    } catch (e) {
+      setIaErro(e instanceof Error ? e.message : "Não deu para gerar os tópicos.");
+      setIaEstado("erro");
     }
   }
 
@@ -758,7 +795,7 @@ function NovaMateria({
 
       <div>
         <div className="text-sm text-ink-muted mb-1">Como cadastrar os tópicos</div>
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-2 mb-3 flex-wrap">
           <button
             type="button"
             className={modo === "manual" ? "chip chip-estudo" : "chip"}
@@ -773,7 +810,66 @@ function NovaMateria({
           >
             Importar PDF
           </button>
+          <button
+            type="button"
+            className={modo === "ia" ? "chip chip-estudo" : "chip"}
+            onClick={() => setModo("ia")}
+          >
+            Gerar pela IA
+          </button>
         </div>
+
+        {modo === "ia" && (
+          <div className="flex flex-col gap-2 mb-3">
+            <p className="text-sm text-ink-muted">
+              Sem plano de ensino em mãos? A IA lista os tópicos que essa disciplina costuma
+              cobrir — você revisa e ajusta antes de salvar.
+            </p>
+            <label>
+              <div className="text-sm text-ink-muted mb-1">
+                Curso <span className="text-ink-terciario">(opcional, melhora o palpite)</span>
+              </div>
+              <input
+                className="campo"
+                placeholder="Engenharia de Software, Direito, Medicina…"
+                value={curso}
+                onChange={(e) => setCurso(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn-neutro w-fit"
+              onClick={() => void gerarPeloNome()}
+              disabled={iaEstado === "analisando"}
+            >
+              <Sparkles size={16} />
+              {iaEstado === "analisando" ? "Gerando…" : "Gerar tópicos"}
+            </button>
+            {/* A confiança vem forçada como "baixa" pelo backend, e é
+                verdade: isto é palpite sobre a ementa típica, não a ementa
+                do SEU professor. */}
+            <p className="dica-campo">
+              A lista é um ponto de partida — confira com o plano de ensino da sua turma.
+            </p>
+
+            {iaEstado === "analisando" && (
+              <p className="text-sm text-ink-muted">
+                Consultando a IA — pode levar até um minuto.
+              </p>
+            )}
+            {iaEstado === "erro" && iaErro && <AvisoDeFormulario>{iaErro}</AvisoDeFormulario>}
+            {iaEstado === "ocioso" && origemAtual === "ia_nome_materia" && (
+              <div className="flex flex-col gap-1">
+                <span className="badge badge-estudo w-fit">
+                  {topicos.filter((t) => t.trim()).length} tópicos sugeridos — revise abaixo antes de salvar
+                </span>
+                {iaAvisos.map((a, i) => (
+                  <p key={i} className="text-xs text-ink-terciario">· {a}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {modo === "pdf" && (
           <div className="flex flex-col gap-2 mb-3">
@@ -793,14 +889,33 @@ function NovaMateria({
             </label>
             {pdfNomeArquivo && <p className="text-xs text-ink-terciario num">{pdfNomeArquivo}</p>}
 
-            {pdfEstado === "lendo" && <p className="text-sm text-ink-muted">Lendo o PDF…</p>}
-            {pdfEstado === "analisando" && (
+            {iaEstado === "lendo" && <p className="text-sm text-ink-muted">Lendo o PDF…</p>}
+            {iaEstado === "analisando" && (
               <p className="text-sm text-ink-muted">
                 A IA está identificando os tópicos — pode levar até um minuto.
               </p>
             )}
-            {pdfEstado === "erro" && pdfErro && <AvisoDeFormulario>{pdfErro}</AvisoDeFormulario>}
-            {pdfEstado === "ocioso" && origemAtual === "pdf" && (
+            {iaEstado === "erro" && iaErro && (
+              <>
+                <AvisoDeFormulario>{iaErro}</AvisoDeFormulario>
+                {/* PDF escaneado (foto do plano fotocopiado) é o caso que o
+                    backend rejeita por falta de texto — e até aqui a única
+                    saída oferecida era "digite manualmente", ou seja, 12
+                    linhas na mão. Agora tem um caminho de verdade. */}
+                <button
+                  type="button"
+                  className="btn btn-neutro w-fit"
+                  onClick={() => {
+                    setModo("ia");
+                    setIaErro(null);
+                    setIaEstado("ocioso");
+                  }}
+                >
+                  <Sparkles size={16} /> Gerar pelo nome da matéria
+                </button>
+              </>
+            )}
+            {iaEstado === "ocioso" && origemAtual === "pdf" && (
               <div className="flex flex-col gap-1">
                 <span className="badge badge-estudo w-fit">
                   {topicos.filter((t) => t.trim()).length} tópicos extraídos — revise abaixo antes de salvar
@@ -808,7 +923,7 @@ function NovaMateria({
                 {confiancaAtual === "baixa" && (
                   <p className="text-xs text-atencao-ink">Confiança baixa: confira cada tópico com atenção.</p>
                 )}
-                {pdfAvisos.map((a, i) => (
+                {iaAvisos.map((a, i) => (
                   <p key={i} className="text-xs text-ink-terciario">· {a}</p>
                 ))}
               </div>
@@ -847,7 +962,10 @@ function NovaMateria({
         )}
       </div>
 
-      {(modo === "manual" || origemAtual === "pdf") && (
+      {/* A lista editável aparece no modo manual e sempre que já existe
+          resultado de IA para revisar — é ela a "tela de revisão" que o
+          backend pressupõe ao nunca gravar nada por conta própria. */}
+      {(modo === "manual" || origemAtual !== "manual") && (
       <div>
         <div className="text-sm text-ink-muted mb-1">Tópicos</div>
         {topicos.map((t, i) => (

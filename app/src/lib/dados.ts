@@ -901,7 +901,10 @@ export async function criarMateriaSimples(
   nome: string,
   topicos: Array<{ nome: string; dificuldade: "facil" | "medio" | "dificil" | null }>,
   eventos: EventoNovo[] = [],
-  origem: "manual" | "pdf" = "manual",
+  // Os três valores do enum `origem_topicos` (migration 02). `ia_nome_materia`
+  // é a geração sem documento — vale registrar de onde veio, porque muda
+  // quanto dá para confiar na lista depois.
+  origem: "manual" | "pdf" | "ia_nome_materia" = "manual",
   confianca: "alta" | "media" | "baixa" = "alta",
 ): Promise<string> {
   const { data, error } = await supabase.rpc("salvar_materia_com_topicos", {
