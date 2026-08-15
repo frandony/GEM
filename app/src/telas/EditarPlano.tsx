@@ -6,6 +6,7 @@ import { useToast } from "../lib/toast";
 import { useValidacao } from "../lib/formulario";
 import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 import { Voltar } from "../componentes/Voltar";
+import { resumoDaSessao } from "../lib/treino";
 import {
   LIMITES,
   atualizarParametrosDoExercicio,
@@ -18,33 +19,6 @@ import {
   type Substituto,
 } from "../lib/dados";
 import type { ExercicioDaSessao } from "./SessaoTreino";
-
-/**
- * Grupos musculares únicos (ordem de aparição) e uma estimativa de
- * duração — nem `sessoes` nem `sessao_exercicios` guardam duração, então
- * é uma conta aproximada: cada série custa ~40s de execução + o descanso
- * dela. Não é cronômetro, é só pra dar noção do tamanho do treino.
- */
-function resumoDaSessao(exercicios: ExercicioDaSessao[]): {
-  grupos: string;
-  minutosEstimados: number;
-  descansoMedio: number;
-} {
-  const gruposUnicos = [...new Set(exercicios.map((e) => e.grupoPrimario).filter(Boolean))];
-  const listaGrupos = gruposUnicos.join(", ");
-  const grupos = listaGrupos ? listaGrupos.charAt(0).toUpperCase() + listaGrupos.slice(1) : "";
-
-  const segundosTotais = exercicios.reduce((s, e) => s + e.series * (40 + e.descansoSeg), 0);
-  const descansoMedio = exercicios.length
-    ? Math.round(exercicios.reduce((s, e) => s + e.descansoSeg, 0) / exercicios.length)
-    : 0;
-
-  return {
-    grupos,
-    minutosEstimados: Math.round(segundosTotais / 60 / 5) * 5,
-    descansoMedio,
-  };
-}
 
 /* =====================================================================
    Editar o plano.

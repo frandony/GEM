@@ -217,32 +217,42 @@ export async function carregarProgramaAtivo(
 }
 
 export interface ResumoSemanal {
+  /** SESSÕES concluídas no período, não dias com treino. Dois treinos no
+      mesmo dia contam 2 — `resumos_diarios.treinou` é booleano por dia e
+      não serve pra isso. */
   treinosFeitos: number;
+  /** Meta já escalada pro período (frequência semanal × semanas). */
   treinosMeta: number;
   minutosTreino: number;
   volumeKg: number;
   minutosEstudo: number;
+  blocosEstudo: number;
 }
 
 /**
- * Últimos 7 dias (hoje incluso), no fuso do usuário. Sem agregado pronto
- * pra "minutos de treino" nem "volume" — soma na hora a partir de
- * `treino_sessoes`/`series_registros`. `resumos_diarios` já resolve
- * treinos feitos e minutos de estudo (mantido por trigger).
+ * Agregado dos últimos N dias (hoje incluso), no fuso do usuário. Sem
+ * agregado pronto pra "minutos de treino" nem "volume" — soma na hora a
+ * partir de `treino_sessoes`/`series_registros`. `resumos_diarios` já
+ * resolve minutos e blocos de estudo (mantido por trigger).
+ *
+ * `semanas_resumo` NÃO serve aqui apesar do nome: é preenchida pelo cron
+ * ao fechar a semana, então a semana corrente costuma não ter linha —
+ * somar as linhas dela subestimaria justamente os dias recentes.
  */
-export async function carregarResumoSemanal(
+export async function carregarResumoDoPeriodo(
   userId: string,
   timezone: string,
+  dias = 7,
 ): Promise<ResumoSemanal> {
   const hoje = hojeNoFuso(timezone);
-  const seteDiasAtras = new Date(`${hoje}T00:00:00Z`);
-  seteDiasAtras.setUTCDate(seteDiasAtras.getUTCDate() - 6);
-  const inicio = seteDiasAtras.toISOString().slice(0, 10);
+  const primeiroDia = new Date(`${hoje}T00:00:00Z`);
+  primeiroDia.setUTCDate(primeiroDia.getUTCDate() - (dias - 1));
+  const inicio = primeiroDia.toISOString().slice(0, 10);
 
   const [resumos, programa, sessoes] = await Promise.all([
     supabase
       .from("resumos_diarios")
-      .select("treinou,minutos_estudo")
+      .select("minutos_estudo,blocos_feitos")
       .eq("user_id", userId)
       .gte("data", inicio)
       .lte("data", hoje),
@@ -261,14 +271,25 @@ export async function carregarResumoSemanal(
       .lte("data", hoje),
   ]);
 
-  const treinosFeitos = (resumos.data ?? []).filter((r) => r.treinou).length;
   const minutosEstudo = (resumos.data ?? []).reduce(
     (soma, r) => soma + (r.minutos_estudo ?? 0),
     0,
   );
-  const treinosMeta = programa.data?.frequencia_semanal ?? 0;
+  const blocosEstudo = (resumos.data ?? []).reduce(
+    (soma, r) => soma + (r.blocos_feitos ?? 0),
+    0,
+  );
 
   const listaSessoes = sessoes.data ?? [];
+  // Contagem de SESSÕES. Antes era `resumos_diarios.filter(treinou)`, que
+  // é um booleano por dia: quem treinasse duas vezes num dia via "1".
+  const treinosFeitos = listaSessoes.length;
+
+  // A frequência do onboarding é SEMANAL; num período de N dias a meta
+  // precisa escalar, senão "8 de 3 treinos no mês" apareceria na tela.
+  const porSemana = programa.data?.frequencia_semanal ?? 0;
+  const treinosMeta = Math.round(porSemana * (dias / 7));
+
   const minutosTreino = listaSessoes.reduce((soma, s) => {
     if (!s.finalizada_em) return soma;
     const min = (new Date(s.finalizada_em).getTime() - new Date(s.iniciada_em).getTime()) / 60000;
@@ -292,7 +313,16 @@ export async function carregarResumoSemanal(
     minutosTreino: Math.round(minutosTreino),
     volumeKg: Math.round(volumeKg),
     minutosEstudo,
+    blocosEstudo,
   };
+}
+
+/** Atalho de 7 dias — o recorte que a tela de Treino usa. */
+export async function carregarResumoSemanal(
+  userId: string,
+  timezone: string,
+): Promise<ResumoSemanal> {
+  return carregarResumoDoPeriodo(userId, timezone, 7);
 }
 
 interface LinhaSessaoExercicio {
@@ -1161,15 +1191,72 @@ export interface MembroDoGrupo {
   treinou_hoje: boolean;
 }
 
-/** Um dia da faixa de 7 dias do membro. `treinou` e `minutosEstudo` são
-    o que a RLS libera para o grupo (`resumos_diarios`); a execução do
-    treino em si — séries, cargas — continua privada. */
+/** Um dia da faixa de atividade. `treinou` e `minutosEstudo` são o que a
+    RLS libera para o grupo (`resumos_diarios`); a execução do treino em
+    si — séries, cargas — continua privada. `sessaoLetra` é a letra da
+    última sessão concluída no dia, e é o que a Início mostra dentro do
+    círculo do dia. */
 export interface DiaDoMembro {
   data: string;
   treinou: boolean;
   minutosEstudo: number;
+  sessaoLetra: string | null;
 }
 
+/**
+ * Dias de `resumos_diarios` num intervalo, SEM buracos: dia sem linha na
+ * tabela é dia sem atividade, e precisa aparecer como lacuna em vez de
+ * sumir da faixa.
+ *
+ * Serve tanto para o próprio usuário quanto para membro de grupo — a
+ * policy é `pode_ver(user_id)`, que já cobre "sou eu" no primeiro termo.
+ *
+ * Consulta coberta pela PK `(user_id, data)` de `resumos_diarios`.
+ */
+export async function carregarDiasDeResumo(
+  userId: string,
+  de: string,
+  ate: string,
+): Promise<DiaDoMembro[]> {
+  const { data, error } = await supabase
+    .from("resumos_diarios")
+    .select("data,treinou,minutos_estudo,sessao_letra")
+    .eq("user_id", userId)
+    .gte("data", de)
+    .lte("data", ate);
+  // Lança, não devolve dias zerados: uma faixa toda apagada é uma
+  // AFIRMAÇÃO ("você não treinou nenhum dia") e não pode sair de uma
+  // consulta que falhou — ver a doutrina no topo deste arquivo.
+  if (error) throw new Error(`não deu para carregar seus dias: ${error.message}`);
+
+  const porData = new Map(
+    (data ?? []).map((r) => [
+      r.data as string,
+      r as { treinou: boolean; minutos_estudo: number; sessao_letra: string | null },
+    ]),
+  );
+
+  const dias: DiaDoMembro[] = [];
+  const cursor = new Date(`${de}T00:00:00Z`);
+  const fim = new Date(`${ate}T00:00:00Z`);
+  // Teto de segurança: intervalo estranho não pode virar laço infinito.
+  while (cursor <= fim && dias.length < 400) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const linha = porData.get(iso);
+    dias.push({
+      data: iso,
+      treinou: linha?.treinou ?? false,
+      minutosEstudo: linha?.minutos_estudo ?? 0,
+      sessaoLetra: linha?.sessao_letra ?? null,
+    });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dias;
+}
+
+/** Janela rolante de 7 dias terminando hoje — o recorte do DetalheGrupo
+    ("como anda a constância recente do colega"). A Início usa outro
+    recorte, a semana de calendário: ver `intervaloDaSemana`. */
 export async function carregarUltimosDiasDoMembro(
   membroId: string,
   timezone: string,
@@ -1177,32 +1264,27 @@ export async function carregarUltimosDiasDoMembro(
   const hoje = hojeNoFuso(timezone);
   const inicio = new Date(`${hoje}T00:00:00Z`);
   inicio.setUTCDate(inicio.getUTCDate() - 6);
-  const de = inicio.toISOString().slice(0, 10);
+  return carregarDiasDeResumo(membroId, inicio.toISOString().slice(0, 10), hoje);
+}
 
-  const { data } = await supabase
-    .from("resumos_diarios")
-    .select("data,treinou,minutos_estudo")
-    .eq("user_id", membroId)
-    .gte("data", de)
-    .lte("data", hoje);
-
-  const porData = new Map(
-    (data ?? []).map((r) => [r.data as string, r as { treinou: boolean; minutos_estudo: number }]),
-  );
-
-  // Preenche os 7 dias: dia sem linha em `resumos_diarios` é dia sem
-  // atividade, e precisa aparecer como lacuna em vez de sumir da faixa.
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(`${de}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + i);
-    const iso = d.toISOString().slice(0, 10);
-    const linha = porData.get(iso);
-    return {
-      data: iso,
-      treinou: linha?.treinou ?? false,
-      minutosEstudo: linha?.minutos_estudo ?? 0,
-    };
-  });
+/**
+ * Segunda a domingo da semana em que `hojeISO` cai.
+ *
+ * Segunda-feira porque é a semana que o STREAK conta: `inicio_da_semana`
+ * usa `date_trunc('week')` (segunda, no Postgres) e
+ * `semanas_resumo.semana_inicio` tem `check (isodow = 1)`. Alinhar a
+ * faixa a isso é o que faz ela significar "estes são os dias que contam
+ * pra esta semana" em vez de sete quadradinhos soltos.
+ */
+export function intervaloDaSemana(hojeISO: string): { de: string; ate: string } {
+  const d = new Date(`${hojeISO}T00:00:00Z`);
+  const dow = d.getUTCDay(); // 0 = domingo
+  // Domingo pertence à semana que começou na segunda anterior, não à
+  // seguinte — daí o -6 em vez de +1.
+  d.setUTCDate(d.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+  const de = d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() + 6);
+  return { de, ate: d.toISOString().slice(0, 10) };
 }
 
 export interface SessaoDoResumo {

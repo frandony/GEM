@@ -4,16 +4,19 @@ import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import {
   carregarBlocosDoDia,
+  carregarDiasDeResumo,
   carregarExerciciosDaSessao,
   carregarMaterias,
   carregarPerfil,
   carregarProgramaAtivo,
+  carregarResumoDoPeriodo,
   carregarResumoDoPlano,
-  carregarResumoSemanal,
   corDaDisciplina,
   hojeNoFuso,
+  intervaloDaSemana,
   proximosDiasDeTreino,
   type BlocoEstudo,
+  type DiaDoMembro,
   type Materia,
   type Perfil,
   type ProgramaAtivo,
@@ -22,8 +25,9 @@ import {
   type SessaoDoResumo,
 } from "../lib/dados";
 import type { ExercicioDaSessao } from "./SessaoTreino";
-import { BarChart3, Dumbbell, Download, Play, Settings, Timer } from "lucide-react";
+import { BarChart3, Dumbbell, Download, Flame, Play, Settings, Timer } from "lucide-react";
 import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
+import { resumoDaSessao } from "../lib/treino";
 import { useToast } from "../lib/toast";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 
@@ -37,6 +41,15 @@ const CORES_FILA = ["var(--treino)", "var(--estudo)", "var(--roxo)"] as const;
 const CARTOES_NA_FILA = 3;
 
 const FORMATO_DIA_SEMANA = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+
+/** Indexado por `getDay()` (0 = domingo), não pela ordem da faixa — a
+    faixa começa na segunda, e derivar a letra da data evita ter que
+    manter as duas coisas em sincronia. */
+const DIAS_LETRA = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+/** Janela do bloco "No último mês". 30 e não `date_trunc('month')` de
+    propósito: no dia 1º um mês-calendário mostraria quase tudo zerado. */
+const DIAS_DO_BLOCO_MENSAL = 30;
 
 /**
  * Rótulo de cada cartão. Recebe a data PLANEJADA (de `dias_lembrete`) ou
@@ -71,18 +84,20 @@ function CartaoDaFila({
   posicao,
   rotulo,
   exercicios,
-  progresso,
-  treinouHoje,
+  concluidoHoje,
 }: {
   sessao: SessaoDoResumo;
   posicao: number;
   rotulo: string;
   exercicios: ExercicioDaSessao[] | undefined;
-  /** Só o primeiro cartão mostra progresso — é o único que dá para iniciar. */
-  progresso: number | null;
-  treinouHoje: boolean;
+  /** Só o primeiro cartão pode estar concluído — é o único que dá pra iniciar. */
+  concluidoHoje: boolean;
 }) {
   const cor = CORES_FILA[posicao % CORES_FILA.length];
+  // Mesma conta de "Meu plano" (`lib/treino.ts`) — se fossem duas contas
+  // separadas, a mesma sessão mostraria durações diferentes em duas telas.
+  const minutos = exercicios ? resumoDaSessao(exercicios).minutosEstimados : null;
+
   return (
     <Link
       to="/treino"
@@ -94,9 +109,19 @@ function CartaoDaFila({
         <span className="rotulo-secao" style={{ color: cor }}>
           {rotulo}
         </span>
-        <span className="badge shrink-0" style={{ background: "var(--surface-alta)" }}>
-          {sessao.totalExercicios} {sessao.totalExercicios === 1 ? "exercício" : "exercícios"}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {concluidoHoje && <span className="badge badge-ok">concluído</span>}
+          {/* O badge de duração só entra quando os exercícios chegaram —
+              nada de "~0 min" piscando enquanto carrega. */}
+          {minutos !== null && (
+            <span className="badge" style={{ background: "var(--surface-alta)" }}>
+              ~{minutos} min
+            </span>
+          )}
+          <span className="badge" style={{ background: "var(--surface-alta)" }}>
+            {sessao.totalExercicios} {sessao.totalExercicios === 1 ? "exercício" : "exercícios"}
+          </span>
+        </div>
       </div>
 
       <div className="h2 mb-1">
@@ -128,22 +153,70 @@ function CartaoDaFila({
           )}
         </div>
       )}
-
-      {progresso !== null && (
-        <>
-          <div
-            className="progress-bar mt-3"
-            style={{ "--progresso": progresso, "--progresso-cor": cor } as CSSProperties}
-          >
-            <span />
-          </div>
-          <div className="progress-bar-rotulo mt-2">
-            <span>{treinouHoje ? "Treino concluído" : "Progresso do treino"}</span>
-            <span className="num">{Math.round(progresso * 100)}%</span>
-          </div>
-        </>
-      )}
     </Link>
+  );
+}
+
+/**
+ * A semana que está valendo — segunda a domingo, a MESMA que o streak
+ * conta (ver `intervaloDaSemana` em lib/dados.ts). Sem isso a faixa
+ * seriam sete quadradinhos soltos; com isso ela responde "o que ainda
+ * dá pra fazer nesta semana pra ela contar".
+ */
+function FaixaDaSemana({
+  dias,
+  hojeISO,
+  streak,
+}: {
+  dias: DiaDoMembro[];
+  hojeISO: string;
+  streak: number | null;
+}) {
+  return (
+    <section className="card mb-6 flex items-center gap-2">
+      <div className="streak-chama" data-aceso={(streak ?? 0) > 0 || undefined}>
+        <span className="streak-chama__valor">
+          <Flame size={16} />
+          <span className="num">{streak ?? 0}</span>
+        </span>
+        <span className="streak-chama__rotulo">
+          {streak === 1 ? "semana" : "semanas"}
+        </span>
+      </div>
+
+      <div className="faixa-semana">
+        {dias.map((d) => {
+          const eHoje = d.data === hojeISO;
+          const futuro = d.data > hojeISO;
+          const numero = Number(d.data.slice(8, 10));
+          return (
+            <div key={d.data} className="dia-coluna">
+              <span className="dia-coluna__letra">
+                {DIAS_LETRA[new Date(`${d.data}T12:00:00`).getDay()]}
+              </span>
+              <span
+                className="dia-ponto num"
+                data-treinou={d.treinou || undefined}
+                data-estudou={d.minutosEstudo > 0 || undefined}
+                data-hoje={eHoje || undefined}
+                data-futuro={futuro || undefined}
+                title={
+                  futuro
+                    ? `${numero}: ainda não chegou`
+                    : `${numero}: ${d.treinou ? `treino ${d.sessaoLetra ?? ""}`.trim() : "sem treino"}` +
+                      (d.minutosEstudo > 0 ? `, ${d.minutosEstudo} min de estudo` : "")
+                }
+              >
+                {/* A letra da sessão substitui o número quando houve
+                    treino: qual treino foi feito informa mais que o dia
+                    do mês, que a coluna já posiciona. */}
+                {d.treinou && d.sessaoLetra ? d.sessaoLetra : numero}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -168,6 +241,8 @@ export function Home() {
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [resumo, setResumo] = useState<ResumoSemanal | null>(null);
+  const [diasDaSemana, setDiasDaSemana] = useState<DiaDoMembro[]>([]);
+  const [hojeISO, setHojeISO] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [falhou, setFalhou] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
@@ -233,16 +308,22 @@ export function Home() {
       setPerfil(p);
 
       const hoje = hojeNoFuso(p.timezone);
-      const [programa, resumoDia, s, resumoSemanal] = await Promise.all([
+      setHojeISO(hoje);
+      const semana = intervaloDaSemana(hoje);
+
+      const [programa, resumoDia, s, resumoMensal, dias] = await Promise.all([
         carregarProgramaAtivo(userId),
         supabase.from("resumos_diarios").select("treinou").eq("user_id", userId).eq("data", hoje).maybeSingle(),
         supabase.rpc("streak_de", { p_user_id: null }),
-        carregarResumoSemanal(userId, p.timezone),
+        // 30 dias, não 7: o bloco da tela agora é "No último mês".
+        carregarResumoDoPeriodo(userId, p.timezone, DIAS_DO_BLOCO_MENSAL),
+        carregarDiasDeResumo(userId, semana.de, semana.ate),
       ]);
       setProxima(programa?.proxima ?? null);
       setTreinouHoje(resumoDia.data?.treinou ?? false);
       setStreak((s.data as number) ?? 0);
-      setResumo(resumoSemanal);
+      setResumo(resumoMensal);
+      setDiasDaSemana(dias);
 
       // Fila do carrossel e blocos de estudo entram depois: a tela já
       // pinta com o resto, e essas listas só enriquecem os cards — não
@@ -326,27 +407,29 @@ export function Home() {
   const blocosFeitos = blocos.filter((b) => b.status !== "pendente").length;
   const progressoEstudo = blocos.length > 0 ? blocosFeitos / blocos.length : 0;
 
-  // A Home não acompanha série a série (isso é papel do SessaoTreino) —
-  // o progresso aqui é binário: já treinou hoje, ou ainda não.
-  const progressoTreino = treinouHoje ? 1 : 0;
+  // Progresso do MÊS, não da sessão: sessões concluídas contra a meta
+  // escalada da frequência semanal. O `min(1)` evita a barra estourar
+  // quando alguém treina mais que a própria meta — o número ao lado
+  // continua mostrando o excedente ("14 de 12").
+  const progressoMes = resumo && resumo.treinosMeta > 0
+    ? Math.min(1, resumo.treinosFeitos / resumo.treinosMeta)
+    : 0;
 
   return (
     <div className="tela">
-      <header className="flex items-center justify-between mb-6">
+      {/* O streak saiu daqui e foi pra faixa da semana, onde ele tem
+          contexto: os dias que ainda podem fazer esta semana contar. */}
+      <header className="flex items-center justify-between mb-4">
         <div>
           <div className="text-sm text-ink-muted">Olá,</div>
           <h1 className="h1">{perfil.nome}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          {streak != null && streak > 0 && (
-            <div className="text-right">
-              <div className="display text-3xl text-ok-ink">{streak}</div>
-              <span className="rotulo-secao text-ink-muted">semanas</span>
-            </div>
-          )}
-          <div className="avatar">{iniciais(perfil.nome)}</div>
-        </div>
+        <div className="avatar">{iniciais(perfil.nome)}</div>
       </header>
+
+      {diasDaSemana.length > 0 && (
+        <FaixaDaSemana dias={diasDaSemana} hojeISO={hojeISO} streak={streak} />
+      )}
 
       {/* ---- Fila de treino, arrastável ------------------------------
           Um card por treino da rotação: o de agora, o seguinte, o
@@ -381,8 +464,7 @@ export function Home() {
                 posicao={i}
                 rotulo={rotulos[i] ?? ""}
                 exercicios={exerciciosPorSessao[s.id]}
-                progresso={i === 0 ? progressoTreino : null}
-                treinouHoje={treinouHoje}
+                concluidoHoje={i === 0 && treinouHoje}
               />
             ))}
           </div>
@@ -396,6 +478,27 @@ export function Home() {
                   style={{ "--cor-fila": CORES_FILA[i % CORES_FILA.length] } as CSSProperties}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Progresso do MÊS, fora do cartão de propósito: não é
+              progresso daquela sessão. Só aparece com meta definida —
+              sem `frequencia_semanal` o denominador seria zero. */}
+          {resumo && resumo.treinosMeta > 0 && (
+            <div className="mt-4">
+              <div
+                className="progress-bar"
+                style={{ "--progresso": progressoMes } as CSSProperties}
+              >
+                <span />
+              </div>
+              <div className="progress-bar-rotulo mt-2">
+                <span>
+                  <span className="num">{resumo.treinosFeitos}</span> de{" "}
+                  <span className="num">{resumo.treinosMeta}</span> treinos este mês
+                </span>
+                <span className="num">{Math.round(progressoMes * 100)}%</span>
+              </div>
             </div>
           )}
         </section>
@@ -457,31 +560,26 @@ export function Home() {
         )}
       </div>
 
-      {/* ---- Resumo da semana ----------------------------------------- */}
+      {/* ---- No último mês ---------------------------------------------
+          Substituiu o "Resumo da semana" (4 pills): a faixa lá em cima já
+          mostra a semana visualmente, e repetir a mesma semana em número
+          logo abaixo era a mesma informação duas vezes. */}
       {resumo && (
         <section className="mb-6">
-          <span className="rotulo-secao text-ink-muted mb-2 block">Resumo da semana</span>
-          <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-            <div className="stat-pill">
-              <div className="stat-pill-valor num">
-                {resumo.treinosFeitos}/{resumo.treinosMeta || "–"}
+          <span className="rotulo-secao text-ink-muted mb-3 block">No último mês</span>
+          <div className="flex justify-around gap-3">
+            <div className="stat-circulo">
+              <div className="stat-circulo__valor num">{resumo.treinosFeitos}</div>
+              <div className="stat-circulo__rotulo">Treinos feitos</div>
+            </div>
+            {/* Só pra quem usa estudo: pra quem não usa, seria um zero
+                permanente que parece defeito, não informação. */}
+            {perfil.usa_estudo && (
+              <div className="stat-circulo">
+                <div className="stat-circulo__valor num">{resumo.blocosEstudo}</div>
+                <div className="stat-circulo__rotulo">Blocos de estudo</div>
               </div>
-              <div className="stat-pill-rotulo">Treinos</div>
-            </div>
-            <div className="stat-pill">
-              <div className="stat-pill-valor num">{resumo.minutosTreino}</div>
-              <div className="stat-pill-rotulo">Minutos</div>
-            </div>
-            <div className="stat-pill">
-              <div className="stat-pill-valor num">{(resumo.volumeKg / 1000).toFixed(1)}t</div>
-              <div className="stat-pill-rotulo">Volume</div>
-            </div>
-            <div className="stat-pill">
-              <div className="stat-pill-valor num">
-                {resumo.minutosEstudo >= 60 ? `${Math.round(resumo.minutosEstudo / 60)}h` : `${resumo.minutosEstudo}min`}
-              </div>
-              <div className="stat-pill-rotulo">Estudo</div>
-            </div>
+            )}
           </div>
         </section>
       )}

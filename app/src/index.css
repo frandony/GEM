@@ -672,6 +672,92 @@
     color: var(--treino-ink);
   }
 
+  /* ---- Faixa da SEMANA (Início) --------------------------------------
+     Prima da faixa de 7 dias acima, com duas diferenças de propósito:
+     é a semana de calendário (segunda→domingo, a mesma que o streak
+     conta) e tem duas linhas — letra do dia em cima, número do dia
+     dentro do círculo. Reusa `.dia-ponto` como o círculo. */
+  .faixa-semana {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--e-1);
+    flex: 1;
+    min-width: 0;
+  }
+  .dia-coluna {
+    display: flex; flex-direction: column; align-items: center; gap: var(--e-1);
+    min-width: 0;
+  }
+  .dia-coluna__letra {
+    font-size: var(--t-micro);
+    font-weight: 500;
+    color: var(--ink-fraco);
+    text-transform: uppercase;
+  }
+  /* Círculo um pouco maior que o do grupo: aqui ele carrega o número do
+     dia (dois dígitos), não uma letra só. */
+  .faixa-semana .dia-ponto {
+    width: 1.875rem; height: 1.875rem;
+    font-size: var(--t-xs);
+  }
+  /* Hoje: anel em volta, sem preencher — o preenchimento é reservado
+     para "treinou", e os dois estados podem coexistir no mesmo dia. */
+  .dia-ponto[data-hoje] {
+    box-shadow: 0 0 0 2px var(--ink-muted);
+  }
+  .dia-ponto[data-hoje][data-treinou] {
+    box-shadow: 0 0 0 2px var(--treino);
+  }
+  /* Dia que ainda não chegou: mais apagado que "não treinou", porque
+     ainda não é ausência de nada — é futuro. */
+  .dia-ponto[data-futuro] {
+    opacity: 0.4;
+    border-style: dashed;
+  }
+
+  /* ---- Streak ao lado da faixa --------------------------------------- */
+  .streak-chama {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    padding-right: var(--e-3);
+    margin-right: var(--e-1);
+    border-right: 1px solid var(--hairline);
+  }
+  .streak-chama__valor {
+    display: flex; align-items: center; gap: var(--e-1);
+    font-size: var(--t-lg);
+    font-weight: 500;
+    line-height: 1;
+  }
+  /* Apagado no zero: chama acesa sem streak nenhum é comemoração falsa. */
+  .streak-chama[data-aceso] .streak-chama__valor { color: var(--atencao-ink); }
+  .streak-chama:not([data-aceso]) .streak-chama__valor { color: var(--ink-fraco); }
+  .streak-chama__rotulo {
+    font-size: var(--t-micro);
+    color: var(--ink-terciario);
+  }
+
+  /* ---- Círculo de estatística (bloco "No último mês") ----------------
+     Formato pedido explicitamente (referência: app da Smart Fit) — o
+     `.stat-pill` existente é retângulo pequeno e não serve aqui. */
+  .stat-circulo {
+    display: flex; flex-direction: column; align-items: center; gap: var(--e-2);
+  }
+  .stat-circulo__valor {
+    display: flex; align-items: center; justify-content: center;
+    width: 5rem; height: 5rem;
+    border-radius: var(--r-pill);
+    background: var(--surface-alta);
+    font-size: var(--t-2xl);
+    font-weight: 500;
+  }
+  .stat-circulo__rotulo {
+    font-size: var(--t-sm);
+    color: var(--ink-muted);
+    text-align: center;
+  }
+
   /* ---- Linha de exercício -----------------------------------------------
      Ícone + texto + ação. A ação (editar) fica quase invisível até o
      usuário mostrar intenção — hover no desktop, foco por teclado, ou
