@@ -651,9 +651,7 @@ function NovaMateria({
   const [origemAtual, setOrigemAtual] = useState<OrigemDosTopicos>("manual");
   const [confiancaAtual, setConfiancaAtual] = useState<"alta" | "media" | "baixa">("alta");
   const [curso, setCurso] = useState("");
-  // "" = não informado. Guardado como string porque vem de <select>; vira
-  // número só na hora de enviar.
-  const [periodo, setPeriodo] = useState("");
+  const [periodo, setPeriodo] = useState<number | null>(null);
   // Estado compartilhado pelos DOIS caminhos de IA (PDF e por nome): o
   // fluxo depois da resposta é idêntico — revisar a lista e salvar —,
   // então duplicar seria só chance de os dois divergirem.
@@ -709,7 +707,7 @@ function NovaMateria({
     setIaEstado("analisando");
     try {
       aplicarExtracao(
-        await gerarTopicosPeloNome(nome.trim(), curso, periodo ? Number(periodo) : null),
+        await gerarTopicosPeloNome(nome.trim(), curso, periodo),
         "A IA não conseguiu listar tópicos para essa matéria — digite manualmente abaixo.",
       );
     } catch (e) {
@@ -840,26 +838,37 @@ function NovaMateria({
                 maxLength={120}
               />
             </label>
-            <label>
+            <div>
               <div className="text-sm text-ink-muted mb-1">
                 Período <span className="text-ink-terciario">(opcional)</span>
               </div>
-              {/* <select> e não chips: são 10 opções, que em chip viram duas
-                  linhas e roubam a tela; e no celular o select abre o
-                  seletor nativo, que é mais rápido de acertar com o polegar. */}
-              <select
-                className="campo"
-                value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
-              >
-                <option value="">Não informar</option>
+              {/* Chip, não <select>: um <select> customizado (appearance:none
+                  + seta própria) esbarrou num bug real do motor Chromium —
+                  o menu suspenso nativo é medido pela caixa inteira do
+                  campo, e cada opção virava um bloco enorme, lista quase
+                  em branco. Chip é o padrão que já funciona neste app
+                  (GradeEstudo usa o mesmo pros dias da semana) — sem
+                  depender de popup nenhum renderizado pelo SO. */}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className={periodo === null ? "chip chip-estudo" : "chip"}
+                  onClick={() => setPeriodo(null)}
+                >
+                  Não informar
+                </button>
                 {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>
-                    {n}º período
-                  </option>
+                  <button
+                    key={n}
+                    type="button"
+                    className={periodo === n ? "chip chip-estudo" : "chip"}
+                    onClick={() => setPeriodo(n)}
+                  >
+                    {n}º
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </div>
             <button
               type="button"
               className="btn btn-neutro w-fit"

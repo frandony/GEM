@@ -710,23 +710,6 @@
   .campo:focus { border-color: var(--hairline-forte); outline: none; }
   .campo:focus-visible { border-color: var(--treino-ink); }
 
-  /* `select.campo` — SÓ `color-scheme: dark`. Isso sozinho já resolve o
-     essencial: o menu suspenso (renderizado pelo SO/navegador, fora do
-     alcance do resto do CSS) vem escuro em vez de branco, e a setinha
-     nativa já se adapta ao tema sem precisar desenhar outra.
-
-     Por que não `appearance: none` + seta própria em background-image
-     (era o que existia antes): no Chromium (testado no Brave, mas é bug
-     do motor, não do navegador) essa combinação faz o menu suspenso ser
-     medido pela caixa INTEIRA do `<select>` — com o `min-height` e o
-     `padding` de `.campo`, cada `<option>` da lista virava um bloco de
-     ~90px, e a lista de 11 itens ficava um mural em branco com só um
-     item visível por vez. `appearance: none` sozinho já é o gatilho
-     comum desse bug; não vale o risco por uma seta mais bonita. */
-  select.campo {
-    color-scheme: dark;
-  }
-
   /* Campo de carga e reps. Grande, monoespaçado, centralizado — é o que
      mais se toca no app inteiro, entre uma série e outra. */
   .campo-num {
