@@ -122,7 +122,9 @@ export function MontarPlanoEstudo() {
       const perfil = await carregarPerfil(userId);
       const tz = perfil?.timezone ?? "America/Sao_Paulo";
       const semanaInicio = segundaDestaSemana(hojeNoFuso(tz));
-      const resultado = await rodarDistribuicao(semanaInicio, 6);
+      // Sem horizonte fixo: o backend deriva da prova/entrega mais
+      // distante entre as matérias ativas — ver montarEstudo.ts.
+      const resultado = await rodarDistribuicao(semanaInicio);
       setPasso({ fase: "resultado", resultado });
     } catch (e) {
       setPasso({

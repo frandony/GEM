@@ -154,6 +154,28 @@ export class ProvedorIndisponivel extends Error {
   }
 }
 
+/**
+ * A resposta foi CORTADA no meio por bater o teto de tokens de saída.
+ *
+ * Classe própria porque isto é RECUPERÁVEL e as outras falhas não são: o
+ * provedor está no ar, o modelo entendeu a tarefa, só não coube. Tentar de
+ * novo mais barato (menos esforço, menos escopo) costuma resolver — cair
+ * direto no template de fallback, como acontecia antes, joga fora uma
+ * geração boa por um problema de orçamento.
+ *
+ * Vale lembrar que o teto vale para a resposta INTEIRA: em modelo com
+ * raciocínio, os tokens de pensamento saem do mesmo orçamento. Foi
+ * exatamente esse o caso em produção (2026-08-15): `esforco: "high"` numa
+ * distribuição de 6 semanas gastou 97s pensando e foi cortado antes de
+ * escrever o JSON, que teria ~3.000 tokens num teto de 16.000.
+ */
+export class RespostaTruncada extends Error {
+  constructor() {
+    super("a resposta da IA foi cortada por atingir o limite de tokens");
+    this.name = "RespostaTruncada";
+  }
+}
+
 /* ---------------------------------------------------------------------
    Prazo — por que existe
 
@@ -332,7 +354,7 @@ async function viaAnthropic<T>(
     throw new RecusaDoModelo(r.stop_details?.category ?? null);
   }
   if (r.stop_reason === "max_tokens") {
-    throw new Error("resposta truncada por max_tokens — aumente maxTokens");
+    throw new RespostaTruncada();
   }
 
   const bloco = r.content.find((b) => b.type === "text");
@@ -471,7 +493,7 @@ async function viaOpenAICompat<T>(
     throw new RecusaDoModelo("content_filter");
   }
   if (escolha?.finish_reason === "length") {
-    throw new Error("resposta truncada por max_tokens — aumente maxTokens");
+    throw new RespostaTruncada();
   }
 
   const texto = escolha?.message?.content;

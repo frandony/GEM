@@ -5,6 +5,7 @@ import {
   gerarComValidacao,
   ProvedorIndisponivel,
   RecusaDoModelo,
+  RespostaTruncada,
 } from "../_shared/llm.ts";
 import { calcularIdeal } from "./calculo.ts";
 import { distribuicaoRoundRobin } from "./fallback.ts";
@@ -138,6 +139,12 @@ que alimenta o contador de tópicos pendentes.`;
  * Ver o bloco "Prazo" em _shared/llm.ts.
  */
 const ORCAMENTO_IA_MS = Number(Deno.env.get("LLM_ORCAMENTO_MS") ?? 110_000);
+
+/** Abaixo disto, repetir a Fase B truncada não vale — não daria tempo nem
+    para a tentativa mais barata terminar. Mais folgado que o
+    `MINIMO_UTIL_MS` de llm.ts (15s) porque aqui é uma geração inteira com
+    validação, não uma chamada isolada. */
+const MINIMO_PARA_RETRY_MS = 25_000;
 
 Deno.serve(async (req: Request) => {
   const prazoFinal = Date.now() + ORCAMENTO_IA_MS;
@@ -285,6 +292,48 @@ async function diagnostico(
 
 // ===========================================================================
 // FASE B — distribuição na grade escolhida
+/** Sem prova cadastrada não existe data-alvo: planejar longe vira chute, e
+    quanto mais longe, mais pesado pro modelo. Curto de propósito — dá pra
+    remontar quando quiser, e o replanejamento preserva o que já passou. */
+const HORIZONTE_SEM_EVENTO = 2;
+/** Teto: prova daqui a 4 meses não vira um plano de 17 semanas de uma vez.
+    Foi exatamente esse tipo de volume que truncou a resposta em produção. */
+const HORIZONTE_MAX = 6;
+
+/**
+ * Quantas semanas o plano cobre — derivado da PROVA/ENTREGA mais distante,
+ * não de um número fixo.
+ *
+ * A Fase A já raciocina assim (ver `calcularIdeal` em calculo.ts, que
+ * divide os blocos necessários pelas semanas até o evento). A Fase B usava
+ * 6 semanas cravadas, então as duas fases discordavam sobre o que era "o
+ * plano" — e 6 semanas é o caso mais caro pro modelo, que foi o que
+ * estourou o orçamento de tokens em produção.
+ *
+ * `forcado` existe pro cliente poder pedir explicitamente; sem isso, quem
+ * manda é a data da prova.
+ */
+export function horizonteDoPlano(
+  datasDeEventos: string[],
+  semanaInicio: string,
+  forcado?: number,
+): number {
+  if (forcado && forcado > 0) return Math.min(forcado, HORIZONTE_MAX);
+
+  const inicio = new Date(`${semanaInicio}T00:00:00Z`).getTime();
+  const futuras = datasDeEventos
+    .map((d) => new Date(`${d}T00:00:00Z`).getTime())
+    .filter((t) => Number.isFinite(t) && t >= inicio);
+
+  if (futuras.length === 0) return HORIZONTE_SEM_EVENTO;
+
+  const diasAteUltimo = (Math.max(...futuras) - inicio) / 86_400_000;
+  // `ceil` porque a semana da prova conta inteira: prova na quarta ainda
+  // precisa dos dias antes dela.
+  const semanas = Math.ceil((diasAteUltimo + 1) / 7);
+  return Math.min(Math.max(semanas, 1), HORIZONTE_MAX);
+}
+
 // ===========================================================================
 async function distribuicao(
   req: Request,
@@ -296,7 +345,6 @@ async function distribuicao(
 ): Promise<Response> {
   // Replanejamento sempre começa na PRÓXIMA semana: a corrente fica congelada.
   const semanaInicio = corpo.semana_inicio as string;
-  const horizonteSemanas = (corpo.horizonte_semanas as number) ?? 6;
 
   const [grade, limites, materiasResp, semanasOff, pendentes] = await Promise.all([
     supabase.from("grade_slots").select("dia_semana,hora,duracao_min").eq("user_id", userId).eq("ativo", true),
@@ -342,6 +390,17 @@ async function distribuicao(
     return erro(req, "nenhum horário na grade — configure a grade antes de montar o plano", 422);
   }
 
+  // O horizonte sai da PROVA, não de um número fixo — é assim que a Fase A
+  // já raciocina (`calculo.ts`: blocos_por_semana = necessários ÷ semanas
+  // até o evento). A Fase B ignorava isso e usava 6 semanas cravadas, o
+  // que deixava as duas fases com réguas diferentes E era o caso mais
+  // pesado possível pro modelo — a causa da resposta truncada em produção.
+  const horizonteSemanas = horizonteDoPlano(
+    materias.flatMap((m) => (m.eventos ?? []).map((e) => e.data)),
+    semanaInicio,
+    corpo.horizonte_semanas as number | undefined,
+  );
+
   const contexto = {
     semana_inicio: semanaInicio,
     horizonte_semanas: horizonteSemanas,
@@ -359,19 +418,55 @@ async function distribuicao(
     eventos: new Set(materias.flatMap((m) => (m.eventos ?? []).map((e) => e.id))),
   };
 
+  /**
+   * `medium`, não `high`.
+   *
+   * Em modelo com raciocínio, os tokens de pensamento saem do MESMO teto
+   * de `maxTokens` que a resposta. Com `high` numa distribuição longa, o
+   * modelo gastava o orçamento inteiro pensando e era cortado antes de
+   * escrever o JSON — 97s de execução para uma saída que cabe em ~3.000
+   * dos 16.000 tokens disponíveis (produção, 2026-08-15). Um plano bom
+   * entregue vale mais que um ótimo que vira fallback.
+   */
+  const opcoesFaseB = {
+    tarefa: "montar-estudo-fase-b",
+    system: SYSTEM_FASE_B,
+    userPrompt: JSON.stringify(contexto, null, 1),
+    schema: SCHEMA_FASE_B as unknown as Record<string, unknown>,
+    prazoFinal,
+    esforco: "medium" as const,
+    maxTokens: 16000,
+  };
+
+  const validar = (blocos: BlocosGerados) =>
+    validarDistribuicao(blocos, contexto, idsValidos);
+
   try {
-    const resultado = await gerarComValidacao<BlocosGerados>(
-      {
-        tarefa: "montar-estudo-fase-b",
-        system: SYSTEM_FASE_B,
-        userPrompt: JSON.stringify(contexto, null, 1),
-        schema: SCHEMA_FASE_B as unknown as Record<string, unknown>,
-        prazoFinal,
-        esforco: "high",
-        maxTokens: 16000,
-      },
-      (blocos) => validarDistribuicao(blocos, contexto, idsValidos),
-    );
+    let resultado;
+    try {
+      resultado = await gerarComValidacao<BlocosGerados>(opcoesFaseB, validar);
+    } catch (e) {
+      // Truncamento é RECUPERÁVEL, e antes não era tratado: subia direto e
+      // caía no round-robin, jogando fora uma geração que só precisava de
+      // menos raciocínio.
+      if (!(e instanceof RespostaTruncada)) throw e;
+
+      // Só repete se sobrar tempo de verdade. Sem esta guarda, a segunda
+      // tentativa morreria no prazo e viraria ProvedorIndisponivel — ou
+      // seja, 503 "não consegui falar com a IA" depois de ~100s, o que é
+      // mentira: a IA respondeu, só não coube. Deixando o truncamento
+      // subir, a pessoa recebe o plano do round-robin, que é o certo aqui.
+      if (Date.now() + MINIMO_PARA_RETRY_MS > prazoFinal) {
+        console.warn("montar-estudo: Fase B truncada e sem tempo de repetir");
+        throw e;
+      }
+
+      console.warn("montar-estudo: Fase B truncada — repetindo com esforço menor");
+      resultado = await gerarComValidacao<BlocosGerados>(
+        { ...opcoesFaseB, esforco: "low" },
+        validar,
+      );
+    }
 
     const salvos = await persistir(supabase, semanaInicio, resultado.dados);
     return json(req, {

@@ -74,13 +74,27 @@ export interface DistribuicaoResultado {
   motivo?: string;
 }
 
-/** Fase B: distribui os tópicos (de todas as matérias ativas) na grade real. */
+/**
+ * Fase B: distribui os tópicos (de todas as matérias ativas) na grade real.
+ *
+ * `horizonteSemanas` é opcional de propósito: sem ele, o backend deriva o
+ * horizonte da prova/entrega mais distante entre as matérias ativas (ver
+ * `horizonteDoPlano` em montar-estudo/index.ts) — 2 semanas por padrão
+ * quando não há evento cadastrado, até um teto de 6. O front não deve mais
+ * cravar um número fixo: era o que deixava a distribuição sempre no caso
+ * mais pesado possível, que foi o que estourou o orçamento de tokens da IA
+ * em produção. Passe um valor só se a pessoa escolher explicitamente.
+ */
 export async function rodarDistribuicao(
   semanaInicio: string,
-  horizonteSemanas: number,
+  horizonteSemanas?: number,
 ): Promise<DistribuicaoResultado> {
   const { data, error } = await supabase.functions.invoke<DistribuicaoResultado>("montar-estudo", {
-    body: { fase: "distribuicao", semana_inicio: semanaInicio, horizonte_semanas: horizonteSemanas },
+    body: {
+      fase: "distribuicao",
+      semana_inicio: semanaInicio,
+      ...(horizonteSemanas != null && { horizonte_semanas: horizonteSemanas }),
+    },
   });
   if (error) throw new Error(await extrairErroDeFuncao(error));
   if (!data) throw new Error("resposta vazia do servidor");
