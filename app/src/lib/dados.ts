@@ -55,6 +55,45 @@ export function hojeNoFuso(timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
 }
 
+/**
+ * Próximas datas em que a pessoa PLANEJOU treinar, a partir de
+ * `programas.dias_lembrete` (0 = domingo).
+ *
+ * Serve só para ROTULAR o carrossel da Início ("hoje", "amanhã", "qui").
+ * Não decide o conteúdo de dia nenhum — quem decide é a fila
+ * (`proxima_sessao_id`), que avança por sessão CONCLUÍDA e não por
+ * calendário. A migration 05 é explícita sobre isso: "misturar as duas
+ * coisas é o que quebra a maioria dos apps de treino". Se a pessoa furar
+ * a terça, o treino A não vira o de quarta — ele continua sendo o próximo,
+ * e é só o rótulo de data que anda.
+ *
+ * Devolve `[]` quando não há dias planejados; aí a tela rotula por posição
+ * na fila ("próximo", "depois") em vez de inventar data.
+ *
+ * Aritmética em UTC de propósito: `hojeISO` já vem convertido para o fuso
+ * do usuário, e somar dias em horário local esbarraria em horário de verão.
+ */
+export function proximosDiasDeTreino(
+  diasLembrete: number[],
+  hojeISO: string,
+  quantos: number,
+  incluirHoje: boolean,
+): string[] {
+  if (diasLembrete.length === 0 || quantos <= 0) return [];
+  const dias = new Set(diasLembrete);
+  const datas: string[] = [];
+  const cursor = new Date(`${hojeISO}T00:00:00Z`);
+  if (!incluirHoje) cursor.setUTCDate(cursor.getUTCDate() + 1);
+
+  // Teto de 8 semanas: com `dias_lembrete` não-vazio nunca chega perto,
+  // mas garante que dado estranho no banco não vire laço infinito.
+  for (let i = 0; i < 56 && datas.length < quantos; i++) {
+    if (dias.has(cursor.getUTCDay())) datas.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return datas;
+}
+
 /* ---------------------------------------------------------------------
    Perfil de treino — onboarding rico (migration 20). Tabela própria,
    privada ao dono: diferente de `profiles`, não é visível pro grupo.
@@ -140,6 +179,9 @@ export interface ProgramaAtivo {
   enfase: "superior" | "inferior" | "equilibrado";
   frequencia_semanal: number;
   proxima_sessao_id: string | null;
+  /** Dias da semana planejados (0 = domingo). Existem para LEMBRETE, não
+      para decidir o conteúdo do dia — ver o comentário na migration 05. */
+  dias_lembrete: number[];
 }
 
 export interface ProximaSessao {
@@ -153,7 +195,7 @@ export async function carregarProgramaAtivo(
 ): Promise<{ programa: ProgramaAtivo; proxima: ProximaSessao | null } | null> {
   const { data: programa, error } = await supabase
     .from("programas")
-    .select("id,divisao,enfase,frequencia_semanal,proxima_sessao_id")
+    .select("id,divisao,enfase,frequencia_semanal,proxima_sessao_id,dias_lembrete")
     .eq("user_id", userId)
     .eq("ativo", true)
     .maybeSingle();
@@ -1142,11 +1184,20 @@ export async function carregarUltimosDiasDoMembro(
   });
 }
 
+export interface SessaoDoResumo {
+  /** Necessário para buscar os exercícios da sessão no carrossel da Início. */
+  id: string;
+  letra: string;
+  nome: string;
+  totalExercicios: number;
+}
+
 export interface ResumoDoPlano {
   divisao: string;
   enfase: string;
   frequenciaSemanal: number;
-  sessoes: Array<{ letra: string; nome: string; totalExercicios: number }>;
+  /** Na ordem da fila de rotação (`sessoes.posicao`), sempre. */
+  sessoes: SessaoDoResumo[];
 }
 
 /**
@@ -1177,7 +1228,7 @@ export async function carregarResumoDoPlano(membroId: string): Promise<ResumoDoP
         .from("sessao_exercicios")
         .select("id", { count: "exact", head: true })
         .eq("sessao_id", s.id);
-      return { letra: s.letra, nome: s.nome, totalExercicios: count ?? 0 };
+      return { id: s.id, letra: s.letra, nome: s.nome, totalExercicios: count ?? 0 };
     }),
   );
 

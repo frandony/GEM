@@ -401,6 +401,68 @@
     margin-left: var(--e-1);
   }
 
+  /* ---- Carrossel da fila de treino ----------------------------------
+     Arrastar para o lado para ver o próximo treino da rotação. Um card
+     por vez, com `scroll-snap` para parar sempre alinhado — sem isso o
+     arraste solta no meio de dois cards e a tela fica "torta".
+
+     `scroll-snap-stop: always` impede que um arraste forte pule do
+     primeiro direto para o terceiro: cada gesto avança um treino, que é
+     como a pessoa pensa na fila.
+
+     A margem negativa + padding faz os cards sangrarem até a borda da
+     tela enquanto o conteúdo continua alinhado com o resto da página —
+     é o que dá o recorte do card seguinte espiando na lateral, que é o
+     sinal de "tem mais coisa aqui, arrasta". */
+  .carrossel {
+    display: flex;
+    gap: var(--e-3);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    margin-inline: calc(var(--e-4) * -1);
+    padding-inline: var(--e-4);
+    /* O card tem sombra/borda; sem isto o topo e a base ficam cortados. */
+    padding-block: 2px;
+    overscroll-behavior-x: contain;
+  }
+  .carrossel::-webkit-scrollbar { display: none; }
+  .carrossel > * {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    flex: 0 0 88%;
+  }
+  @media (min-width: 30rem) {
+    /* Em tela maior o card inteiro cabe com folga; 92% ainda deixa o
+       próximo espiando, que é o que convida ao arraste. */
+    .carrossel > * { flex-basis: 92%; }
+  }
+
+  /* Faixa lateral colorida por posição na fila, no lugar de `.card-treino`
+     (que é verde fixo). Verde = o de agora, azul = o seguinte, roxo = o
+     terceiro — a mesma leitura de "quanto falta" do resto do app. */
+  .card-fila { border-left: 3px solid var(--cor-fila, var(--treino)); }
+
+  /* Pontinhos de posição. Não são clicáveis de propósito: o alvo de toque
+     seria minúsculo, e o gesto de arrastar já resolve. São indicador, e
+     por isso `aria-hidden` no componente — o leitor de tela recebe a
+     posição pelo texto de cada card. */
+  .carrossel-pontos {
+    display: flex; justify-content: center; gap: var(--e-2);
+    margin-top: var(--e-3);
+  }
+  .carrossel-ponto {
+    width: 6px; height: 6px; border-radius: var(--r-pill);
+    background: var(--hairline-forte);
+    transition: background var(--d-entrar) var(--ease-out),
+                width var(--d-entrar) var(--ease-out);
+  }
+  .carrossel-ponto[data-ativo] {
+    width: 18px;
+    background: var(--cor-fila, var(--treino));
+  }
+
   /* ---- Stat pill (resumo da semana) --------------------------------- */
   .stat-pill {
     flex-shrink: 0;

@@ -8,20 +8,144 @@ import {
   carregarMaterias,
   carregarPerfil,
   carregarProgramaAtivo,
+  carregarResumoDoPlano,
   carregarResumoSemanal,
   corDaDisciplina,
   hojeNoFuso,
+  proximosDiasDeTreino,
   type BlocoEstudo,
   type Materia,
   type Perfil,
+  type ProgramaAtivo,
   type ProximaSessao,
   type ResumoSemanal,
+  type SessaoDoResumo,
 } from "../lib/dados";
 import type { ExercicioDaSessao } from "./SessaoTreino";
 import { BarChart3, Dumbbell, Download, Play, Settings, Timer } from "lucide-react";
 import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
 import { useToast } from "../lib/toast";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
+
+/** Verde = o de agora, azul = o seguinte, roxo = o terceiro. Mesma
+    gramática de cor do resto do app, e o mesmo desenho pedido lá no
+    começo do projeto. */
+const CORES_FILA = ["var(--treino)", "var(--estudo)", "var(--roxo)"] as const;
+
+/** Quantos treinos futuros o carrossel mostra. Três é o que cabe na
+    cabeça: hoje, o próximo, e o depois. */
+const CARTOES_NA_FILA = 3;
+
+const FORMATO_DIA_SEMANA = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+
+/**
+ * Rótulo de cada cartão. Recebe a data PLANEJADA (de `dias_lembrete`) ou
+ * `undefined` quando a pessoa não marcou dias — e nesse caso rotula por
+ * posição na fila, em vez de inventar um dia.
+ */
+function rotuloDaFila(dataISO: string | undefined, hojeISO: string, posicao: number): string {
+  if (!dataISO) return posicao === 0 ? "Próximo treino" : `${posicao + 1}º da fila`;
+  if (dataISO === hojeISO) return "Treino de hoje";
+
+  const amanha = new Date(`${hojeISO}T00:00:00Z`);
+  amanha.setUTCDate(amanha.getUTCDate() + 1);
+  if (dataISO === amanha.toISOString().slice(0, 10)) return "Amanhã";
+
+  const d = new Date(`${dataISO}T12:00:00`);
+  const semana = FORMATO_DIA_SEMANA.format(d).replace(".", "");
+  const dia = dataISO.split("-").reverse().slice(0, 2).join("/");
+  return `${semana.charAt(0).toUpperCase() + semana.slice(1)}, ${dia}`;
+}
+
+/**
+ * Um treino da fila.
+ *
+ * O rótulo de data é PROJEÇÃO, não promessa: vem dos dias que a pessoa
+ * planejou (`dias_lembrete`), enquanto o conteúdo vem da fila, que só
+ * anda quando um treino é CONCLUÍDO. Furou a terça? O treino não vira o
+ * de quarta — ele continua sendo o próximo, e só o rótulo de data muda.
+ * A migration 05 documenta essa separação como decisão de projeto.
+ */
+function CartaoDaFila({
+  sessao,
+  posicao,
+  rotulo,
+  exercicios,
+  progresso,
+  treinouHoje,
+}: {
+  sessao: SessaoDoResumo;
+  posicao: number;
+  rotulo: string;
+  exercicios: ExercicioDaSessao[] | undefined;
+  /** Só o primeiro cartão mostra progresso — é o único que dá para iniciar. */
+  progresso: number | null;
+  treinouHoje: boolean;
+}) {
+  const cor = CORES_FILA[posicao % CORES_FILA.length];
+  return (
+    <Link
+      to="/treino"
+      className="card card-fila block"
+      style={{ "--cor-fila": cor } as CSSProperties}
+      aria-label={`${rotulo}: treino ${sessao.letra}, ${sessao.nome}`}
+    >
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <span className="rotulo-secao" style={{ color: cor }}>
+          {rotulo}
+        </span>
+        <span className="badge shrink-0" style={{ background: "var(--surface-alta)" }}>
+          {sessao.totalExercicios} {sessao.totalExercicios === 1 ? "exercício" : "exercícios"}
+        </span>
+      </div>
+
+      <div className="h2 mb-1">
+        {sessao.letra} — {sessao.nome}
+      </div>
+
+      {exercicios === undefined ? (
+        <div className="skeleton mt-3" style={{ height: "3.5rem" }} />
+      ) : (
+        <div className="mt-2">
+          {exercicios.slice(0, 3).map((ex) => (
+            <div key={ex.sessaoExercicioId} className="exercise-row">
+              <span className="exercise-row__icone">
+                <Dumbbell size={18} />
+              </span>
+              <div className="exercise-row__texto">
+                <div className="h3">{ex.nome}</div>
+                <div className="text-xs text-ink-terciario num">
+                  {ex.series} séries · {ex.repsMin}–{ex.repsMax} ·{" "}
+                  {Math.round((ex.descansoSeg / 60) * 10) / 10} min
+                </div>
+              </div>
+            </div>
+          ))}
+          {exercicios.length > 3 && (
+            <div className="text-xs text-ink-terciario mt-2">
+              + {exercicios.length - 3} exercícios
+            </div>
+          )}
+        </div>
+      )}
+
+      {progresso !== null && (
+        <>
+          <div
+            className="progress-bar mt-3"
+            style={{ "--progresso": progresso, "--progresso-cor": cor } as CSSProperties}
+          >
+            <span />
+          </div>
+          <div className="progress-bar-rotulo mt-2">
+            <span>{treinouHoje ? "Treino concluído" : "Progresso do treino"}</span>
+            <span className="num">{Math.round(progresso * 100)}%</span>
+          </div>
+        </>
+      )}
+    </Link>
+  );
+}
 
 /** "Francisco Vasconcelos" → "FV". Só letras — número ou emoji no nome
     (existe gente assim) não vira parte da inicial. */
@@ -39,7 +163,6 @@ export function Home() {
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [proxima, setProxima] = useState<ProximaSessao | null>(null);
-  const [exercicios, setExercicios] = useState<ExercicioDaSessao[] | null>(null);
   const [treinouHoje, setTreinouHoje] = useState(false);
   const [streak, setStreak] = useState<number | null>(null);
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
@@ -49,6 +172,55 @@ export function Home() {
   const [falhou, setFalhou] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const toast = useToast();
+
+  // Fila de treino do carrossel: as sessões na ordem da rotação, já
+  // giradas para começar na próxima.
+  const [fila, setFila] = useState<SessaoDoResumo[]>([]);
+  const [rotulos, setRotulos] = useState<string[]>([]);
+  const [exerciciosPorSessao, setExerciciosPorSessao] = useState<
+    Record<string, ExercicioDaSessao[]>
+  >({});
+  const [cartaoVisivel, setCartaoVisivel] = useState(0);
+
+  /**
+   * Monta a fila do carrossel: gira a lista de sessões para começar na
+   * próxima, corta em três, e busca os exercícios de cada uma.
+   *
+   * O giro é o ponto: `sessoes` vem na ordem de `posicao` (A, B, C), mas
+   * a fila real começa em `proxima_sessao_id`. Quem está com o B pendente
+   * precisa ver B, C, A — não A, B, C.
+   */
+  async function montarFila(
+    programa: { programa: ProgramaAtivo; proxima: ProximaSessao | null },
+    hojeISO: string,
+    jaTreinouHoje: boolean,
+  ) {
+    const resumo = await carregarResumoDoPlano(userId);
+    if (!resumo || resumo.sessoes.length === 0) return;
+
+    const inicio = resumo.sessoes.findIndex((s) => s.id === programa.proxima?.id);
+    const girada =
+      inicio <= 0
+        ? resumo.sessoes
+        : [...resumo.sessoes.slice(inicio), ...resumo.sessoes.slice(0, inicio)];
+    const proximas = girada.slice(0, CARTOES_NA_FILA);
+    setFila(proximas);
+
+    // Se já treinou hoje, hoje sai da conta: o próximo da fila acontece no
+    // próximo dia planejado, não de novo hoje.
+    const datas = proximosDiasDeTreino(
+      programa.programa.dias_lembrete,
+      hojeISO,
+      proximas.length,
+      !jaTreinouHoje,
+    );
+    setRotulos(proximas.map((_, i) => rotuloDaFila(datas[i], hojeISO, i)));
+
+    const listas = await Promise.all(
+      proximas.map(async (s) => [s.id, await carregarExerciciosDaSessao(s.id)] as const),
+    );
+    setExerciciosPorSessao(Object.fromEntries(listas));
+  }
 
   async function carregar() {
     setFalhou(null);
@@ -72,11 +244,13 @@ export function Home() {
       setStreak((s.data as number) ?? 0);
       setResumo(resumoSemanal);
 
-      // Exercícios da próxima sessão e blocos de estudo de hoje entram
-      // depois: a tela já pinta com o resto, essas duas listas só enriquecem
-      // os cards — não vale atrasar o primeiro paint por elas.
+      // Fila do carrossel e blocos de estudo entram depois: a tela já
+      // pinta com o resto, e essas listas só enriquecem os cards — não
+      // vale atrasar o primeiro paint por elas.
       if (programa?.proxima) {
-        void carregarExerciciosDaSessao(programa.proxima.id).then(setExercicios);
+        void montarFila(programa, hoje, resumoDia.data?.treinou ?? false).catch((e) =>
+          console.warn("fila de treino indisponível:", e),
+        );
       }
       if (p.usa_estudo) {
         void Promise.all([carregarBlocosDoDia(userId, hoje), carregarMaterias(userId)])
@@ -174,63 +348,69 @@ export function Home() {
         </div>
       </header>
 
-      <div className="flex flex-col gap-3 mb-6">
-        {/* ---- Treino de hoje ------------------------------------------- */}
-        <Link to="/treino" className="card card-treino block">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="rotulo-secao text-treino-ink">Treino de hoje</span>
-            {perfil.usa_treino && exercicios && (
-              <span className="badge badge-treino">
-                {exercicios.length} {exercicios.length === 1 ? "exercício" : "exercícios"}
-              </span>
-            )}
+      {/* ---- Fila de treino, arrastável ------------------------------
+          Um card por treino da rotação: o de agora, o seguinte, o
+          terceiro. Ver `CartaoDaFila` para o porquê dos rótulos de data
+          serem projeção e não promessa. */}
+      {perfil.usa_treino && fila.length > 0 ? (
+        <section className="mb-6">
+          <div
+            className="carrossel"
+            onScroll={(e) => {
+              // Compara com a posição REAL de cada cartão em vez de dividir
+              // a largura total: gap e padding do container fariam a conta
+              // por média errar justamente nas pontas.
+              const el = e.currentTarget;
+              const filhos = Array.from(el.children) as HTMLElement[];
+              let maisProximo = 0;
+              let menorDistancia = Infinity;
+              filhos.forEach((filho, i) => {
+                const distancia = Math.abs(filho.offsetLeft - el.scrollLeft - el.offsetLeft);
+                if (distancia < menorDistancia) {
+                  menorDistancia = distancia;
+                  maisProximo = i;
+                }
+              });
+              setCartaoVisivel(maisProximo);
+            }}
+          >
+            {fila.map((s, i) => (
+              <CartaoDaFila
+                key={s.id}
+                sessao={s}
+                posicao={i}
+                rotulo={rotulos[i] ?? ""}
+                exercicios={exerciciosPorSessao[s.id]}
+                progresso={i === 0 ? progressoTreino : null}
+                treinouHoje={treinouHoje}
+              />
+            ))}
           </div>
-
-          {perfil.usa_treino ? (
-            <>
-              <div className="h2 mb-1">
-                {proxima ? `${proxima.letra} — ${proxima.nome}` : "Sem sessão pendente"}
-              </div>
-
-              {exercicios && exercicios.length > 0 && (
-                <div className="mt-2">
-                  {exercicios.slice(0, 3).map((ex) => (
-                    <div key={ex.sessaoExercicioId} className="exercise-row">
-                      <span className="exercise-row__icone">
-                        <Dumbbell size={18} />
-                      </span>
-                      <div className="exercise-row__texto">
-                        <div className="h3">{ex.nome}</div>
-                        <div className="text-xs text-ink-terciario num">
-                          {ex.series} séries · {ex.repsMin}–{ex.repsMax} ·{" "}
-                          {Math.round(ex.descansoSeg / 60 * 10) / 10} min
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {proxima && (
-                <>
-                  <div
-                    className="progress-bar mt-3"
-                    style={{ "--progresso": progressoTreino } as CSSProperties}
-                  >
-                    <span />
-                  </div>
-                  <div className="progress-bar-rotulo mt-2">
-                    <span>{treinouHoje ? "Treino concluído" : "Progresso do treino"}</span>
-                    <span className="num">{Math.round(progressoTreino * 100)}%</span>
-                  </div>
-                </>
-              )}
-            </>
-          ) : (
-            <div className="h2">Montar meu treino</div>
+          {fila.length > 1 && (
+            <div className="carrossel-pontos" aria-hidden>
+              {fila.map((s, i) => (
+                <span
+                  key={s.id}
+                  className="carrossel-ponto"
+                  data-ativo={i === cartaoVisivel || undefined}
+                  style={{ "--cor-fila": CORES_FILA[i % CORES_FILA.length] } as CSSProperties}
+                />
+              ))}
+            </div>
           )}
-        </Link>
+        </section>
+      ) : (
+        <div className="mb-6">
+          <Link to="/treino" className="card card-treino block">
+            <span className="rotulo-secao text-treino-ink mb-3 block">Treino</span>
+            <div className="h2">
+              {perfil.usa_treino ? "Sem sessão pendente" : "Montar meu treino"}
+            </div>
+          </Link>
+        </div>
+      )}
 
+      <div className="flex flex-col gap-3 mb-6">
         {/* ---- Estudo de hoje --------------------------------------------- */}
         {perfil.usa_estudo && (
           <Link to="/estudo" className="card card-estudo block">
