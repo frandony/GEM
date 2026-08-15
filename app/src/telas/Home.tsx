@@ -21,6 +21,7 @@ import type { ExercicioDaSessao } from "./SessaoTreino";
 import { BarChart3, Dumbbell, Download, Play, Settings, Timer } from "lucide-react";
 import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
 import { useToast } from "../lib/toast";
+import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 
 /** "Francisco Vasconcelos" → "FV". Só letras — número ou emoji no nome
     (existe gente assim) não vira parte da inicial. */
@@ -45,40 +46,55 @@ export function Home() {
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [resumo, setResumo] = useState<ResumoSemanal | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [falhou, setFalhou] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const toast = useToast();
 
   async function carregar() {
-    const p = await carregarPerfil(userId);
-    if (!p) return;
-    setPerfil(p);
+    setFalhou(null);
+    try {
+      const p = await carregarPerfil(userId);
+      if (!p) {
+        setFalhou("Seu perfil ainda não foi criado. Saia e entre de novo.");
+        return;
+      }
+      setPerfil(p);
 
-    const hoje = hojeNoFuso(p.timezone);
-    const [programa, resumoDia, s, resumoSemanal] = await Promise.all([
-      carregarProgramaAtivo(userId),
-      supabase.from("resumos_diarios").select("treinou").eq("user_id", userId).eq("data", hoje).maybeSingle(),
-      supabase.rpc("streak_de", { p_user_id: null }),
-      carregarResumoSemanal(userId, p.timezone),
-    ]);
-    setProxima(programa?.proxima ?? null);
-    setTreinouHoje(resumoDia.data?.treinou ?? false);
-    setStreak((s.data as number) ?? 0);
-    setResumo(resumoSemanal);
-    setCarregando(false);
+      const hoje = hojeNoFuso(p.timezone);
+      const [programa, resumoDia, s, resumoSemanal] = await Promise.all([
+        carregarProgramaAtivo(userId),
+        supabase.from("resumos_diarios").select("treinou").eq("user_id", userId).eq("data", hoje).maybeSingle(),
+        supabase.rpc("streak_de", { p_user_id: null }),
+        carregarResumoSemanal(userId, p.timezone),
+      ]);
+      setProxima(programa?.proxima ?? null);
+      setTreinouHoje(resumoDia.data?.treinou ?? false);
+      setStreak((s.data as number) ?? 0);
+      setResumo(resumoSemanal);
 
-    // Exercícios da próxima sessão e blocos de estudo de hoje entram
-    // depois: a tela já pinta com o resto, essas duas listas só enriquecem
-    // os cards — não vale atrasar o primeiro paint por elas.
-    if (programa?.proxima) {
-      void carregarExerciciosDaSessao(programa.proxima.id).then(setExercicios);
-    }
-    if (p.usa_estudo) {
-      void Promise.all([carregarBlocosDoDia(userId, hoje), carregarMaterias(userId)]).then(
-        ([bs, ms]) => {
-          setBlocos(bs);
-          setMaterias(ms);
-        },
-      );
+      // Exercícios da próxima sessão e blocos de estudo de hoje entram
+      // depois: a tela já pinta com o resto, essas duas listas só enriquecem
+      // os cards — não vale atrasar o primeiro paint por elas.
+      if (programa?.proxima) {
+        void carregarExerciciosDaSessao(programa.proxima.id).then(setExercicios);
+      }
+      if (p.usa_estudo) {
+        void Promise.all([carregarBlocosDoDia(userId, hoje), carregarMaterias(userId)])
+          .then(([bs, ms]) => {
+            setBlocos(bs);
+            setMaterias(ms);
+          })
+          // Enriquecimento: falhar aqui não pode derrubar a Home inteira,
+          // mas também não pode sumir sem deixar rastro no console.
+          .catch((e) => console.warn("blocos/matérias da Home indisponíveis:", e));
+      }
+    } catch (e) {
+      setFalhou(e instanceof Error ? e.message : "Não deu para carregar sua Início.");
+    } finally {
+      // No `finally`, sempre. Antes o `return` do perfil nulo pulava esta
+      // linha e a tela ficava presa no skeleton PARA SEMPRE — sem
+      // mensagem, sem retry, e sem o botão de exportar que vive no rodapé.
+      setCarregando(false);
     }
   }
 
@@ -104,7 +120,7 @@ export function Home() {
     }
   }
 
-  if (carregando || !perfil) {
+  if (carregando) {
     return (
       <div className="tela">
         <div className="flex items-center justify-between mb-6">
@@ -115,6 +131,20 @@ export function Home() {
           <div className="skeleton" style={{ height: "11rem" }} />
           <div className="skeleton" style={{ height: "9rem" }} />
         </div>
+      </div>
+    );
+  }
+
+  if (falhou || !perfil) {
+    return (
+      <div className="tela">
+        <FalhaAoCarregar
+          mensagem={falhou ?? "Não deu para carregar sua Início."}
+          onTentarDeNovo={() => {
+            setCarregando(true);
+            void carregar();
+          }}
+        />
       </div>
     );
   }

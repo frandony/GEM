@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import {
   carregarDetalheSessaoTreino,
   carregarHistoricoTreinos,
@@ -37,21 +38,30 @@ export function HistoricoTreinos() {
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [detalhes, setDetalhes] = useState<Record<string, ExercicioDoHistorico[]>>({});
+  const [falhou, setFalhou] = useState<string | null>(null);
   const toast = useToast();
 
   // As três chamadas abaixo tinham `.then` sem `.catch`: uma falha de rede
   // deixava o skeleton girando para sempre, ou o botão preso em
   // "Carregando…", sem nada dizer o que houve.
+  async function carregarPrimeiraPagina() {
+    setFalhou(null);
+    try {
+      const { sessoes: s, temMais: t } = await carregarHistoricoTreinos(userId, 0);
+      setSessoes(s);
+      setPagina(0);
+      setTemMais(t);
+    } catch (e) {
+      // Tela inteira, não toast: "nenhum treino registrado ainda" para quem
+      // treina há meses é a mentira mais desanimadora que o app pode contar.
+      setFalhou(e instanceof Error ? e.message : "Não deu para carregar o histórico.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   useEffect(() => {
-    carregarHistoricoTreinos(userId, 0)
-      .then(({ sessoes: s, temMais: t }) => {
-        setSessoes(s);
-        setTemMais(t);
-      })
-      .catch((e) => {
-        toast.erro(e instanceof Error ? e.message : "Não deu para carregar o histórico.");
-      })
-      .finally(() => setCarregando(false));
+    void carregarPrimeiraPagina();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -102,9 +112,20 @@ export function HistoricoTreinos() {
           <div className="skeleton" style={{ height: "5rem" }} />
           <div className="skeleton" style={{ height: "5rem" }} />
         </div>
+      ) : falhou ? (
+        <FalhaAoCarregar
+          mensagem={falhou}
+          onTentarDeNovo={() => {
+            setCarregando(true);
+            void carregarPrimeiraPagina();
+          }}
+        />
       ) : sessoes.length === 0 ? (
         <div className="vazio">
           <p>Nenhum treino registrado ainda.</p>
+          <p className="text-sm text-ink-terciario">
+            Cada sessão que você concluir aparece aqui, com as séries e as cargas.
+          </p>
         </div>
       ) : (
         <>

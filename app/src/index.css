@@ -498,14 +498,17 @@
   /* Destaque momentâneo da matéria recém-criada. Confirma "é esta aqui"
      sem exigir que a pessoa procure numa lista. A regra global de
      prefers-reduced-motion anula a animação — quem pediu menos movimento
-     ainda recebe o toast e a linha. */
+     ainda recebe o toast e a linha.
+
+     Anima `box-shadow`, não `background`: o alvo é um `.card`, que já tem
+     fundo próprio — animar o fundo apagaria a superfície do card no meio
+     do caminho. O anel compõe com qualquer fundo. */
   .subject-row--nova {
-    border-radius: var(--r-md);
     animation: destacar-linha 2.4s var(--ease-out) 1;
   }
   @keyframes destacar-linha {
-    from { background: var(--estudo-fraco); }
-    to   { background: transparent; }
+    from { box-shadow: 0 0 0 2px var(--estudo); }
+    to   { box-shadow: 0 0 0 2px transparent; }
   }
 
   /* ---- Faixa de 7 dias (membro do grupo) -----------------------------

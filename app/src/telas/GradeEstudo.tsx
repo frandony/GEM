@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { AvisoDeFormulario } from "../componentes/MensagemErro";
+import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import {
   adicionarSlot,
   carregarGrade,
@@ -35,6 +36,7 @@ export function GradeEstudo() {
     diaLeve: null,
   });
   const [erro, setErro] = useState<string | null>(null);
+  const [falhou, setFalhou] = useState<string | null>(null);
   const toast = useToast();
 
   const [diaNovo, setDiaNovo] = useState(1); // segunda, o mais comum
@@ -43,10 +45,18 @@ export function GradeEstudo() {
   const [adicionando, setAdicionando] = useState(false);
 
   async function carregar() {
-    const [g, l] = await Promise.all([carregarGrade(userId), carregarLimites(userId)]);
-    setSlots(g);
-    setLimites(l);
-    setCarregando(false);
+    setFalhou(null);
+    try {
+      const [g, l] = await Promise.all([carregarGrade(userId), carregarLimites(userId)]);
+      setSlots(g);
+      setLimites(l);
+    } catch (e) {
+      // "Nenhum horário cadastrado" mandaria a pessoa recadastrar o que já
+      // existe — e horário duplicado é rejeitado pelo unique do banco.
+      setFalhou(e instanceof Error ? e.message : "Não deu para carregar sua grade.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   useEffect(() => {
@@ -118,8 +128,22 @@ export function GradeEstudo() {
         tópico cabe.
       </p>
 
+      {falhou && (
+        <div className="mb-6">
+          <FalhaAoCarregar
+            mensagem={falhou}
+            onTentarDeNovo={() => {
+              setCarregando(true);
+              void carregar();
+            }}
+          />
+        </div>
+      )}
+
       <span className="rotulo-secao text-estudo-ink mb-2 block">Seus horários</span>
-      {slots.length === 0 ? (
+      {/* `!falhou &&`: sem isso, uma consulta que falhou apareceria como
+          "nenhum horário cadastrado" logo abaixo do aviso de falha. */}
+      {!falhou && slots.length === 0 ? (
         <div className="vazio mb-6">
           <p>Nenhum horário cadastrado ainda.</p>
         </div>

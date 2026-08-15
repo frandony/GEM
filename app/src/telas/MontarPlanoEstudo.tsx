@@ -3,7 +3,14 @@ import { Link, useNavigate } from "react-router";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { LevantadorPixel } from "../componentes/CarregandoIA";
 import { useAuth } from "../lib/auth";
-import { carregarGrade, carregarMateriasParaMontagem, carregarPerfil, hojeNoFuso } from "../lib/dados";
+import {
+  carregarGrade,
+  carregarMateriasParaMontagem,
+  carregarPerfil,
+  hojeNoFuso,
+  type MateriaParaMontagem,
+  type SlotGrade,
+} from "../lib/dados";
 import { rodarDiagnostico, rodarDistribuicao, type DiagnosticoResultado, type DistribuicaoResultado } from "../lib/montarEstudo";
 
 /** Segunda-feira da semana ATUAL (não da próxima) — isso é a primeira
@@ -44,10 +51,26 @@ export function MontarPlanoEstudo() {
   useEffect(() => {
     let ativo = true;
     (async () => {
-      const [grade, materias] = await Promise.all([
-        carregarGrade(userId),
-        carregarMateriasParaMontagem(userId),
-      ]);
+      // `carregarGrade` e `carregarMateriasParaMontagem` LANÇAM em falha de
+      // consulta (ver a doutrina no topo de lib/dados.ts). Sem este catch, a
+      // rejeição não teria dono e a tela ficaria em "carregando" para
+      // sempre — e as duas alternativas do caminho feliz ("sem-grade",
+      // "sem-materias") mandariam cadastrar o que já existe.
+      let grade: SlotGrade[];
+      let materias: MateriaParaMontagem[];
+      try {
+        [grade, materias] = await Promise.all([
+          carregarGrade(userId),
+          carregarMateriasParaMontagem(userId),
+        ]);
+      } catch (e) {
+        if (!ativo) return;
+        setPasso({
+          fase: "erro",
+          mensagem: e instanceof Error ? e.message : "Não deu para carregar seus dados.",
+        });
+        return;
+      }
       if (!ativo) return;
 
       if (grade.length === 0) {

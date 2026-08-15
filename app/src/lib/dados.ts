@@ -17,16 +17,36 @@ export interface Perfil {
   usa_estudo: boolean;
 }
 
+/* =====================================================================
+   Doutrina de leitura deste arquivo — vale para tudo abaixo.
+   =====================================================================
+   **Falha de consulta LANÇA. Nunca vira lista vazia.**
+
+   O motivo está escrito desde sempre em `carregarPlanoCompleto`: se
+   "não deu para carregar" e "você não tem nada" devolvem a mesma coisa,
+   quem chama não consegue distinguir, e a tela acaba AFIRMANDO que o
+   usuário não tem dado nenhum quando na verdade a rede caiu. Isso já
+   custou caro — a tela de Estudo inteira (Pomodoro, card de montar
+   plano, blocos e a lista de matérias) sumia atrás de um "você ainda não
+   tem matérias" por causa de um erro engolido, e era indistinguível de
+   "a funcionalidade não foi implementada".
+
+   A exceção é estreita e deliberada: função que só ENRIQUECE algo já
+   pintado na tela (cor de disciplina, contagem num card) pode degradar
+   em silêncio — derrubar a tela por causa dela seria pior. Cada uma
+   dessas está marcada com o motivo no próprio corpo.
+   ===================================================================== */
+
 export async function carregarPerfil(userId: string): Promise<Perfil | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select("id,nome,foto_url,timezone,usa_treino,usa_estudo")
     .eq("id", userId)
-    .single();
-  if (error) {
-    console.warn("perfil indisponível:", error.message);
-    return null;
-  }
+    .maybeSingle();
+  // `maybeSingle` + throw: com `.single()` a ausência de linha também virava
+  // erro, então "perfil ainda não criado" e "banco fora do ar" eram a mesma
+  // coisa. Agora `null` significa só a primeira.
+  if (error) throw new Error(`não deu para carregar seu perfil: ${error.message}`);
   return data;
 }
 
@@ -585,10 +605,10 @@ export async function carregarHistoricoTreinos(
       }>
     >();
 
-  if (error || !data) {
-    console.warn("histórico de treinos indisponível:", error?.message);
-    return { sessoes: [], temMais: false };
-  }
+  // "Nenhum treino registrado ainda" para quem treina há meses é o tipo de
+  // mentira que faz desconfiar do app inteiro.
+  if (error) throw new Error(`não deu para carregar o histórico: ${error.message}`);
+  if (!data) return { sessoes: [], temMais: false };
 
   const temMais = data.length > HISTORICO_POR_PAGINA;
   const linhas = data.slice(0, HISTORICO_POR_PAGINA);
@@ -666,10 +686,8 @@ export async function carregarDetalheSessaoTreino(
       }>
     >();
 
-  if (error || !data) {
-    console.warn("detalhe da sessão indisponível:", error?.message);
-    return [];
-  }
+  if (error) throw new Error(`não deu para carregar as séries: ${error.message}`);
+  if (!data) return [];
 
   const porExercicio = new Map<number, ExercicioDoHistorico>();
   for (const r of data) {
@@ -698,6 +716,8 @@ export interface Materia {
   ativa: boolean;
 }
 
+/** Exceção à doutrina: na Home isto só dá cor e contagem a um card que
+    já está pintado. Falhar aqui não pode derrubar a tela inteira. */
 export async function carregarMaterias(userId: string): Promise<Materia[]> {
   const { data, error } = await supabase
     .from("materias")
@@ -731,10 +751,9 @@ export async function carregarBlocosDoDia(userId: string, data: string): Promise
     .eq("user_id", userId)
     .eq("data", data)
     .order("hora", { ascending: true });
-  if (error) {
-    console.warn("blocos do dia indisponíveis:", error.message);
-    return [];
-  }
+  // "Nenhum bloco planejado para hoje" é uma AFIRMAÇÃO sobre o dia da
+  // pessoa. Não pode sair de uma consulta que falhou.
+  if (error) throw new Error(`não deu para carregar os blocos de hoje: ${error.message}`);
   return blocos;
 }
 
@@ -805,10 +824,9 @@ export async function carregarGrade(userId: string): Promise<SlotGrade[]> {
     .eq("ativo", true)
     .order("dia_semana", { ascending: true })
     .order("hora", { ascending: true });
-  if (error) {
-    console.warn("grade indisponível:", error.message);
-    return [];
-  }
+  // "Nenhum horário cadastrado" bloqueia o fluxo inteiro de montar plano —
+  // mandar alguém cadastrar o que já existe é o pior desfecho possível.
+  if (error) throw new Error(`não deu para carregar sua grade: ${error.message}`);
   return data.map((s) => ({
     id: s.id,
     diaSemana: s.dia_semana,
@@ -900,7 +918,11 @@ export async function criarMateriaSimples(
 export interface TopicoParaMontagem {
   id: string;
   nome: string;
+  ordem: number;
   blocosEstimados: number | null;
+  dificuldade: "facil" | "medio" | "dificil" | null;
+  /** Tri-state vindo do mini-questionário: `null` = ainda não respondeu. */
+  compreendido: boolean | null;
 }
 
 export interface EventoDaMateria {
@@ -920,7 +942,14 @@ export interface MateriaParaMontagem {
 interface LinhaMateriaParaMontagem {
   id: string;
   nome: string;
-  topicos: Array<{ id: string; nome: string; blocos_estimados: number | null }>;
+  topicos: Array<{
+    id: string;
+    nome: string;
+    ordem: number;
+    blocos_estimados: number | null;
+    dificuldade: "facil" | "medio" | "dificil" | null;
+    compreendido: boolean | null;
+  }>;
   eventos: Array<{ id: string; tipo: "prova" | "entrega"; data: string; descricao: string | null }>;
 }
 
@@ -928,27 +957,41 @@ interface LinhaMateriaParaMontagem {
  * Matérias ativas com tópicos (pra saber quais ainda não têm
  * `blocos_estimados`, ou seja, precisam de diagnóstico) e eventos (pra
  * mostrar "prova em 20/09" na tela de montar plano).
+ *
+ * Também alimenta a lista "Suas matérias" na tela de Estudo, incluindo a
+ * lista de tópicos que abre ao tocar na matéria — por isso traz `ordem`,
+ * `dificuldade` e `compreendido`.
  */
 export async function carregarMateriasParaMontagem(userId: string): Promise<MateriaParaMontagem[]> {
   const { data, error } = await supabase
     .from("materias")
-    .select("id,nome,topicos(id,nome,blocos_estimados),eventos(id,tipo,data,descricao)")
+    .select(
+      "id,nome,topicos(id,nome,ordem,blocos_estimados,dificuldade,compreendido),eventos(id,tipo,data,descricao)",
+    )
     .eq("user_id", userId)
     .eq("ativa", true)
     .order("criada_em", { ascending: true })
     .returns<LinhaMateriaParaMontagem[]>();
-  if (error) {
-    console.warn("matérias para montagem indisponíveis:", error.message);
-    return [];
-  }
+  // ESTE aqui é o que motivou a doutrina no topo do arquivo. Devolvendo
+  // `[]` em erro, a tela de Estudo caía no return antecipado de
+  // "materias.length === 0" e escondia TUDO — Pomodoro, card de montar
+  // plano, blocos e a própria lista — afirmando que não havia matéria
+  // nenhuma. Igualzinho a "a funcionalidade não foi implementada".
+  if (error) throw new Error(`não deu para carregar suas matérias: ${error.message}`);
   return (data ?? []).map((m) => ({
     id: m.id,
     nome: m.nome,
-    topicos: (m.topicos ?? []).map((t) => ({
-      id: t.id,
-      nome: t.nome,
-      blocosEstimados: t.blocos_estimados,
-    })),
+    topicos: (m.topicos ?? [])
+      .slice()
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((t) => ({
+        id: t.id,
+        nome: t.nome,
+        ordem: t.ordem,
+        blocosEstimados: t.blocos_estimados,
+        dificuldade: t.dificuldade,
+        compreendido: t.compreendido,
+      })),
     eventos: (m.eventos ?? []).map((e) => ({
       id: e.id,
       tipo: e.tipo,
@@ -956,6 +999,30 @@ export async function carregarMateriasParaMontagem(userId: string): Promise<Mate
       descricao: e.descricao,
     })),
   }));
+}
+
+/**
+ * Tira a matéria da lista. É `ativa = false`, **não** um DELETE — e a
+ * escolha é deliberada, não preguiça:
+ *
+ * `blocos.materia_id` é `on delete cascade`, sem filtro de status. Um
+ * DELETE levaria junto todo bloco JÁ CONCLUÍDO daquela matéria, com
+ * `tempo_real_seg` e as respostas do mini-questionário. Pior: o trigger
+ * `trg_bloco_recalcula_dia` recomputa `resumos_diarios` a cada bloco
+ * apagado, então minutos de estudo de dias passados seriam reescritos —
+ * e `resumos_diarios` é justamente o que o GRUPO enxerga. Apagar uma
+ * matéria mudaria, retroativamente, dias que seus amigos já viram.
+ *
+ * A coluna `ativa` já existia com `default true` e índice parcial
+ * `where ativa`, e todas as consultas de matéria já filtravam por ela —
+ * era um mecanismo pronto e nunca usado.
+ */
+export async function arquivarMateria(materiaId: string): Promise<void> {
+  const { error } = await supabase
+    .from("materias")
+    .update({ ativa: false })
+    .eq("id", materiaId);
+  if (error) throw new Error(`não deu para excluir a matéria: ${error.message}`);
 }
 
 /* ---------------------------------------------------------------------
@@ -1072,7 +1139,7 @@ export async function carregarUltimosDiasDoMembro(
   });
 }
 
-export interface PlanoDoMembro {
+export interface ResumoDoPlano {
   divisao: string;
   enfase: string;
   frequenciaSemanal: number;
@@ -1084,7 +1151,7 @@ export interface PlanoDoMembro {
  * (`programa: dono ou grupo lê` / `sessao: dono ou grupo lê`) e que não
  * aparecia em tela nenhuma — o card de grupo mostrava só nome e streak.
  */
-export async function carregarPlanoDoMembro(membroId: string): Promise<PlanoDoMembro | null> {
+export async function carregarResumoDoPlano(membroId: string): Promise<ResumoDoPlano | null> {
   const { data: programa } = await supabase
     .from("programas")
     .select("id,divisao,enfase,frequencia_semanal")

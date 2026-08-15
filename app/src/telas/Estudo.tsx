@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link } from "react-router";
-import { Calendar, Check, Pause, Play, RotateCcw, SkipForward, Upload, X } from "lucide-react";
+import {
+  Calendar,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  Pause,
+  Play,
+  RotateCcw,
+  SkipForward,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { notificarFimDoTimer } from "../lib/notificacaoTimer";
 import { extrairTextoDoPdf } from "../lib/pdf";
 import { extrairTopicosDoTexto, type DataExtraidaDoPdf } from "../lib/extrairTopicos";
 import {
+  arquivarMateria,
   carregarBlocosDoDia,
   carregarMateriasParaMontagem,
   carregarPerfil,
@@ -18,6 +32,7 @@ import {
   type EventoNovo,
   type MateriaParaMontagem,
 } from "../lib/dados";
+import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import { useToast } from "../lib/toast";
 import { useValidacao } from "../lib/formulario";
 import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
@@ -31,6 +46,13 @@ const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
 
 const DURACAO_POMODORO = 25 * 60;
 
+/** Os action-tiles da tela herdam a cor do módulo (azul de estudo) em vez
+    do verde padrão do token — é o que amarra as ações à identidade da aba. */
+const CORES_ESTUDO = {
+  "--tile-cor": "var(--estudo-ink)",
+  "--tile-cor-fraca": "var(--estudo-fraco)",
+} as CSSProperties;
+
 export function Estudo() {
   const { sessao } = useAuth();
   const userId = sessao!.user.id;
@@ -39,10 +61,12 @@ export function Estudo() {
   const [materias, setMaterias] = useState<MateriaParaMontagem[]>([]);
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
   const [criando, setCriando] = useState(false);
+  const [falhou, setFalhou] = useState<string | null>(null);
   // Guarda qual matéria acabou de nascer, só para destacá-la na lista.
   // Sem isso, "criei e não aconteceu nada" continuaria valendo mesmo com
   // a lista existindo: ela entraria no meio de outras seis, sem aviso.
   const [materiaNovaId, setMateriaNovaId] = useState<string | null>(null);
+  const [materiaAberta, setMateriaAberta] = useState<string | null>(null);
   const toast = useToast();
 
   // Timer Pomodoro — mesma lógica de relógio (Date.now(), não setInterval
@@ -77,25 +101,52 @@ export function Estudo() {
   }, [rodando]);
 
   async function carregar() {
-    const perfil = await carregarPerfil(userId);
-    const tz = perfil?.timezone ?? "America/Sao_Paulo";
-    const [ms, bs] = await Promise.all([
-      // `...ParaMontagem` e não `carregarMaterias`: traz tópicos e eventos
-      // no mesmo round-trip, que é o que a lista de matérias mostra. As
-      // duas consultas filtram e ordenam igual, então a cor de cada
-      // disciplina (que sai da posição na lista) não muda.
-      carregarMateriasParaMontagem(userId),
-      carregarBlocosDoDia(userId, hojeNoFuso(tz)),
-    ]);
-    setMaterias(ms);
-    setBlocos(bs);
-    setCarregando(false);
+    setFalhou(null);
+    try {
+      const perfil = await carregarPerfil(userId);
+      const tz = perfil?.timezone ?? "America/Sao_Paulo";
+      const [ms, bs] = await Promise.all([
+        // `...ParaMontagem` e não `carregarMaterias`: traz tópicos e eventos
+        // no mesmo round-trip, que é o que a lista de matérias mostra. As
+        // duas consultas filtram e ordenam igual, então a cor de cada
+        // disciplina (que sai da posição na lista) não muda.
+        carregarMateriasParaMontagem(userId),
+        carregarBlocosDoDia(userId, hojeNoFuso(tz)),
+      ]);
+      setMaterias(ms);
+      setBlocos(bs);
+    } catch (e) {
+      // O estado vazio desta tela AFIRMA que você não tem matéria nenhuma
+      // e esconde Pomodoro, plano e blocos junto. Cair nele por causa de
+      // uma consulta que falhou era o bug que fazia parecer que as
+      // funcionalidades novas nem tinham sido implementadas.
+      setFalhou(e instanceof Error ? e.message : "Não deu para carregar seu estudo.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   useEffect(() => {
     void carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  /**
+   * Liga a flag que faz o card "Estudo de hoje" existir na Home.
+   *
+   * Era chamada só no caminho do estado vazio. Quem criasse a primeira
+   * matéria pelo botão "Nova matéria" do fim da tela ficava com a flag
+   * falsa — e aí o Estudo sumia da Home, e a Home nem carregava blocos e
+   * matérias (`Home.tsx` só busca isso quando `usa_estudo`). O erro
+   * também não era conferido: o Supabase não lança sozinho.
+   */
+  async function ligarUsaEstudo() {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ usa_estudo: true })
+      .eq("id", userId);
+    if (error) console.warn("não deu para ligar usa_estudo:", error.message);
+  }
 
   /**
    * Marca ou desmarca um bloco. Otimista com rollback: a caixa responde
@@ -132,14 +183,30 @@ export function Estudo() {
     );
   }
 
+  // ANTES do estado vazio, sempre: "não carreguei" nunca pode ser
+  // apresentado como "você não tem matérias".
+  if (falhou) {
+    return (
+      <div className="tela">
+        <header className="mb-4">
+          <h1 className="h1">Estudo</h1>
+        </header>
+        <FalhaAoCarregar
+          mensagem={falhou}
+          onTentarDeNovo={() => {
+            setCarregando(true);
+            void carregar();
+          }}
+        />
+      </div>
+    );
+  }
+
   if (materias.length === 0) {
     return (
       <div className="tela">
-        <header className="flex items-baseline justify-between mb-4">
+        <header className="mb-4">
           <h1 className="h1">Estudo</h1>
-          <Link className="text-sm text-ink-muted underline" to="/estudo/grade">
-            Grade
-          </Link>
         </header>
 
         {/* Os três passos existem porque cadastrar a matéria sozinho não
@@ -168,9 +235,7 @@ export function Estudo() {
 
         <NovaMateria
           onCriada={async (_id, nomeCriado) => {
-            if (sessao) {
-              await supabase.from("profiles").update({ usa_estudo: true }).eq("id", sessao.user.id);
-            }
+            await ligarUsaEstudo();
             toast.sucesso(`Matéria "${nomeCriado}" criada.`);
             await carregar();
           }}
@@ -186,23 +251,36 @@ export function Estudo() {
 
   return (
     <div className="tela">
-      <header className="flex items-baseline justify-between mb-4">
-        <div>
-          <span className="text-sm text-ink-muted">Sessão de estudo</span>
-          <h1 className="h1">Blocos de hoje</h1>
-        </div>
-        <Link className="text-sm text-ink-muted underline" to="/estudo/grade">
-          Grade
-        </Link>
+      <header className="mb-4">
+        <span className="text-sm text-ink-muted">Sessão de estudo</span>
+        <h1 className="h1">Estudo</h1>
       </header>
 
-      <Link to="/estudo/montar" className="card card-estudo block mb-6">
-        <span className="rotulo-secao text-estudo-ink mb-1">Plano de estudo</span>
-        <div className="h2">Montar plano de estudo</div>
-        <p className="text-sm text-ink-muted mt-1">
-          A IA estima o esforço de cada tópico e distribui na sua grade de horários.
-        </p>
-      </Link>
+      {/* As duas ações da tela, lado a lado e do mesmo tamanho.
+          "Grade" era um link de texto sublinhado no canto superior
+          direito — pequeno demais para o único caminho até uma tela
+          obrigatória (sem grade, não existe plano). Agora as duas
+          decisões da tela têm o mesmo peso visual e alvo de toque. */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <Link to="/estudo/montar" className="action-tile" style={CORES_ESTUDO}>
+          <span className="action-tile__icone">
+            <Sparkles size={20} />
+          </span>
+          <div>
+            <div className="action-tile__label">Montar plano</div>
+            <div className="action-tile__sub">A IA distribui seus tópicos</div>
+          </div>
+        </Link>
+        <Link to="/estudo/grade" className="action-tile" style={CORES_ESTUDO}>
+          <span className="action-tile__icone">
+            <CalendarClock size={20} />
+          </span>
+          <div>
+            <div className="action-tile__label">Grade de horários</div>
+            <div className="action-tile__sub">Quando você estuda</div>
+          </div>
+        </Link>
+      </div>
 
       {/* ---- Timer Pomodoro ------------------------------------------- */}
       <div className="card mb-6 flex flex-col items-center gap-4 py-6" style={{ borderRadius: "1.25rem" }}>
@@ -289,13 +367,21 @@ export function Estudo() {
           A seção que não existia. Sem ela, criar matéria era uma escrita
           sem retorno: o dado ia pro banco e não tinha onde aparecer. */}
       <span className="rotulo-secao text-ink-muted mb-2 block">Suas matérias</span>
-      <div className="card mb-6">
+      <div className="flex flex-col gap-3 mb-6">
         {materias.map((m) => (
           <LinhaDeMateria
             key={m.id}
             materia={m}
             cor={corDaDisciplina(m.id, materias)}
             nova={m.id === materiaNovaId}
+            aberta={materiaAberta === m.id}
+            onAlternar={() => setMateriaAberta((atual) => (atual === m.id ? null : m.id))}
+            onExcluida={async () => {
+              toast.sucesso(`Matéria "${m.nome}" excluída.`);
+              setMateriaAberta(null);
+              await carregar();
+            }}
+            onErro={(msg) => toast.erro(msg)}
           />
         ))}
       </div>
@@ -310,6 +396,8 @@ export function Estudo() {
             onCriada={async (materiaId, nomeCriado) => {
               setCriando(false);
               setMateriaNovaId(materiaId);
+              // Também aqui: era o caminho que esquecia a flag.
+              await ligarUsaEstudo();
               toast.sucesso(`Matéria "${nomeCriado}" criada.`);
               await carregar();
             }}
@@ -371,19 +459,40 @@ function LinhaDeBloco({
   );
 }
 
-/** Linha de matéria — informativa, não clicável (não existe tela de
-    matéria). Ver a regra de affordance em index.css: card/linha que não
-    leva a lugar nenhum não ganha hover, cursor nem chevron. */
+const DIFICULDADE_ROTULO = { facil: "fácil", medio: "médio", dificil: "difícil" } as const;
+
+/**
+ * Matéria na lista: toca para ver os tópicos, e é lá dentro que mora o
+ * excluir.
+ *
+ * A linha era propositalmente inerte porque não havia para onde levar.
+ * Agora tem destino (a própria lista de tópicos), então passa a cumprir a
+ * regra de affordance do index.css: é `<button>` de verdade e mostra o
+ * chevron. O excluir fica DENTRO do painel aberto, não na linha fechada —
+ * regra 4: ação com consequência não mora no corpo de uma linha que a
+ * pessoa toca para navegar.
+ */
 function LinhaDeMateria({
   materia,
   cor,
   nova,
+  aberta,
+  onAlternar,
+  onExcluida,
+  onErro,
 }: {
   materia: MateriaParaMontagem;
   cor: string;
   nova: boolean;
+  aberta: boolean;
+  onAlternar: () => void;
+  onExcluida: () => void | Promise<void>;
+  onErro: (msg: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+
   useEffect(() => {
     if (nova) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [nova]);
@@ -396,29 +505,115 @@ function LinhaDeMateria({
     .slice()
     .sort((a, b) => a.data.localeCompare(b.data))[0];
 
+  async function excluir() {
+    setExcluindo(true);
+    try {
+      await arquivarMateria(materia.id);
+      await onExcluida();
+    } catch (e) {
+      onErro(e instanceof Error ? e.message : "Não deu para excluir a matéria.");
+      setExcluindo(false);
+    }
+  }
+
   return (
     <div
       ref={ref}
-      className={nova ? "subject-row subject-row--nova" : "subject-row"}
-      style={{ "--cor": cor } as CSSProperties}
+      className={nova ? "card subject-row--nova" : "card"}
+      style={{ padding: 0 }}
     >
-      <span className="subject-row__cor" />
-      <div className="subject-row__texto">
-        <div className="h3">{materia.nome}</div>
-        <div className="text-xs text-ink-terciario">
-          {total} {total === 1 ? "tópico" : "tópicos"}
-          {proximoEvento &&
-            ` · ${proximoEvento.tipo === "prova" ? "prova" : "entrega"} em ${proximoEvento.data
-              .split("-")
-              .reverse()
-              .slice(0, 2)
-              .join("/")}`}
+      <button
+        type="button"
+        className="subject-row w-full text-left"
+        style={{ "--cor": cor, paddingInline: "var(--e-4)" } as CSSProperties}
+        onClick={onAlternar}
+        aria-expanded={aberta}
+      >
+        <span className="subject-row__cor" />
+        <div className="subject-row__texto">
+          <div className="h3">{materia.nome}</div>
+          <div className="text-xs text-ink-terciario">
+            {total} {total === 1 ? "tópico" : "tópicos"}
+            {proximoEvento &&
+              ` · ${proximoEvento.tipo === "prova" ? "prova" : "entrega"} em ${proximoEvento.data
+                .split("-")
+                .reverse()
+                .slice(0, 2)
+                .join("/")}`}
+          </div>
         </div>
-      </div>
-      {semPlano ? (
-        <span className="badge badge-atencao shrink-0">sem plano</span>
-      ) : (
-        <span className="badge badge-estudo shrink-0">no plano</span>
+        {semPlano ? (
+          <span className="badge badge-atencao shrink-0">sem plano</span>
+        ) : (
+          <span className="badge badge-estudo shrink-0">no plano</span>
+        )}
+        <ChevronDown
+          size={18}
+          className="text-ink-muted shrink-0"
+          style={{
+            transform: aberta ? "rotate(180deg)" : "none",
+            transition: "transform var(--d-entrar) var(--ease-out)",
+          }}
+        />
+      </button>
+
+      {aberta && (
+        <div style={{ padding: "0 var(--e-4) var(--e-4)" }}>
+          <div style={{ borderTop: "1px solid var(--hairline)", paddingTop: "var(--e-3)" }}>
+            {total === 0 ? (
+              <p className="text-sm text-ink-muted">Esta matéria não tem tópicos cadastrados.</p>
+            ) : (
+              <ol className="flex flex-col gap-2">
+                {materia.topicos.map((t) => (
+                  <li key={t.id} className="flex items-baseline gap-2">
+                    <span className="text-xs text-ink-fraco num shrink-0" style={{ width: "1.5rem" }}>
+                      {t.ordem}.
+                    </span>
+                    <span className="text-sm flex-1">{t.nome}</span>
+                    {t.dificuldade && (
+                      <span className="badge shrink-0" style={{ background: "var(--surface-alta)" }}>
+                        {DIFICULDADE_ROTULO[t.dificuldade]}
+                      </span>
+                    )}
+                    {/* `compreendido` é tri-state e só desce por resposta do
+                        mini-questionário — `null` significa "ainda não
+                        respondeu", que não é o mesmo que "não entendeu". */}
+                    {t.compreendido === false && (
+                      <span className="badge badge-atencao shrink-0">revisar</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--hairline)", marginTop: "var(--e-4)", paddingTop: "var(--e-3)" }}>
+            {!confirmando ? (
+              <button className="btn btn-perigo" onClick={() => setConfirmando(true)}>
+                <Trash2 size={16} /> Excluir matéria
+              </button>
+            ) : (
+              <div role="alertdialog" aria-label="Confirmar exclusão da matéria">
+                <p className="mb-1">Excluir "{materia.nome}"?</p>
+                {/* Diz a verdade sobre o que sobrevive. É arquivamento
+                    (`ativa = false`), justamente para não destruir o que
+                    está listado abaixo — ver `arquivarMateria` em dados.ts. */}
+                <p className="text-sm text-ink-muted mb-4">
+                  Ela sai da sua lista e dos próximos planos. O que você já estudou continua
+                  contando no seu histórico e no resumo da semana.
+                </p>
+                <div className="flex gap-2">
+                  <button className="btn btn-perigo" onClick={() => void excluir()} disabled={excluindo}>
+                    {excluindo ? "Excluindo…" : "Sim, excluir"}
+                  </button>
+                  <button className="btn btn-neutro" onClick={() => setConfirmando(false)}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

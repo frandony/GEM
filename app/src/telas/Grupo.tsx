@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useValidacao } from "../lib/formulario";
 import { useToast } from "../lib/toast";
 import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
+import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import {
   carregarGruposDoUsuario,
   carregarMembrosDoGrupo,
@@ -22,19 +23,28 @@ export function Grupo() {
   const [carregando, setCarregando] = useState(true);
   const [grupos, setGrupos] = useState<GrupoTipo[]>([]);
   const [membrosPorGrupo, setMembrosPorGrupo] = useState<Record<string, MembroDoGrupo[]>>({});
+  const [falhou, setFalhou] = useState<string | null>(null);
 
   async function carregar() {
-    const perfil = await carregarPerfil(userId);
-    const tz = perfil?.timezone ?? "America/Sao_Paulo";
+    setFalhou(null);
+    try {
+      const perfil = await carregarPerfil(userId);
+      const tz = perfil?.timezone ?? "America/Sao_Paulo";
 
-    const gs = await carregarGruposDoUsuario(userId);
-    setGrupos(gs);
+      const gs = await carregarGruposDoUsuario(userId);
+      setGrupos(gs);
 
-    const entradas = await Promise.all(
-      gs.map(async (g) => [g.id, await carregarMembrosDoGrupo(g.id, tz)] as const),
-    );
-    setMembrosPorGrupo(Object.fromEntries(entradas));
-    setCarregando(false);
+      const entradas = await Promise.all(
+        gs.map(async (g) => [g.id, await carregarMembrosDoGrupo(g.id, tz)] as const),
+      );
+      setMembrosPorGrupo(Object.fromEntries(entradas));
+    } catch (e) {
+      // "Você não está em nenhum grupo" para quem está é convite a criar um
+      // segundo grupo sem querer.
+      setFalhou(e instanceof Error ? e.message : "Não deu para carregar seus grupos.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   useEffect(() => {
@@ -45,7 +55,23 @@ export function Grupo() {
   if (carregando) {
     return (
       <div className="tela">
-        <div className="vazio">Carregando…</div>
+        <div className="skeleton" style={{ height: "2.5rem", width: "8rem" }} />
+        <div className="skeleton mt-4" style={{ height: "9rem" }} />
+      </div>
+    );
+  }
+
+  if (falhou) {
+    return (
+      <div className="tela">
+        <h1 className="h1 mb-6">Grupo</h1>
+        <FalhaAoCarregar
+          mensagem={falhou}
+          onTentarDeNovo={() => {
+            setCarregando(true);
+            void carregar();
+          }}
+        />
       </div>
     );
   }

@@ -3,17 +3,18 @@ import { Link, useNavigate, useParams } from "react-router";
 import { ChevronDown, ChevronLeft, Copy } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import {
   carregarGrupo,
   carregarMembrosDoGrupo,
   carregarPerfil,
-  carregarPlanoDoMembro,
+  carregarResumoDoPlano,
   carregarUltimosDiasDoMembro,
   sairDoGrupo,
   type DiaDoMembro,
   type Grupo as GrupoTipo,
   type MembroDoGrupo,
-  type PlanoDoMembro,
+  type ResumoDoPlano,
 } from "../lib/dados";
 
 /* =====================================================================
@@ -46,31 +47,42 @@ export function DetalheGrupo() {
   const [membros, setMembros] = useState<MembroDoGrupo[]>([]);
   const [dias, setDias] = useState<Record<string, DiaDoMembro[]>>({});
   const [expandido, setExpandido] = useState<string | null>(null);
-  const [planos, setPlanos] = useState<Record<string, PlanoDoMembro | null>>({});
+  const [planos, setPlanos] = useState<Record<string, ResumoDoPlano | null>>({});
   const [confirmandoSaida, setConfirmandoSaida] = useState(false);
   const [saindo, setSaindo] = useState(false);
+  const [falhou, setFalhou] = useState<string | null>(null);
 
   useEffect(() => {
     if (!grupoId) return;
     let ativo = true;
     (async () => {
-      const perfil = await carregarPerfil(userId);
-      const tz = perfil?.timezone ?? "America/Sao_Paulo";
-      const [g, ms] = await Promise.all([
-        carregarGrupo(grupoId),
-        carregarMembrosDoGrupo(grupoId, tz),
-      ]);
-      if (!ativo) return;
-      setGrupo(g);
-      setMembros(ms);
-      setCarregando(false);
+      try {
+        const perfil = await carregarPerfil(userId);
+        const tz = perfil?.timezone ?? "America/Sao_Paulo";
+        const [g, ms] = await Promise.all([
+          carregarGrupo(grupoId),
+          carregarMembrosDoGrupo(grupoId, tz),
+        ]);
+        if (!ativo) return;
+        setGrupo(g);
+        setMembros(ms);
+        setCarregando(false);
 
-      // A faixa de 7 dias entra depois: a tela já pinta com nome e streak,
-      // e são N requisições que só enriquecem a linha.
-      const entradas = await Promise.all(
-        ms.map(async (m) => [m.user_id, await carregarUltimosDiasDoMembro(m.user_id, tz)] as const),
-      );
-      if (ativo) setDias(Object.fromEntries(entradas));
+        // A faixa de 7 dias entra depois: a tela já pinta com nome e streak,
+        // e são N requisições que só enriquecem a linha.
+        const entradas = await Promise.all(
+          ms.map(
+            async (m) => [m.user_id, await carregarUltimosDiasDoMembro(m.user_id, tz)] as const,
+          ),
+        );
+        if (ativo) setDias(Object.fromEntries(entradas));
+      } catch (e) {
+        // Sem isto, uma falha de leitura cairia no "Grupo não encontrado",
+        // que sugere que o grupo foi apagado ou que você foi removido dele.
+        if (!ativo) return;
+        setFalhou(e instanceof Error ? e.message : "Não deu para carregar o grupo.");
+        setCarregando(false);
+      }
     })();
     return () => {
       ativo = false;
@@ -98,7 +110,7 @@ export function DetalheGrupo() {
     }
     setExpandido(membroId);
     if (!(membroId in planos)) {
-      const plano = await carregarPlanoDoMembro(membroId);
+      const plano = await carregarResumoDoPlano(membroId);
       setPlanos((atual) => ({ ...atual, [membroId]: plano }));
     }
   }
@@ -121,6 +133,17 @@ export function DetalheGrupo() {
       <div className="tela">
         <div className="skeleton" style={{ height: "2.5rem", width: "12rem" }} />
         <div className="skeleton mt-4" style={{ height: "10rem" }} />
+      </div>
+    );
+  }
+
+  if (falhou) {
+    return (
+      <div className="tela">
+        <Link className="flex items-center text-sm text-ink-muted mb-4 w-fit" to="/grupo">
+          <ChevronLeft size={16} /> Grupos
+        </Link>
+        <FalhaAoCarregar mensagem={falhou} onTentarDeNovo={() => window.location.reload()} />
       </div>
     );
   }
