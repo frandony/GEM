@@ -52,7 +52,16 @@ export default defineConfig({
         // puxado de propósito no install.
         // O `globPatterns` acima também varre woff2 — sem esta linha, as
         // fontes órfãs voltariam ao precache pela porta dos fundos.
-        globIgnores: ["**/pdf-*.js", "**/pdf.worker*", "**/fontes/*.woff2"],
+        // tesseract.js (OCR de foto) segue o mesmo raciocínio do pdf.js
+        // logo abaixo: import dinâmico, só carrega quem realmente tira
+        // foto, não faz sentido no precache de quem nunca vai usar.
+        globIgnores: [
+          "**/pdf-*.js",
+          "**/pdf.worker*",
+          "**/fontes/*.woff2",
+          "**/tesseract*",
+          "**/worker-script*",
+        ],
         // O catálogo de exercícios é global e quase imutável — vale cache
         // longo. Já as chamadas de dado do usuário nunca são cacheadas:
         // servir treino velho é pior que não servir.
