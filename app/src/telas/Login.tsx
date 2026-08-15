@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { useValidacao } from "../lib/formulario";
 import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
+import { Voltar } from "../componentes/Voltar";
 
 export function Login() {
   const { entrar, criarConta, reenviarConfirmacao } = useAuth();
@@ -92,9 +93,9 @@ export function Login() {
             </button>
           )}
           {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
-          <button className="btn btn-neutro" onClick={() => setConfirmarEmail(false)}>
-            Voltar
-          </button>
+          {/* `onClick`, não `to`: aqui não existe rota própria para
+              "voltar" — é a mesma tela desfazendo um estado local. */}
+          <Voltar rotulo="Voltar" onClick={() => setConfirmarEmail(false)} />
         </div>
       </div>
     );

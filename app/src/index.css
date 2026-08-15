@@ -239,6 +239,27 @@
      sempre assim — alcance do polegar, sem mira. */
   .btn-bloco { display: flex; width: 100%; }
 
+  /* ---- Link "voltar" -------------------------------------------------
+     Padrão único para "voltar para X" no app inteiro — substituiu três
+     variações que conviviam: botão cheio (`.btn.btn-neutro` dizendo
+     "Voltar"), link sublinhado ao lado do `h1`, e uma cópia quase igual
+     a esta remontada à mão em duas telas.
+
+     `min-height` dá alvo de toque sem virar botão visualmente: isto é
+     navegação secundária, não a decisão da tela — por isso menor que o
+     `--toque-min` de 48px que o resto do app usa para ação primária. */
+  .voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--e-1);
+    min-height: 2rem;
+    font-size: var(--t-sm);
+    color: var(--ink-muted);
+    width: fit-content;
+  }
+  .voltar svg { flex-shrink: 0; }
+  .voltar:active { opacity: 0.6; }
+
   /* ---- Chip de estado ------------------------------------------------
      Uso: FILTRO/SELEÇÃO — as opções da Onboarding (divisão, ênfase,
      nível...), onde o alvo de toque conta mais que o formato. Pra

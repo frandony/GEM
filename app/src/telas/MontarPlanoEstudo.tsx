@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { LevantadorPixel } from "../componentes/CarregandoIA";
+import { Voltar } from "../componentes/Voltar";
 import { useAuth } from "../lib/auth";
 import {
   carregarGrade,
@@ -152,9 +153,7 @@ export function MontarPlanoEstudo() {
           <Link className="btn btn-estudo" to="/estudo/grade">
             Configurar grade
           </Link>
-          <Link className="btn btn-neutro" to="/estudo">
-            Voltar
-          </Link>
+          <Voltar to="/estudo" rotulo="Estudo" />
         </div>
       </div>
     );
@@ -166,9 +165,7 @@ export function MontarPlanoEstudo() {
         <div className="vazio w-full">
           <span className="badge badge-atencao">Nenhuma matéria com tópico</span>
           <p>Cadastre pelo menos uma matéria com tópicos antes de montar o plano.</p>
-          <Link className="btn btn-neutro" to="/estudo">
-            Voltar
-          </Link>
+          <Voltar to="/estudo" rotulo="Estudo" />
         </div>
       </div>
     );
@@ -210,9 +207,7 @@ export function MontarPlanoEstudo() {
         <div className="vazio w-full">
           <span className="badge badge-atencao">Não deu certo</span>
           <p>{passo.mensagem}</p>
-          <Link className="btn btn-neutro" to="/estudo">
-            Voltar
-          </Link>
+          <Voltar to="/estudo" rotulo="Estudo" />
         </div>
       </div>
     );

@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { useValidacao } from "../lib/formulario";
 import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
+import { Voltar } from "../componentes/Voltar";
 import {
   LIMITES,
   atualizarParametrosDoExercicio,
@@ -112,9 +113,7 @@ export function EditarPlano() {
           <button className="btn btn-treino" onClick={() => void carregar()}>
             Tentar de novo
           </button>
-          <Link className="btn btn-neutro" to="/treino">
-            Voltar
-          </Link>
+          <Voltar to="/treino" rotulo="Treino" />
         </div>
       </div>
     );
@@ -136,11 +135,9 @@ export function EditarPlano() {
 
   return (
     <div className="tela">
-      <header className="flex items-baseline justify-between mb-1">
+      <header className="mb-4">
+        <Voltar to="/treino" rotulo="Treino" className="mb-1" />
         <h1 className="h1">Meu plano</h1>
-        <Link className="text-sm text-ink-muted underline" to="/treino">
-          Voltar
-        </Link>
       </header>
       <p className="text-sm text-ink-muted mb-6">
         As mudanças valem do próximo treino em diante. O que já foi registrado

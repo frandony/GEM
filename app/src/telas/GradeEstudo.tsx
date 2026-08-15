@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { AvisoDeFormulario } from "../componentes/MensagemErro";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
+import { Voltar } from "../componentes/Voltar";
 import {
   adicionarSlot,
   carregarGrade,
@@ -116,11 +117,9 @@ export function GradeEstudo() {
 
   return (
     <div className="tela">
-      <header className="flex items-baseline justify-between mb-1">
+      <header className="mb-4">
+        <Voltar to="/estudo" rotulo="Estudo" className="mb-1" />
         <h1 className="h1">Grade de horários</h1>
-        <Link className="text-sm text-ink-muted underline" to="/estudo">
-          Voltar
-        </Link>
       </header>
       <p className="text-sm text-ink-muted mb-6">
         Os horários fixos que você reserva pra estudar. Sem pelo menos um, não dá

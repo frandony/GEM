@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
-import { ChevronDown, ChevronLeft, Copy } from "lucide-react";
+import { useNavigate, useParams } from "react-router";
+import { ChevronDown, Copy } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
+import { Voltar } from "../componentes/Voltar";
 import {
   carregarGrupo,
   carregarMembrosDoGrupo,
@@ -140,9 +141,7 @@ export function DetalheGrupo() {
   if (falhou) {
     return (
       <div className="tela">
-        <Link className="flex items-center text-sm text-ink-muted mb-4 w-fit" to="/grupo">
-          <ChevronLeft size={16} /> Grupos
-        </Link>
+        <Voltar to="/grupo" rotulo="Grupos" className="mb-4" />
         <FalhaAoCarregar mensagem={falhou} onTentarDeNovo={() => window.location.reload()} />
       </div>
     );
@@ -154,9 +153,7 @@ export function DetalheGrupo() {
         <div className="vazio">
           <span className="badge badge-atencao">Grupo não encontrado</span>
           <p>Ele pode ter sido apagado, ou você não é mais membro.</p>
-          <Link className="btn btn-neutro" to="/grupo">
-            Voltar
-          </Link>
+          <Voltar to="/grupo" rotulo="Grupos" />
         </div>
       </div>
     );
@@ -165,9 +162,7 @@ export function DetalheGrupo() {
   return (
     <div className="tela">
       <header className="mb-4">
-        <Link className="flex items-center text-sm text-ink-muted mb-1 w-fit" to="/grupo">
-          <ChevronLeft size={16} /> Grupos
-        </Link>
+        <Voltar to="/grupo" rotulo="Grupos" className="mb-1" />
         <h1 className="h1">{grupo.nome}</h1>
       </header>
 

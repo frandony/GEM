@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
-import { ChevronDown, ChevronLeft } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
+import { Voltar } from "../componentes/Voltar";
 import {
   carregarDetalheSessaoTreino,
   carregarHistoricoTreinos,
@@ -100,9 +100,7 @@ export function HistoricoTreinos() {
   return (
     <div className="tela">
       <header className="mb-4">
-        <Link className="flex items-center text-sm text-ink-muted mb-1 w-fit" to="/treino">
-          <ChevronLeft size={16} /> Treino
-        </Link>
+        <Voltar to="/treino" rotulo="Treino" className="mb-1" />
         <h1 className="h1">Histórico</h1>
       </header>
 
