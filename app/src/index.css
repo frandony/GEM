@@ -410,10 +410,11 @@
      primeiro direto para o terceiro: cada gesto avança um treino, que é
      como a pessoa pensa na fila.
 
-     A margem negativa + padding faz os cards sangrarem até a borda da
-     tela enquanto o conteúdo continua alinhado com o resto da página —
-     é o que dá o recorte do card seguinte espiando na lateral, que é o
-     sinal de "tem mais coisa aqui, arrasta". */
+     UM cartão por vez, ocupando a largura inteira (`flex-basis: 100%`).
+     Nada do próximo aparece na lateral: quem indica que há mais são os
+     pontinhos embaixo. A margem negativa + padding continua existindo
+     para o cartão sangrar até a borda da tela DURANTE o arraste,
+     enquanto parado ele fica alinhado com o resto da página. */
   .carrossel {
     display: flex;
     gap: var(--e-3);
@@ -423,6 +424,11 @@
     scrollbar-width: none;
     margin-inline: calc(var(--e-4) * -1);
     padding-inline: var(--e-4);
+    /* Sem isto o snap alinharia pela PADDING box, não pelo conteúdo: o
+       primeiro cartão pararia 16px à esquerda do lugar, comendo o
+       respiro lateral. É o par obrigatório de `padding-inline` em
+       qualquer container com scroll-snap. */
+    scroll-padding-inline: var(--e-4);
     /* O card tem sombra/borda; sem isto o topo e a base ficam cortados. */
     padding-block: 2px;
     overscroll-behavior-x: contain;
@@ -431,12 +437,10 @@
   .carrossel > * {
     scroll-snap-align: start;
     scroll-snap-stop: always;
-    flex: 0 0 88%;
-  }
-  @media (min-width: 30rem) {
-    /* Em tela maior o card inteiro cabe com folga; 92% ainda deixa o
-       próximo espiando, que é o que convida ao arraste. */
-    .carrossel > * { flex-basis: 92%; }
+    /* 100% da CONTENT box do container — que, por causa do par
+       margem-negativa/padding acima, é exatamente a largura de conteúdo
+       da página. O cartão fica alinhado com os cards de baixo. */
+    flex: 0 0 100%;
   }
 
   /* Faixa lateral colorida por posição na fila, no lugar de `.card-treino`
@@ -447,19 +451,23 @@
   /* Pontinhos de posição. Não são clicáveis de propósito: o alvo de toque
      seria minúsculo, e o gesto de arrastar já resolve. São indicador, e
      por isso `aria-hidden` no componente — o leitor de tela recebe a
-     posição pelo texto de cada card. */
+     posição pelo texto de cada card.
+
+     Com o cartão ocupando a largura toda, ESTES são o único sinal de que
+     existe mais treino adiante — daí serem um pouco maiores e mais
+     contrastados do que o mínimo. */
   .carrossel-pontos {
-    display: flex; justify-content: center; gap: var(--e-2);
-    margin-top: var(--e-3);
+    display: flex; justify-content: center; align-items: center; gap: var(--e-2);
+    margin-top: var(--e-4);
   }
   .carrossel-ponto {
-    width: 6px; height: 6px; border-radius: var(--r-pill);
-    background: var(--hairline-forte);
+    width: 7px; height: 7px; border-radius: var(--r-pill);
+    background: var(--ink-fraco);
     transition: background var(--d-entrar) var(--ease-out),
                 width var(--d-entrar) var(--ease-out);
   }
   .carrossel-ponto[data-ativo] {
-    width: 18px;
+    width: 22px;
     background: var(--cor-fila, var(--treino));
   }
 
