@@ -651,6 +651,9 @@ function NovaMateria({
   const [origemAtual, setOrigemAtual] = useState<OrigemDosTopicos>("manual");
   const [confiancaAtual, setConfiancaAtual] = useState<"alta" | "media" | "baixa">("alta");
   const [curso, setCurso] = useState("");
+  // "" = não informado. Guardado como string porque vem de <select>; vira
+  // número só na hora de enviar.
+  const [periodo, setPeriodo] = useState("");
   // Estado compartilhado pelos DOIS caminhos de IA (PDF e por nome): o
   // fluxo depois da resposta é idêntico — revisar a lista e salvar —,
   // então duplicar seria só chance de os dois divergirem.
@@ -706,7 +709,7 @@ function NovaMateria({
     setIaEstado("analisando");
     try {
       aplicarExtracao(
-        await gerarTopicosPeloNome(nome.trim(), curso),
+        await gerarTopicosPeloNome(nome.trim(), curso, periodo ? Number(periodo) : null),
         "A IA não conseguiu listar tópicos para essa matéria — digite manualmente abaixo.",
       );
     } catch (e) {
@@ -834,7 +837,28 @@ function NovaMateria({
                 placeholder="Engenharia de Software, Direito, Medicina…"
                 value={curso}
                 onChange={(e) => setCurso(e.target.value)}
+                maxLength={120}
               />
+            </label>
+            <label>
+              <div className="text-sm text-ink-muted mb-1">
+                Período <span className="text-ink-terciario">(opcional)</span>
+              </div>
+              {/* <select> e não chips: são 10 opções, que em chip viram duas
+                  linhas e roubam a tela; e no celular o select abre o
+                  seletor nativo, que é mais rápido de acertar com o polegar. */}
+              <select
+                className="campo"
+                value={periodo}
+                onChange={(e) => setPeriodo(e.target.value)}
+              >
+                <option value="">Não informar</option>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}º período
+                  </option>
+                ))}
+              </select>
             </label>
             <button
               type="button"

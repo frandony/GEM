@@ -108,7 +108,14 @@ Deno.serve(async (req: Request) => {
   const supabase = clienteDoUsuario(req);
   if (!(await usuarioAtual(supabase))) return erro(req, "não autenticado", 401);
 
-  let corpo: { texto?: string; nome_materia?: string; curso?: string };
+  let corpo: {
+    texto?: string;
+    nome_materia?: string;
+    curso?: string;
+    /** Semestre do curso (1 a 12). Muda a PROFUNDIDADE esperada: "Cálculo"
+        no 1º período é limite e derivada; no 3º pode ser várias variáveis. */
+    periodo?: number;
+  };
   try {
     corpo = await req.json();
   } catch {
@@ -137,11 +144,32 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Número validado, nunca string interpolada: `periodo` entra no prompt,
+  // e aqui a defesa é barata — fora da faixa vira "não informado" em vez
+  // de virar texto arbitrário no meio das instruções.
+  const periodo =
+    typeof corpo.periodo === "number" &&
+      Number.isInteger(corpo.periodo) &&
+      corpo.periodo >= 1 &&
+      corpo.periodo <= 12
+      ? corpo.periodo
+      : null;
+  // `curso` é texto livre do usuário. Cortar evita que um colar acidental
+  // de página inteira empurre as instruções para fora da janela.
+  const curso = corpo.curso?.trim().slice(0, 120) || null;
+
   try {
     const userPrompt = porNome
       ? `Liste os tópicos de conteúdo tipicamente cobertos na disciplina "${corpo.nome_materia}"` +
-        (corpo.curso ? ` em um curso de graduação em ${corpo.curso}, no Brasil.` : ", no Brasil.") +
+        (curso ? ` em um curso de graduação em ${curso}` : ` em um curso de graduação`) +
+        (periodo ? `, cursada no ${periodo}º período (semestre)` : "") +
+        `, no Brasil.` +
         `\nEntre 8 e 15 tópicos, na ordem usual de ensino.` +
+        (periodo
+          ? `\nO período importa: ajuste a PROFUNDIDADE e os pré-requisitos ao que se` +
+            ` espera de quem está no ${periodo}º semestre. Disciplinas de mesmo nome mudam` +
+            ` bastante de conteúdo conforme o momento do curso.`
+          : "") +
         `\nEsta resposta não vem de documento nenhum: use confianca "baixa",` +
         ` tipo_documento "gerado_por_nome" e datas_encontradas vazio.`
       : `TEXTO EXTRAÍDO DO PDF:\n"""\n${cortar(corpo.texto!)}\n"""`;

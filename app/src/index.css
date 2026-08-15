@@ -601,6 +601,21 @@
   .campo:focus { border-color: var(--hairline-forte); outline: none; }
   .campo:focus-visible { border-color: var(--treino-ink); }
 
+  /* `select.campo` — a seta nativa é desenhada pelo sistema e some no
+     fundo escuro, então trocamos por uma própria em background-image.
+     `color-scheme: dark` é o que faz o menu suspenso (que é renderizado
+     pelo SO, fora do alcance do CSS) vir escuro em vez de branco. */
+  select.campo {
+    appearance: none;
+    color-scheme: dark;
+    padding-right: var(--e-8);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+                      linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+    background-position: right var(--e-4) center, calc(100% - var(--e-4) + 5px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
   /* Campo de carga e reps. Grande, monoespaçado, centralizado — é o que
      mais se toca no app inteiro, entre uma série e outra. */
   .campo-num {

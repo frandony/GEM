@@ -83,10 +83,15 @@ export async function extrairTopicosDoTexto(texto: string): Promise<ExtracaoDeTo
 export async function gerarTopicosPeloNome(
   nomeMateria: string,
   curso?: string,
+  periodo?: number | null,
 ): Promise<ExtracaoDeTopicos> {
   return chamar({
     nome_materia: nomeMateria,
     ...(curso?.trim() ? { curso: curso.trim() } : {}),
+    // Omitido quando não informado, em vez de mandar null: a função valida
+    // a faixa 1–12 e trata qualquer outra coisa como ausente, então mandar
+    // menos é mandar a mesma coisa com menos chance de divergir.
+    ...(periodo ? { periodo } : {}),
   });
 }
 
