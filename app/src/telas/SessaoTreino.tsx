@@ -4,7 +4,7 @@ import { enfileirar, novoId } from "../lib/fila";
 import { notificarFimDoTimer } from "../lib/notificacaoTimer";
 import { explicarSugestao, sugestaoDeCarga, type Sugestao } from "../lib/progressao";
 import { IndicadorPendencia } from "../componentes/IndicadorPendencia";
-import { Toast } from "../componentes/Toast";
+import { useToast } from "../lib/toast";
 
 /* =====================================================================
    Registrar série — a tela que decide o app.
@@ -74,7 +74,7 @@ export function SessaoTreino({
   const [carga, setCarga] = useState(0);
   const [reps, setReps] = useState(0);
   const [descansando, setDescansando] = useState<number | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   // Abandonar descarta a sessão inteira e é irreversível. Um toque só,
   // num link pequeno ao lado do contador, é fácil demais de acertar sem
   // querer com o polegar.
@@ -143,7 +143,7 @@ export function SessaoTreino({
       ...f,
       [ex.sessaoExercicioId]: [...(f[ex.sessaoExercicioId] ?? []), serie],
     }));
-    setToast("Série concluída!");
+    toast.sucesso("Série concluída!");
 
     // 2. Fila depois. Não esperamos: o id é do cliente, então reenviar
     //    não duplica, e a rede pode demorar o quanto quiser.
@@ -187,8 +187,6 @@ export function SessaoTreino({
       >
         <span />
       </div>
-
-      <Toast mensagem={toast} onFechar={() => setToast(null)} />
 
       {/* ---- Cabeçalho: onde estou ---------------------------------- */}
       <header className="mb-1">

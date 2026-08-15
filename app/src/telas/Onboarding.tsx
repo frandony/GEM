@@ -4,6 +4,8 @@ import { LevantadorPixel } from "../componentes/CarregandoIA";
 import { montarTreino, type PedidoMontarTreino } from "../lib/montarTreino";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { AvisoDeFormulario } from "../componentes/MensagemErro";
 import {
   salvarPerfilTreino,
   type AcessoEquipamento,
@@ -72,7 +74,7 @@ export function Onboarding() {
 
   const [montando, setMontando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const toast = useToast();
 
   function alternarDia(d: number) {
     setDiasLembrete((atual) =>
@@ -93,7 +95,6 @@ export function Onboarding() {
   async function aoSubmeter(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    setAviso(null);
 
     if (!sessao) {
       setErro("Sessão expirada — faça login de novo.");
@@ -137,11 +138,17 @@ export function Onboarding() {
 
       await supabase.from("profiles").update({ usa_treino: true }).eq("id", sessao.user.id);
 
+      // Toast global, não estado local: `navigate` logo abaixo desmonta
+      // esta tela no mesmo bloco síncrono, então o <p> que existia aqui
+      // NUNCA chegava a ser pintado. Quem caía no template genérico não
+      // era informado disso em lugar nenhum.
       if (resultado.origem === "fallback") {
-        setAviso(
+        toast.erro(
           resultado.avisos[0] ??
             "Montamos um modelo padrão desta vez — dá para gerar de novo depois.",
         );
+      } else {
+        toast.sucesso("Seu plano de treino está pronto.");
       }
 
       navigate("/treino", { replace: true });
@@ -473,12 +480,7 @@ export function Onboarding() {
           />
         </Secao>
 
-        {erro && (
-          <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>
-            {erro}
-          </p>
-        )}
-        {aviso && <p className="text-sm text-atencao-ink">{aviso}</p>}
+        {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
 
         <button className="btn btn-treino btn-bloco" type="submit">
           Montar treino

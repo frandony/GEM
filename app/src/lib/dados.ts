@@ -738,17 +738,27 @@ export async function carregarBlocosDoDia(userId: string, data: string): Promise
   return blocos;
 }
 
+/**
+ * Marca (ou desmarca) um bloco. `"pendente"` existe para o desfazer: sem
+ * ele, tocar sem querer no bloco de estudo era irreversível pela UI —
+ * e a linha inteira era o alvo do toque.
+ *
+ * Voltar para pendente limpa `finalizado_em` e `tempo_real_seg` junto:
+ * bloco pendente com hora de conclusão é estado incoerente, e o agregado
+ * de minutos de estudo leria tempo de algo que não foi feito.
+ */
 export async function marcarBloco(
   blocoId: string,
-  status: "concluido" | "parcial" | "pulado",
+  status: "concluido" | "parcial" | "pulado" | "pendente",
   tempoRealSeg: number | null,
 ): Promise<void> {
+  const voltandoAPendente = status === "pendente";
   const { error } = await supabase
     .from("blocos")
     .update({
       status,
-      finalizado_em: new Date().toISOString(),
-      tempo_real_seg: tempoRealSeg,
+      finalizado_em: voltandoAPendente ? null : new Date().toISOString(),
+      tempo_real_seg: voltandoAPendente ? null : tempoRealSeg,
     })
     .eq("id", blocoId);
   if (error) throw new Error(error.message);
@@ -758,7 +768,14 @@ export async function marcarBloco(
 // da matéria na lista do usuário, pra ficar estável entre Home e Estudo
 // (mesma matéria, mesma cor, em qualquer tela).
 const PALETA_DISCIPLINA = ["estudo", "roxo", "atencao"] as const;
-export function corDaDisciplina(materiaId: string | null, materias: Materia[]): string {
+/** Recebe qualquer lista que tenha `id` — serve tanto para `Materia`
+    quanto para `MateriaParaMontagem`, que é o que a tela de Estudo passou
+    a carregar. A ordem da lista é o que fixa a cor, então as duas
+    consultas precisam ordenar igual (ambas: `ativa = true`, `criada_em` asc). */
+export function corDaDisciplina(
+  materiaId: string | null,
+  materias: Array<{ id: string }>,
+): string {
   if (!materiaId) return "var(--estudo)";
   const i = materias.findIndex((m) => m.id === materiaId);
   const token = PALETA_DISCIPLINA[i < 0 ? 0 : i % PALETA_DISCIPLINA.length];
@@ -980,12 +997,126 @@ export async function entrarNoGrupo(codigo: string): Promise<Grupo> {
   return data as Grupo;
 }
 
+export async function carregarGrupo(grupoId: string): Promise<Grupo | null> {
+  const { data } = await supabase
+    .from("grupos")
+    .select("id,nome,codigo_convite")
+    .eq("id", grupoId)
+    .maybeSingle();
+  return data ?? null;
+}
+
+/**
+ * Sai do grupo. Sem RPC: a policy "membros: sai do próprio grupo"
+ * (migration 11) já permite `delete` em `grupo_membros` para a própria
+ * linha — e é só a própria, mesmo que o id de outra pessoa fosse passado.
+ */
+export async function sairDoGrupo(grupoId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("grupo_membros")
+    .delete()
+    .eq("grupo_id", grupoId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
 export interface MembroDoGrupo {
   user_id: string;
   nome: string;
   foto_url: string | null;
   streak: number;
   treinou_hoje: boolean;
+}
+
+/** Um dia da faixa de 7 dias do membro. `treinou` e `minutosEstudo` são
+    o que a RLS libera para o grupo (`resumos_diarios`); a execução do
+    treino em si — séries, cargas — continua privada. */
+export interface DiaDoMembro {
+  data: string;
+  treinou: boolean;
+  minutosEstudo: number;
+}
+
+export async function carregarUltimosDiasDoMembro(
+  membroId: string,
+  timezone: string,
+): Promise<DiaDoMembro[]> {
+  const hoje = hojeNoFuso(timezone);
+  const inicio = new Date(`${hoje}T00:00:00Z`);
+  inicio.setUTCDate(inicio.getUTCDate() - 6);
+  const de = inicio.toISOString().slice(0, 10);
+
+  const { data } = await supabase
+    .from("resumos_diarios")
+    .select("data,treinou,minutos_estudo")
+    .eq("user_id", membroId)
+    .gte("data", de)
+    .lte("data", hoje);
+
+  const porData = new Map(
+    (data ?? []).map((r) => [r.data as string, r as { treinou: boolean; minutos_estudo: number }]),
+  );
+
+  // Preenche os 7 dias: dia sem linha em `resumos_diarios` é dia sem
+  // atividade, e precisa aparecer como lacuna em vez de sumir da faixa.
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(`${de}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    const linha = porData.get(iso);
+    return {
+      data: iso,
+      treinou: linha?.treinou ?? false,
+      minutosEstudo: linha?.minutos_estudo ?? 0,
+    };
+  });
+}
+
+export interface PlanoDoMembro {
+  divisao: string;
+  enfase: string;
+  frequenciaSemanal: number;
+  sessoes: Array<{ letra: string; nome: string; totalExercicios: number }>;
+}
+
+/**
+ * Plano de treino de outro membro do grupo. É o conteúdo que a RLS libera
+ * (`programa: dono ou grupo lê` / `sessao: dono ou grupo lê`) e que não
+ * aparecia em tela nenhuma — o card de grupo mostrava só nome e streak.
+ */
+export async function carregarPlanoDoMembro(membroId: string): Promise<PlanoDoMembro | null> {
+  const { data: programa } = await supabase
+    .from("programas")
+    .select("id,divisao,enfase,frequencia_semanal")
+    .eq("user_id", membroId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!programa) return null;
+
+  const { data: sessoes } = await supabase
+    .from("sessoes")
+    .select("id,letra,nome")
+    .eq("programa_id", programa.id)
+    .order("posicao", { ascending: true })
+    .returns<Array<{ id: string; letra: string; nome: string }>>();
+
+  const comContagem = await Promise.all(
+    (sessoes ?? []).map(async (s) => {
+      // `head: true` — só o número, sem trazer as linhas.
+      const { count } = await supabase
+        .from("sessao_exercicios")
+        .select("id", { count: "exact", head: true })
+        .eq("sessao_id", s.id);
+      return { letra: s.letra, nome: s.nome, totalExercicios: count ?? 0 };
+    }),
+  );
+
+  return {
+    divisao: programa.divisao,
+    enfase: programa.enfase,
+    frequenciaSemanal: programa.frequencia_semanal,
+    sessoes: comContagem,
+  };
 }
 
 export async function carregarMembrosDoGrupo(

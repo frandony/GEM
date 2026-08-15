@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../lib/auth";
+import { AvisoDeFormulario } from "../componentes/MensagemErro";
 import { SessaoTreino, type ExercicioDaSessao } from "./SessaoTreino";
 import {
   abandonarTreinoSessao,
@@ -191,6 +192,12 @@ export function Treino() {
           <div className="h2 mb-4">
             Treino {proxima.letra} — {proxima.nome}
           </div>
+          {/* Colado ao botão que gerou a falha, não solto no fim da tela. */}
+          {erro && (
+            <div className="mb-3">
+              <AvisoDeFormulario>{erro}</AvisoDeFormulario>
+            </div>
+          )}
           <button
             className="btn btn-treino btn-bloco"
             onClick={() => void iniciar(proxima, timezone)}
@@ -206,12 +213,6 @@ export function Treino() {
             Ver o plano
           </Link>
         </div>
-      )}
-
-      {erro && (
-        <p className="text-sm mt-3" style={{ color: "var(--perigo-ink)" }}>
-          {erro}
-        </p>
       )}
     </div>
   );

@@ -8,7 +8,7 @@ import { extrairTextoDoPdf } from "../lib/pdf";
 import { extrairTopicosDoTexto, type DataExtraidaDoPdf } from "../lib/extrairTopicos";
 import {
   carregarBlocosDoDia,
-  carregarMaterias,
+  carregarMateriasParaMontagem,
   carregarPerfil,
   corDaDisciplina,
   criarMateriaSimples,
@@ -16,9 +16,11 @@ import {
   marcarBloco,
   type BlocoEstudo,
   type EventoNovo,
-  type Materia,
+  type MateriaParaMontagem,
 } from "../lib/dados";
-import { Toast } from "../componentes/Toast";
+import { useToast } from "../lib/toast";
+import { useValidacao } from "../lib/formulario";
+import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 
 const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
   leitura: "Leitura",
@@ -34,10 +36,14 @@ export function Estudo() {
   const userId = sessao!.user.id;
 
   const [carregando, setCarregando] = useState(true);
-  const [materias, setMaterias] = useState<Materia[]>([]);
+  const [materias, setMaterias] = useState<MateriaParaMontagem[]>([]);
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
   const [criando, setCriando] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  // Guarda qual matéria acabou de nascer, só para destacá-la na lista.
+  // Sem isso, "criei e não aconteceu nada" continuaria valendo mesmo com
+  // a lista existindo: ela entraria no meio de outras seis, sem aviso.
+  const [materiaNovaId, setMateriaNovaId] = useState<string | null>(null);
+  const toast = useToast();
 
   // Timer Pomodoro — mesma lógica de relógio (Date.now(), não setInterval
   // acumulado) do descanso em SessaoTreino.tsx, adaptada pra suportar
@@ -62,7 +68,7 @@ export function Estudo() {
       setRestante(restam);
       if (restam <= 0) {
         setRodando(false);
-        setToast("Pomodoro concluído!");
+        toast.sucesso("Pomodoro concluído!");
         notificarFimDoTimer();
       }
     }, 250);
@@ -74,7 +80,11 @@ export function Estudo() {
     const perfil = await carregarPerfil(userId);
     const tz = perfil?.timezone ?? "America/Sao_Paulo";
     const [ms, bs] = await Promise.all([
-      carregarMaterias(userId),
+      // `...ParaMontagem` e não `carregarMaterias`: traz tópicos e eventos
+      // no mesmo round-trip, que é o que a lista de matérias mostra. As
+      // duas consultas filtram e ordenam igual, então a cor de cada
+      // disciplina (que sai da posição na lista) não muda.
+      carregarMateriasParaMontagem(userId),
       carregarBlocosDoDia(userId, hojeNoFuso(tz)),
     ]);
     setMaterias(ms);
@@ -87,11 +97,30 @@ export function Estudo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  async function concluirBloco(bloco: BlocoEstudo) {
-    await marcarBloco(bloco.id, "concluido", bloco.duracao_min * 60);
+  /**
+   * Marca ou desmarca um bloco. Otimista com rollback: a caixa responde
+   * na hora, mas se a gravação falhar ela VOLTA e o toast diz o porquê.
+   * Antes não havia try/catch nenhum — offline, o bloco ficava marcado na
+   * tela e nada era gravado.
+   */
+  async function alternarBloco(bloco: BlocoEstudo) {
+    const concluindo = bloco.status === "pendente";
+    const novoStatus = concluindo ? "concluido" : "pendente";
+    const anterior = bloco.status;
+
     setBlocos((atual) =>
-      atual.map((b) => (b.id === bloco.id ? { ...b, status: "concluido" } : b)),
+      atual.map((b) => (b.id === bloco.id ? { ...b, status: novoStatus } : b)),
     );
+
+    try {
+      await marcarBloco(bloco.id, novoStatus, concluindo ? bloco.duracao_min * 60 : null);
+      toast.sucesso(concluindo ? "Bloco concluído." : "Marcação desfeita.");
+    } catch (e) {
+      setBlocos((atual) =>
+        atual.map((b) => (b.id === bloco.id ? { ...b, status: anterior } : b)),
+      );
+      toast.erro(e instanceof Error ? e.message : "Não deu para marcar o bloco.");
+    }
   }
 
   if (carregando) {
@@ -112,11 +141,37 @@ export function Estudo() {
             Grade
           </Link>
         </header>
+
+        {/* Os três passos existem porque cadastrar a matéria sozinho não
+            produz bloco nenhum — e sem esse mapa, quem cadastra a primeira
+            conclui que o app não fez nada. */}
+        <div className="card mb-4">
+          <span className="rotulo-secao text-estudo-ink mb-2">Como funciona</span>
+          <ol className="text-sm text-ink-muted flex flex-col gap-2">
+            <li>
+              <strong className="text-ink">1.</strong> Cadastre uma matéria com seus tópicos —
+              é o que você vai estudar.
+            </li>
+            <li>
+              <strong className="text-ink">2.</strong> Defina sua{" "}
+              <Link className="underline" to="/estudo/grade">
+                grade de horários
+              </Link>{" "}
+              — quando você tem tempo livre.
+            </li>
+            <li>
+              <strong className="text-ink">3.</strong> Monte o plano — a IA distribui os
+              tópicos nos seus horários.
+            </li>
+          </ol>
+        </div>
+
         <NovaMateria
-          onCriada={async () => {
+          onCriada={async (_id, nomeCriado) => {
             if (sessao) {
               await supabase.from("profiles").update({ usa_estudo: true }).eq("id", sessao.user.id);
             }
+            toast.sucesso(`Matéria "${nomeCriado}" criada.`);
             await carregar();
           }}
         />
@@ -131,8 +186,6 @@ export function Estudo() {
 
   return (
     <div className="tela">
-      <Toast mensagem={toast} onFechar={() => setToast(null)} />
-
       <header className="flex items-baseline justify-between mb-4">
         <div>
           <span className="text-sm text-ink-muted">Sessão de estudo</span>
@@ -196,7 +249,7 @@ export function Estudo() {
             onClick={() => {
               setRodando(false);
               setRestante(DURACAO_POMODORO);
-              setToast("Pomodoro pulado");
+              toast.sucesso("Pomodoro reiniciado");
             }}
             aria-label="Pular pomodoro"
           >
@@ -205,49 +258,47 @@ export function Estudo() {
         </div>
       </div>
 
-      <span className="rotulo-secao text-ink-muted mb-2 block">Disciplinas</span>
+      {/* Este rótulo dizia "Disciplinas" e listava BLOCOS — era a origem
+          do "criei uma matéria e ela não aparece em lugar nenhum": o único
+          lugar que parecia listar matérias listava outra coisa. */}
+      <span className="rotulo-secao text-ink-muted mb-2 block">Blocos de hoje</span>
       {blocos.length === 0 ? (
         <div className="vazio mb-6">
-          <p>Nenhum bloco de estudo planejado para hoje.</p>
+          <p>Nenhum bloco planejado para hoje.</p>
+          <p className="text-sm text-ink-terciario">
+            Os blocos nascem do plano — é ele que distribui seus tópicos nos horários da grade.
+          </p>
+          <Link className="btn btn-estudo" to="/estudo/montar">
+            Montar plano
+          </Link>
         </div>
       ) : (
         <div className="card mb-6">
-          {pendentes.map((b) => (
-            <button
+          {[...pendentes, ...feitos].map((b) => (
+            <LinhaDeBloco
               key={b.id}
-              type="button"
-              className="subject-row w-full text-left"
-              style={{ "--cor": corDaDisciplina(b.materia_id, materias) } as CSSProperties}
-              onClick={() => void concluirBloco(b)}
-            >
-              <span className="subject-row__cor" />
-              <div className="subject-row__texto">
-                <div className="h3">{b.titulo}</div>
-                <div className="text-xs text-ink-terciario">
-                  {TIPO_ROTULO[b.tipo]} · {b.hora.slice(0, 5)} · {b.duracao_min} min planejados
-                </div>
-              </div>
-              <span className="subject-row__caixa" aria-checked="false" role="checkbox" />
-            </button>
-          ))}
-          {feitos.map((b) => (
-            <div
-              key={b.id}
-              className="subject-row"
-              style={{ "--cor": corDaDisciplina(b.materia_id, materias) } as CSSProperties}
-            >
-              <span className="subject-row__cor" />
-              <div className="subject-row__texto">
-                <div className="h3 text-ink-muted">{b.titulo}</div>
-                <div className="text-xs text-ink-terciario">{b.duracao_min} min planejados</div>
-              </div>
-              <span className="subject-row__caixa" aria-checked="true" role="checkbox">
-                <Check size={14} />
-              </span>
-            </div>
+              bloco={b}
+              cor={corDaDisciplina(b.materia_id, materias)}
+              onAlternar={() => void alternarBloco(b)}
+            />
           ))}
         </div>
       )}
+
+      {/* ---- Suas matérias --------------------------------------------
+          A seção que não existia. Sem ela, criar matéria era uma escrita
+          sem retorno: o dado ia pro banco e não tinha onde aparecer. */}
+      <span className="rotulo-secao text-ink-muted mb-2 block">Suas matérias</span>
+      <div className="card mb-6">
+        {materias.map((m) => (
+          <LinhaDeMateria
+            key={m.id}
+            materia={m}
+            cor={corDaDisciplina(m.id, materias)}
+            nova={m.id === materiaNovaId}
+          />
+        ))}
+      </div>
 
       {!criando ? (
         <button className="btn btn-neutro" onClick={() => setCriando(true)}>
@@ -256,8 +307,10 @@ export function Estudo() {
       ) : (
         <div ref={formNovaMateriaRef}>
           <NovaMateria
-            onCriada={async () => {
+            onCriada={async (materiaId, nomeCriado) => {
               setCriando(false);
+              setMateriaNovaId(materiaId);
+              toast.sucesso(`Matéria "${nomeCriado}" criada.`);
               await carregar();
             }}
             onCancelar={() => setCriando(false)}
@@ -268,11 +321,114 @@ export function Estudo() {
   );
 }
 
+/* ---------------------------------------------------------------------
+   Linha de bloco.
+   ---------------------------------------------------------------------
+   A linha inteira era um <button> que CONCLUÍA o bloco — irreversível,
+   sem confirmação e sem jeito de voltar. Quem tocava esperando abrir um
+   detalhe marcava o bloco como feito sem querer; quem tocava num bloco já
+   concluído não recebia reação nenhuma (era uma <div>).
+
+   Agora o alvo é só a caixa (48px), e ela alterna nos dois sentidos.
+   Desfazer na própria caixa é melhor que um "desfazer" no toast, que
+   desapareceria em 2,5s.
+   --------------------------------------------------------------------- */
+function LinhaDeBloco({
+  bloco,
+  cor,
+  onAlternar,
+}: {
+  bloco: BlocoEstudo;
+  cor: string;
+  onAlternar: () => void;
+}) {
+  const concluido = bloco.status !== "pendente";
+  return (
+    <div className="subject-row" style={{ "--cor": cor } as CSSProperties}>
+      <span className="subject-row__cor" />
+      <div className="subject-row__texto">
+        <div className={concluido ? "h3 text-ink-muted" : "h3"}>{bloco.titulo}</div>
+        <div className="text-xs text-ink-terciario">
+          {TIPO_ROTULO[bloco.tipo]} · {bloco.hora.slice(0, 5)} · {bloco.duracao_min} min
+        </div>
+      </div>
+      {/* `role="checkbox"` no próprio <button>. Antes havia um
+          <span role="checkbox"> DENTRO de um <button> — combinação que
+          tecnologia assistiva não sabe anunciar. */}
+      <button
+        type="button"
+        className="subject-row__acao"
+        role="checkbox"
+        aria-checked={concluido}
+        aria-label={`Marcar "${bloco.titulo}" como concluído`}
+        onClick={onAlternar}
+      >
+        <span className="subject-row__caixa" aria-hidden>
+          {concluido && <Check size={14} />}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/** Linha de matéria — informativa, não clicável (não existe tela de
+    matéria). Ver a regra de affordance em index.css: card/linha que não
+    leva a lugar nenhum não ganha hover, cursor nem chevron. */
+function LinhaDeMateria({
+  materia,
+  cor,
+  nova,
+}: {
+  materia: MateriaParaMontagem;
+  cor: string;
+  nova: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (nova) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [nova]);
+
+  const total = materia.topicos.length;
+  // "Sem plano" responde exatamente à pergunta "criei a matéria, e agora?".
+  // `blocosEstimados` só é preenchido pela Fase A do montar-estudo.
+  const semPlano = total > 0 && materia.topicos.every((t) => t.blocosEstimados == null);
+  const proximoEvento = materia.eventos
+    .slice()
+    .sort((a, b) => a.data.localeCompare(b.data))[0];
+
+  return (
+    <div
+      ref={ref}
+      className={nova ? "subject-row subject-row--nova" : "subject-row"}
+      style={{ "--cor": cor } as CSSProperties}
+    >
+      <span className="subject-row__cor" />
+      <div className="subject-row__texto">
+        <div className="h3">{materia.nome}</div>
+        <div className="text-xs text-ink-terciario">
+          {total} {total === 1 ? "tópico" : "tópicos"}
+          {proximoEvento &&
+            ` · ${proximoEvento.tipo === "prova" ? "prova" : "entrega"} em ${proximoEvento.data
+              .split("-")
+              .reverse()
+              .slice(0, 2)
+              .join("/")}`}
+        </div>
+      </div>
+      {semPlano ? (
+        <span className="badge badge-atencao shrink-0">sem plano</span>
+      ) : (
+        <span className="badge badge-estudo shrink-0">no plano</span>
+      )}
+    </div>
+  );
+}
+
 function NovaMateria({
   onCriada,
   onCancelar,
 }: {
-  onCriada: () => void | Promise<void>;
+  onCriada: (materiaId: string, nome: string) => void | Promise<void>;
   onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState("");
@@ -282,7 +438,9 @@ function NovaMateria({
   const [dataEventoNovo, setDataEventoNovo] = useState("");
   const [descEventoNovo, setDescEventoNovo] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  const [erroServidor, setErroServidor] = useState<string | null>(null);
+  const { campo, erros, errosSemCampo, idDoErro, limpar, validar } =
+    useValidacao<"nome" | "topico">();
 
   // Modo só decide qual entrada de tópico aparece. `origemAtual` e
   // `confiancaAtual` são o que de fato vai pro banco — ficam "manual"/
@@ -337,24 +495,35 @@ function NovaMateria({
 
   async function aoSubmeter(e: FormEvent) {
     e.preventDefault();
-    setErro(null);
+    setErroServidor(null);
     const nomesTopicos = topicos.map((t) => t.trim()).filter(Boolean);
-    if (!nome.trim() || nomesTopicos.length === 0) {
-      setErro("Dê um nome à matéria e pelo menos um tópico.");
-      return;
-    }
+
+    // Duas regras separadas, não uma mensagem única no fim do formulário:
+    // o foco vai para o campo que de fato faltou. Quando o modo é PDF os
+    // inputs de tópico nem estão montados — aí o hook joga a mensagem em
+    // `errosSemCampo`, que sai no `.aviso-form` acima do botão.
+    const passou = validar([
+      { campo: "nome", valido: !!nome.trim(), mensagem: "Dê um nome à matéria." },
+      {
+        campo: "topico",
+        valido: nomesTopicos.length > 0,
+        mensagem: "Cadastre pelo menos um tópico.",
+      },
+    ]);
+    if (!passou) return;
+
     setEnviando(true);
     try {
-      await criarMateriaSimples(
+      const materiaId = await criarMateriaSimples(
         nome.trim(),
         nomesTopicos.map((n) => ({ nome: n, dificuldade: null })),
         eventos,
         origemAtual,
         confiancaAtual,
       );
-      await onCriada();
+      await onCriada(materiaId, nome.trim());
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não deu para criar a matéria.");
+      setErroServidor(e instanceof Error ? e.message : "Não deu para criar a matéria.");
     } finally {
       setEnviando(false);
     }
@@ -376,10 +545,21 @@ function NovaMateria({
         )}
       </div>
 
-      <label>
-        <div className="text-sm text-ink-muted mb-1">Nome da matéria</div>
-        <input className="campo" value={nome} onChange={(e) => setNome(e.target.value)} />
-      </label>
+      <div>
+        <label>
+          <div className="text-sm text-ink-muted mb-1">Nome da matéria</div>
+          <input
+            className="campo"
+            value={nome}
+            onChange={(e) => {
+              setNome(e.target.value);
+              limpar("nome");
+            }}
+            {...campo("nome")}
+          />
+        </label>
+        {erros.nome && <MensagemErro id={idDoErro("nome")}>{erros.nome}</MensagemErro>}
+      </div>
 
       <div>
         <div className="text-sm text-ink-muted mb-1">Como cadastrar os tópicos</div>
@@ -424,9 +604,7 @@ function NovaMateria({
                 A IA está identificando os tópicos — pode levar até um minuto.
               </p>
             )}
-            {pdfEstado === "erro" && pdfErro && (
-              <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>{pdfErro}</p>
-            )}
+            {pdfEstado === "erro" && pdfErro && <AvisoDeFormulario>{pdfErro}</AvisoDeFormulario>}
             {pdfEstado === "ocioso" && origemAtual === "pdf" && (
               <div className="flex flex-col gap-1">
                 <span className="badge badge-estudo w-fit">
@@ -483,11 +661,16 @@ function NovaMateria({
             className="campo mb-2"
             placeholder={`Tópico ${i + 1}`}
             value={t}
-            onChange={(e) =>
+            onChange={(e) => {
               setTopicos((atual) => atual.map((x, j) => (j === i ? e.target.value : x)))
-            }
+              limpar("topico");
+            }}
+            /* Só o primeiro input recebe o gancho de validação: a regra é
+               "pelo menos um tópico", então é para ele que o foco vai. */
+            {...(i === 0 ? campo("topico") : {})}
           />
         ))}
+        {erros.topico && <MensagemErro id={idDoErro("topico")}>{erros.topico}</MensagemErro>}
         <button
           type="button"
           className="btn btn-neutro"
@@ -561,11 +744,15 @@ function NovaMateria({
         </button>
       </div>
 
-      {erro && (
-        <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>
-          {erro}
-        </p>
+      {/* Colado ao botão de propósito — é onde o polegar já está. */}
+      {errosSemCampo.length > 0 && (
+        <AvisoDeFormulario>
+          {errosSemCampo.map((m, i) => (
+            <div key={i}>{m}</div>
+          ))}
+        </AvisoDeFormulario>
       )}
+      {erroServidor && <AvisoDeFormulario>{erroServidor}</AvisoDeFormulario>}
 
       <button className="btn btn-estudo btn-bloco" type="submit" disabled={enviando}>
         {enviando ? "Criando…" : "Criar matéria"}

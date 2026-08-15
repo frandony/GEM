@@ -1,5 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router";
+import { ChevronRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useValidacao } from "../lib/formulario";
+import { useToast } from "../lib/toast";
+import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 import {
   carregarGruposDoUsuario,
   carregarMembrosDoGrupo,
@@ -17,7 +22,6 @@ export function Grupo() {
   const [carregando, setCarregando] = useState(true);
   const [grupos, setGrupos] = useState<GrupoTipo[]>([]);
   const [membrosPorGrupo, setMembrosPorGrupo] = useState<Record<string, MembroDoGrupo[]>>({});
-  const [erro, setErro] = useState<string | null>(null);
 
   async function carregar() {
     const perfil = await carregarPerfil(userId);
@@ -55,12 +59,19 @@ export function Grupo() {
           <p>Você ainda não está em nenhum grupo.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6 mb-6">
+        <div className="flex flex-col gap-4 mb-6">
+          {/* Era <div className="card">: tinha toda a aparência de card
+              interativo e não reagia a nada. Agora leva ao detalhe do
+              grupo, e o chevron diz que leva — ver a regra de affordance
+              no index.css. */}
           {grupos.map((g) => (
-            <div key={g.id} className="card">
-              <div className="flex items-baseline justify-between mb-3">
+            <Link key={g.id} to={`/grupo/${g.id}`} className="card block">
+              <div className="flex items-baseline justify-between gap-2 mb-3">
                 <h2 className="h2">{g.nome}</h2>
-                <span className="text-xs text-ink-muted num">código {g.codigo_convite}</span>
+                <span className="flex items-center gap-1 text-xs text-ink-muted shrink-0">
+                  {(membrosPorGrupo[g.id] ?? []).length} membros
+                  <ChevronRight size={16} />
+                </span>
               </div>
               <div className="flex flex-col gap-2">
                 {(membrosPorGrupo[g.id] ?? []).map((m) => (
@@ -73,134 +84,143 @@ export function Grupo() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
 
-      {erro && (
-        <p className="text-sm mb-4" style={{ color: "var(--perigo-ink)" }}>
-          {erro}
-        </p>
-      )}
-
+      {/* O erro de cada formulário mora DENTRO dele agora (`.aviso-form`,
+          colado ao botão). O banner que ficava aqui, acima dos dois, era
+          longe demais da ação: em tela de celular ele nascia fora da
+          viewport de quem tinha acabado de tocar no botão. */}
       <div className="flex flex-col gap-6">
-        <CriarGrupo
-          onCriado={async () => {
-            setErro(null);
-            await carregar();
-          }}
-          onErro={setErro}
-        />
-        <EntrarGrupo
-          onEntrou={async () => {
-            setErro(null);
-            await carregar();
-          }}
-          onErro={setErro}
-        />
+        <CriarGrupo onCriado={carregar} />
+        <EntrarGrupo onEntrou={carregar} />
       </div>
     </div>
   );
 }
 
-function CriarGrupo({
-  onCriado,
-  onErro,
-}: {
-  onCriado: () => void | Promise<void>;
-  onErro: (msg: string) => void;
-}) {
+function CriarGrupo({ onCriado }: { onCriado: () => void | Promise<void> }) {
   const [nome, setNome] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [erroServidor, setErroServidor] = useState<string | null>(null);
+  const { campo, erros, idDoErro, limpar, validar } = useValidacao<"nome">();
+  const toast = useToast();
 
+  // O botão NÃO desabilita com o campo vazio, de propósito — ele fazia
+  // exatamente o oposto do pretendido. Com `.btn:disabled` tendo
+  // `pointer-events: none`, tocar num botão desabilitado não gera evento
+  // nenhum: quem tentava criar um grupo sem nome recebia silêncio total e
+  // concluía que o app estava quebrado (relatado em teste de produção).
+  // Agora o toque sempre responde, e é o submit que explica o que falta.
   async function aoSubmeter(e: FormEvent) {
     e.preventDefault();
-    if (!nome.trim()) return;
+    setErroServidor(null);
+    if (!validar([{ campo: "nome", valido: !!nome.trim(), mensagem: "Dê um nome ao grupo." }])) {
+      return;
+    }
     setEnviando(true);
     try {
       await criarGrupo(nome.trim());
       setNome("");
+      toast.sucesso("Grupo criado.");
       await onCriado();
     } catch (e) {
-      onErro(e instanceof Error ? e.message : "Não deu para criar o grupo.");
+      setErroServidor(e instanceof Error ? e.message : "Não deu para criar o grupo.");
     } finally {
       setEnviando(false);
     }
   }
 
-  // O botão desabilitado é o feedback. Antes o clique com campo vazio caía
-  // num `return` silencioso: nada acontecia, nenhuma mensagem, e parecia
-  // que o botão estava quebrado.
-  const vazio = !nome.trim();
-
   return (
-    <form onSubmit={aoSubmeter} className="flex flex-col gap-1">
+    <form onSubmit={aoSubmeter} className="flex flex-col gap-2">
       <div className="flex gap-2">
         <input
           className="campo"
           placeholder="Nome do grupo"
           value={nome}
-          onChange={(e) => setNome(e.target.value)}
+          onChange={(e) => {
+            setNome(e.target.value);
+            limpar("nome");
+          }}
           maxLength={40}
           aria-label="Nome do grupo"
+          {...campo("nome")}
         />
-        <button className="btn btn-neutro" type="submit" disabled={enviando || vazio}>
+        <button className="btn btn-neutro" type="submit" disabled={enviando}>
           {enviando ? "Criando…" : "Criar"}
         </button>
       </div>
-      {vazio && <p className="text-xs text-ink-fraco">Dê um nome ao grupo para criar.</p>}
+      {erros.nome && <MensagemErro id={idDoErro("nome")}>{erros.nome}</MensagemErro>}
+      {erroServidor && <AvisoDeFormulario>{erroServidor}</AvisoDeFormulario>}
     </form>
   );
 }
 
-function EntrarGrupo({
-  onEntrou,
-  onErro,
-}: {
-  onEntrou: () => void | Promise<void>;
-  onErro: (msg: string) => void;
-}) {
+function EntrarGrupo({ onEntrou }: { onEntrou: () => void | Promise<void> }) {
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [erroServidor, setErroServidor] = useState<string | null>(null);
+  const { campo, erros, idDoErro, limpar, validar } = useValidacao<"codigo">();
+  const toast = useToast();
 
   async function aoSubmeter(e: FormEvent) {
     e.preventDefault();
-    if (!codigo.trim()) return;
+    setErroServidor(null);
+    if (
+      !validar([
+        {
+          campo: "codigo",
+          valido: codigo.trim().length === 6,
+          mensagem: "O código do convite tem 6 caracteres.",
+        },
+      ])
+    ) {
+      return;
+    }
     setEnviando(true);
     try {
-      await entrarNoGrupo(codigo.trim());
+      const grupo = await entrarNoGrupo(codigo.trim());
       setCodigo("");
+      toast.sucesso(`Você entrou em "${grupo.nome}".`);
       await onEntrou();
     } catch (e) {
-      onErro(e instanceof Error ? e.message : "Código inválido.");
+      setErroServidor(e instanceof Error ? e.message : "Código inválido.");
     } finally {
       setEnviando(false);
     }
   }
 
-  // O código tem 6 caracteres — antes disso o botão nem tenta.
-  const incompleto = codigo.trim().length < 6;
-
   return (
-    <form onSubmit={aoSubmeter} className="flex flex-col gap-1">
+    <form onSubmit={aoSubmeter} className="flex flex-col gap-2">
       <div className="flex gap-2">
         <input
           className="campo campo-num"
           placeholder="Código de convite"
           value={codigo}
-          onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+          onChange={(e) => {
+            setCodigo(e.target.value.toUpperCase());
+            limpar("codigo");
+          }}
           maxLength={6}
           autoCapitalize="characters"
           aria-label="Código de convite"
+          {...campo("codigo")}
         />
-        <button className="btn btn-neutro" type="submit" disabled={enviando || incompleto}>
+        <button className="btn btn-neutro" type="submit" disabled={enviando}>
           {enviando ? "Entrando…" : "Entrar"}
         </button>
       </div>
-      {incompleto && (
-        <p className="text-xs text-ink-fraco">O código do convite tem 6 caracteres.</p>
+      {erros.codigo ? (
+        <MensagemErro id={idDoErro("codigo")}>{erros.codigo}</MensagemErro>
+      ) : (
+        /* Dica PERMANENTE, não condicional: é regra de formato que
+           ninguém adivinha, e mostrá-la só com o campo vazio (como antes)
+           faz a informação sumir justo quando a pessoa começa a digitar. */
+        <p className="dica-campo">O código do convite tem 6 caracteres.</p>
       )}
+      {erroServidor && <AvisoDeFormulario>{erroServidor}</AvisoDeFormulario>}
     </form>
   );
 }

@@ -1,8 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
+import { useValidacao } from "../lib/formulario";
+import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 
 export function Login() {
   const { entrar, criarConta, reenviarConfirmacao } = useAuth();
+  const { campo, erros, idDoErro, limpar, limparTudo, validar } =
+    useValidacao<"nome" | "email" | "senha">();
   const [modo, setModo] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -19,6 +23,28 @@ export function Login() {
     e.preventDefault();
     setErro(null);
     setOfereceReenvio(false);
+
+    // Validação própria, no lugar do `required` do HTML: a bolha nativa
+    // do navegador é a quarta convenção de erro que este app tinha, vem
+    // no idioma do sistema (não do app) e ignora o tema. Os atributos
+    // continuam nos inputs como rede de segurança.
+    const ok = validar([
+      ...(modo === "criar"
+        ? [{ campo: "nome" as const, valido: !!nome.trim(), mensagem: "Como podemos te chamar?" }]
+        : []),
+      {
+        campo: "email" as const,
+        valido: /.+@.+\..+/.test(email.trim()),
+        mensagem: "Digite um e-mail válido.",
+      },
+      {
+        campo: "senha" as const,
+        valido: senha.length >= 6,
+        mensagem: "A senha precisa ter pelo menos 6 caracteres.",
+      },
+    ]);
+    if (!ok) return;
+
     setEnviando(true);
     try {
       if (modo === "entrar") {
@@ -65,11 +91,7 @@ export function Login() {
               {enviando ? "Enviando…" : "Não recebi — reenviar"}
             </button>
           )}
-          {erro && (
-            <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>
-              {erro}
-            </p>
-          )}
+          {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
           <button className="btn btn-neutro" onClick={() => setConfirmarEmail(false)}>
             Voltar
           </button>
@@ -87,52 +109,68 @@ export function Login() {
 
       <form onSubmit={aoSubmeter} className="flex flex-col gap-4">
         {modo === "criar" && (
+          <div>
+            <label>
+              <div className="text-sm text-ink-muted mb-1">Nome</div>
+              <input
+                className="campo"
+                value={nome}
+                onChange={(e) => {
+                  setNome(e.target.value);
+                  limpar("nome");
+                }}
+                maxLength={60}
+                autoComplete="name"
+                {...campo("nome")}
+              />
+            </label>
+            {erros.nome && <MensagemErro id={idDoErro("nome")}>{erros.nome}</MensagemErro>}
+          </div>
+        )}
+
+        <div>
           <label>
-            <div className="text-sm text-ink-muted mb-1">Nome</div>
+            <div className="text-sm text-ink-muted mb-1">E-mail</div>
             <input
               className="campo"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              required
-              minLength={1}
-              maxLength={60}
-              autoComplete="name"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                limpar("email");
+              }}
+              autoComplete="email"
+              enterKeyHint="next"
+              {...campo("email")}
             />
           </label>
-        )}
+          {erros.email && <MensagemErro id={idDoErro("email")}>{erros.email}</MensagemErro>}
+        </div>
 
-        <label>
-          <div className="text-sm text-ink-muted mb-1">E-mail</div>
-          <input
-            className="campo"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            enterKeyHint="next"
-          />
-        </label>
+        <div>
+          <label>
+            <div className="text-sm text-ink-muted mb-1">Senha</div>
+            <input
+              className="campo"
+              type="password"
+              value={senha}
+              onChange={(e) => {
+                setSenha(e.target.value);
+                limpar("senha");
+              }}
+              autoComplete={modo === "entrar" ? "current-password" : "new-password"}
+              enterKeyHint="done"
+              {...campo("senha")}
+            />
+          </label>
+          {erros.senha ? (
+            <MensagemErro id={idDoErro("senha")}>{erros.senha}</MensagemErro>
+          ) : (
+            modo === "criar" && <p className="dica-campo">Pelo menos 6 caracteres.</p>
+          )}
+        </div>
 
-        <label>
-          <div className="text-sm text-ink-muted mb-1">Senha</div>
-          <input
-            className="campo"
-            type="password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            required
-            minLength={6}
-            autoComplete={modo === "entrar" ? "current-password" : "new-password"}
-            enterKeyHint="done"
-          />
-        </label>
-
-        {erro && (
-          <p className="text-sm" style={{ color: "var(--perigo-ink)" }}>
-            {erro}
-          </p>
-        )}
+        {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
 
         {ofereceReenvio &&
           (reenviado ? (
@@ -157,6 +195,10 @@ export function Login() {
         className="btn btn-neutro mt-4"
         onClick={() => {
           setErro(null);
+          // Trocar de modo troca os campos exigidos — carregar o erro do
+          // modo anterior (ex: "Como podemos te chamar?" num formulário
+          // que nem tem mais o campo Nome) só confunde.
+          limparTudo();
           setModo((m) => (m === "entrar" ? "criar" : "entrar"));
         }}
       >

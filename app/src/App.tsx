@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { ToastProvider } from "./lib/toast";
 import { Nav } from "./componentes/Nav";
 import { AtualizacaoDisponivel } from "./componentes/AtualizacaoDisponivel";
 import { Login } from "./telas/Login";
@@ -13,6 +14,7 @@ import { Estudo } from "./telas/Estudo";
 import { GradeEstudo } from "./telas/GradeEstudo";
 import { MontarPlanoEstudo } from "./telas/MontarPlanoEstudo";
 import { Grupo } from "./telas/Grupo";
+import { DetalheGrupo } from "./telas/DetalheGrupo";
 
 /** Só entra quem tem sessão. Sem isso, qualquer rota do app é pública. */
 function Protegido() {
@@ -75,6 +77,10 @@ function ComNav() {
 export function App() {
   return (
     <AuthProvider>
+      {/* Acima do router de propósito: sem isso, um toast disparado logo
+          antes de um `navigate` morre com a tela que o pediu — era o caso
+          do aviso de plano gerado por template no Onboarding. */}
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<SomenteVisitante />}>
@@ -97,6 +103,7 @@ export function App() {
               <Route path="/estudo/grade" element={<GradeEstudo />} />
               <Route path="/estudo/montar" element={<MontarPlanoEstudo />} />
               <Route path="/grupo" element={<Grupo />} />
+              <Route path="/grupo/:id" element={<DetalheGrupo />} />
             </Route>
           </Route>
 
@@ -108,6 +115,7 @@ export function App() {
           de rota e precisa aparecer também em /login e /onboarding, que
           ficam fora da casca com navegação. */}
       <AtualizacaoDisponivel />
+      </ToastProvider>
     </AuthProvider>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
 import {
   carregarDetalheSessaoTreino,
   carregarHistoricoTreinos,
@@ -36,23 +37,37 @@ export function HistoricoTreinos() {
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [detalhes, setDetalhes] = useState<Record<string, ExercicioDoHistorico[]>>({});
+  const toast = useToast();
 
+  // As três chamadas abaixo tinham `.then` sem `.catch`: uma falha de rede
+  // deixava o skeleton girando para sempre, ou o botão preso em
+  // "Carregando…", sem nada dizer o que houve.
   useEffect(() => {
-    void carregarHistoricoTreinos(userId, 0).then(({ sessoes: s, temMais: t }) => {
-      setSessoes(s);
-      setTemMais(t);
-      setCarregando(false);
-    });
+    carregarHistoricoTreinos(userId, 0)
+      .then(({ sessoes: s, temMais: t }) => {
+        setSessoes(s);
+        setTemMais(t);
+      })
+      .catch((e) => {
+        toast.erro(e instanceof Error ? e.message : "Não deu para carregar o histórico.");
+      })
+      .finally(() => setCarregando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   async function carregarMais() {
     setCarregandoMais(true);
     const proxima = pagina + 1;
-    const { sessoes: s, temMais: t } = await carregarHistoricoTreinos(userId, proxima);
-    setSessoes((atual) => [...atual, ...s]);
-    setPagina(proxima);
-    setTemMais(t);
-    setCarregandoMais(false);
+    try {
+      const { sessoes: s, temMais: t } = await carregarHistoricoTreinos(userId, proxima);
+      setSessoes((atual) => [...atual, ...s]);
+      setPagina(proxima);
+      setTemMais(t);
+    } catch (e) {
+      toast.erro(e instanceof Error ? e.message : "Não deu para carregar mais treinos.");
+    } finally {
+      setCarregandoMais(false);
+    }
   }
 
   async function alternar(sessaoId: string) {
@@ -62,8 +77,13 @@ export function HistoricoTreinos() {
     }
     setExpandido(sessaoId);
     if (!detalhes[sessaoId]) {
-      const d = await carregarDetalheSessaoTreino(sessaoId);
-      setDetalhes((atual) => ({ ...atual, [sessaoId]: d }));
+      try {
+        const d = await carregarDetalheSessaoTreino(sessaoId);
+        setDetalhes((atual) => ({ ...atual, [sessaoId]: d }));
+      } catch (e) {
+        setExpandido(null); // não deixa o skeleton preso aberto
+        toast.erro(e instanceof Error ? e.message : "Não deu para carregar as séries.");
+      }
     }
   }
 

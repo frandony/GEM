@@ -19,7 +19,13 @@ export default defineConfig({
       // o import de `virtual:pwa-register/react` lá desliga sozinho a
       // injeção do `registerSW.js` automático, então não há registro
       // duplicado.
-      includeAssets: ["fontes/*.woff2", "icones/*.png"],
+      // `fontes/*.woff2` saiu daqui: o redesign de 2026-08 trocou as três
+      // famílias (IBM Plex Sans/Mono, Instrument Serif) por `system-ui`, e
+      // desde então NENHUM @font-face referencia esses arquivos —
+      // verificado no CSS compilado. Eram ~65 KB baixados no install do
+      // PWA para nunca serem usados. Os arquivos seguem em public/fontes/
+      // (não custam nada parados); apagar é decisão à parte.
+      includeAssets: ["icones/*.png"],
       manifest: {
         name: "Estudo + Treino",
         short_name: "Treino",
@@ -44,7 +50,9 @@ export default defineConfig({
         // (quase metade do precache total) só para instalar o PWA.
         // Continua sendo baixado normalmente na hora do uso, só não é
         // puxado de propósito no install.
-        globIgnores: ["**/pdf-*.js", "**/pdf.worker*"],
+        // O `globPatterns` acima também varre woff2 — sem esta linha, as
+        // fontes órfãs voltariam ao precache pela porta dos fundos.
+        globIgnores: ["**/pdf-*.js", "**/pdf.worker*", "**/fontes/*.woff2"],
         // O catálogo de exercícios é global e quase imutável — vale cache
         // longo. Já as chamadas de dado do usuário nunca são cacheadas:
         // servir treino velho é pior que não servir.

@@ -2,6 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { Dumbbell, Pencil, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { useValidacao } from "../lib/formulario";
+import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 import {
   LIMITES,
   atualizarParametrosDoExercicio,
@@ -65,10 +68,10 @@ export function EditarPlano() {
 
   const [sessoes, setSessoes] = useState<SessaoDoPlano[] | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
-  // Separado de `erro` porque muda a TELA, não só a mensagem: falha ao
-  // carregar não pode cair no estado "sem plano", que oferece montar
-  // outro e faria a pessoa refazer um plano que existe.
+  const toast = useToast();
+  // Estado próprio, e não toast, porque muda a TELA e não só a mensagem:
+  // falha ao carregar não pode cair no estado "sem plano", que oferece
+  // montar outro e faria a pessoa refazer um plano que existe.
   const [falhouAoCarregar, setFalhouAoCarregar] = useState<string | null>(null);
 
   async function carregar() {
@@ -144,12 +147,6 @@ export function EditarPlano() {
         não muda.
       </p>
 
-      {erro && (
-        <p className="text-sm mb-4" style={{ color: "var(--perigo-ink)" }}>
-          {erro}
-        </p>
-      )}
-
       <div className="flex flex-col gap-6">
         {sessoes.map((s) => {
           const resumo = resumoDaSessao(s.exercicios);
@@ -185,7 +182,6 @@ export function EditarPlano() {
                     exercicio={ex}
                     userId={userId}
                     onMudou={carregar}
-                    onErro={setErro}
                   />
                 ))}
               </div>
@@ -197,12 +193,14 @@ export function EditarPlano() {
 
       <ZonaDePerigo
         onExcluir={async () => {
-          setErro(null);
           try {
             await excluirProgramaAtivo(userId);
+            // Toast global: o `navigate` abaixo desmonta esta tela, então
+            // qualquer estado local de mensagem morreria antes de pintar.
+            toast.sucesso("Plano excluído. Vamos montar outro.");
             navegar("/onboarding", { replace: true });
           } catch (e) {
-            setErro(e instanceof Error ? e.message : "Não deu para excluir o plano.");
+            toast.erro(e instanceof Error ? e.message : "Não deu para excluir o plano.");
           }
         }}
       />
@@ -218,15 +216,17 @@ function LinhaExercicio({
   exercicio,
   userId,
   onMudou,
-  onErro,
 }: {
   exercicio: ExercicioDaSessao;
   userId: string;
   onMudou: () => Promise<void>;
-  onErro: (msg: string) => void;
 }) {
   const [modo, setModo] = useState<Modo>("fechado");
   const porTempo = exercicio.duracaoSeg != null;
+  // Toast em vez do antigo `onErro` que subia até um banner no topo da
+  // tela: estas linhas ficam no fim de uma página longa, e o banner
+  // nascia fora da viewport de quem tinha acabado de tocar aqui.
+  const toast = useToast();
 
   const aberto = modo !== "fechado";
 
@@ -275,9 +275,9 @@ function LinhaExercicio({
               exercicio={exercicio}
               onSalvo={async () => {
                 setModo("fechado");
+                toast.sucesso("Ajuste salvo.");
                 await onMudou();
               }}
-              onErro={onErro}
             />
           )}
 
@@ -285,11 +285,11 @@ function LinhaExercicio({
             <ListaSubstitutos
               exercicio={exercicio}
               userId={userId}
-              onTrocado={async () => {
+              onTrocado={async (nomeNovo) => {
                 setModo("fechado");
+                toast.sucesso(`Trocado por ${nomeNovo}.`);
                 await onMudou();
               }}
-              onErro={onErro}
             />
           )}
 
@@ -305,9 +305,10 @@ function LinhaExercicio({
                   onClick={async () => {
                     try {
                       await removerExercicioDoPlano(exercicio.sessaoExercicioId);
+                      toast.sucesso(`${exercicio.nome} saiu do plano.`);
                       await onMudou();
                     } catch (e) {
-                      onErro(e instanceof Error ? e.message : "Não deu para remover.");
+                      toast.erro(e instanceof Error ? e.message : "Não deu para remover.");
                     }
                   }}
                 >
@@ -354,11 +355,9 @@ function Aba({
 function FormAjuste({
   exercicio,
   onSalvo,
-  onErro,
 }: {
   exercicio: ExercicioDaSessao;
   onSalvo: () => Promise<void>;
-  onErro: (msg: string) => void;
 }) {
   const porTempo = exercicio.duracaoSeg != null;
   const [series, setSeries] = useState(String(exercicio.series));
@@ -366,6 +365,9 @@ function FormAjuste({
   const [repsMax, setRepsMax] = useState(String(exercicio.repsMax ?? ""));
   const [descanso, setDescanso] = useState(String(exercicio.descansoSeg));
   const [salvando, setSalvando] = useState(false);
+  const [erroServidor, setErroServidor] = useState<string | null>(null);
+  const { campo, erros, idDoErro, limpar, validar } =
+    useValidacao<"series" | "descanso" | "repsMin" | "repsMax">();
 
   // Valida antes de bater no banco: o CHECK do Postgres é a rede de
   // segurança, não a mensagem de erro que a pessoa deveria ler.
@@ -374,48 +376,111 @@ function FormAjuste({
   const nMax = Number(repsMax);
   const nDescanso = Number(descanso);
 
-  const problema = (() => {
-    if (!Number.isInteger(nSeries) || nSeries < LIMITES.series.min || nSeries > LIMITES.series.max)
-      return `Séries: de ${LIMITES.series.min} a ${LIMITES.series.max}.`;
-    if (
-      !Number.isInteger(nDescanso) ||
-      nDescanso < LIMITES.descanso.min ||
-      nDescanso > LIMITES.descanso.max
-    )
-      return `Descanso: de ${LIMITES.descanso.min} a ${LIMITES.descanso.max} segundos.`;
-    if (porTempo) return null;
-    if (!Number.isInteger(nMin) || !Number.isInteger(nMax)) return "Preencha a faixa de reps.";
-    if (nMin < LIMITES.reps.min || nMax > LIMITES.reps.max)
-      return `Reps: de ${LIMITES.reps.min} a ${LIMITES.reps.max}.`;
-    // A progressão dupla só fecha com faixa: atingiu o máximo em todas as
-    // séries → sobe a carga. Com min > max não existe faixa nenhuma.
-    if (nMax < nMin) return "O máximo de reps precisa ser maior ou igual ao mínimo.";
-    return null;
-  })();
+  async function salvar() {
+    setErroServidor(null);
+    // Cada regra aponta para o SEU campo. Antes havia uma mensagem só,
+    // que dizia "Séries: de 1 a 10" enquanto os quatro inputs ficavam
+    // visualmente idênticos — e o botão ficava desabilitado, o que
+    // impedia até de tentar.
+    const ok = validar([
+      {
+        campo: "series",
+        valido:
+          Number.isInteger(nSeries) &&
+          nSeries >= LIMITES.series.min &&
+          nSeries <= LIMITES.series.max,
+        mensagem: `Séries: de ${LIMITES.series.min} a ${LIMITES.series.max}.`,
+      },
+      {
+        campo: "descanso",
+        valido:
+          Number.isInteger(nDescanso) &&
+          nDescanso >= LIMITES.descanso.min &&
+          nDescanso <= LIMITES.descanso.max,
+        mensagem: `Descanso: de ${LIMITES.descanso.min} a ${LIMITES.descanso.max} segundos.`,
+      },
+      ...(porTempo
+        ? []
+        : [
+            {
+              campo: "repsMin" as const,
+              valido:
+                Number.isInteger(nMin) && nMin >= LIMITES.reps.min && nMin <= LIMITES.reps.max,
+              mensagem: `Reps mínimas: de ${LIMITES.reps.min} a ${LIMITES.reps.max}.`,
+            },
+            {
+              campo: "repsMax" as const,
+              // A progressão dupla só fecha com faixa: atingiu o máximo em
+              // todas as séries → sobe a carga. Com min > max não há faixa.
+              valido:
+                Number.isInteger(nMax) &&
+                nMax >= LIMITES.reps.min &&
+                nMax <= LIMITES.reps.max &&
+                nMax >= nMin,
+              mensagem:
+                Number.isInteger(nMax) && nMax < nMin
+                  ? "O máximo precisa ser maior ou igual ao mínimo."
+                  : `Reps máximas: de ${LIMITES.reps.min} a ${LIMITES.reps.max}.`,
+            },
+          ]),
+    ]);
+    if (!ok) return;
+
+    setSalvando(true);
+    try {
+      await atualizarParametrosDoExercicio(exercicio.sessaoExercicioId, {
+        series: nSeries,
+        repsMin: porTempo ? null : nMin,
+        repsMax: porTempo ? null : nMax,
+        descansoSeg: nDescanso,
+      });
+      await onSalvo();
+    } catch (e) {
+      setErroServidor(e instanceof Error ? e.message : "Não deu para salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-3">
-        <label className="flex-1">
-          <div className="text-xs text-ink-muted mb-1">Séries</div>
-          <input
-            className="campo campo-num"
-            value={series}
-            onChange={(e) => setSeries(e.target.value)}
-            inputMode="numeric"
-            aria-label="Número de séries"
-          />
-        </label>
-        <label className="flex-1">
-          <div className="text-xs text-ink-muted mb-1">Descanso (s)</div>
-          <input
-            className="campo campo-num"
-            value={descanso}
-            onChange={(e) => setDescanso(e.target.value)}
-            inputMode="numeric"
-            aria-label="Descanso em segundos"
-          />
-        </label>
+        <div className="flex-1">
+          <label>
+            <div className="text-xs text-ink-muted mb-1">Séries</div>
+            <input
+              className="campo campo-num"
+              value={series}
+              onChange={(e) => {
+                setSeries(e.target.value);
+                limpar("series");
+              }}
+              inputMode="numeric"
+              aria-label="Número de séries"
+              {...campo("series")}
+            />
+          </label>
+          {erros.series && <MensagemErro id={idDoErro("series")}>{erros.series}</MensagemErro>}
+        </div>
+        <div className="flex-1">
+          <label>
+            <div className="text-xs text-ink-muted mb-1">Descanso (s)</div>
+            <input
+              className="campo campo-num"
+              value={descanso}
+              onChange={(e) => {
+                setDescanso(e.target.value);
+                limpar("descanso");
+              }}
+              inputMode="numeric"
+              aria-label="Descanso em segundos"
+              {...campo("descanso")}
+            />
+          </label>
+          {erros.descanso && (
+            <MensagemErro id={idDoErro("descanso")}>{erros.descanso}</MensagemErro>
+          )}
+        </div>
       </div>
 
       {porTempo ? (
@@ -425,51 +490,51 @@ function FormAjuste({
         </p>
       ) : (
         <div className="flex gap-3">
-          <label className="flex-1">
-            <div className="text-xs text-ink-muted mb-1">Reps mín.</div>
-            <input
-              className="campo campo-num"
-              value={repsMin}
-              onChange={(e) => setRepsMin(e.target.value)}
-              inputMode="numeric"
-              aria-label="Repetições mínimas"
-            />
-          </label>
-          <label className="flex-1">
-            <div className="text-xs text-ink-muted mb-1">Reps máx.</div>
-            <input
-              className="campo campo-num"
-              value={repsMax}
-              onChange={(e) => setRepsMax(e.target.value)}
-              inputMode="numeric"
-              aria-label="Repetições máximas"
-            />
-          </label>
+          <div className="flex-1">
+            <label>
+              <div className="text-xs text-ink-muted mb-1">Reps mín.</div>
+              <input
+                className="campo campo-num"
+                value={repsMin}
+                onChange={(e) => {
+                  setRepsMin(e.target.value);
+                  limpar("repsMin");
+                }}
+                inputMode="numeric"
+                aria-label="Repetições mínimas"
+                {...campo("repsMin")}
+              />
+            </label>
+            {erros.repsMin && (
+              <MensagemErro id={idDoErro("repsMin")}>{erros.repsMin}</MensagemErro>
+            )}
+          </div>
+          <div className="flex-1">
+            <label>
+              <div className="text-xs text-ink-muted mb-1">Reps máx.</div>
+              <input
+                className="campo campo-num"
+                value={repsMax}
+                onChange={(e) => {
+                  setRepsMax(e.target.value);
+                  limpar("repsMax");
+                }}
+                inputMode="numeric"
+                aria-label="Repetições máximas"
+                {...campo("repsMax")}
+              />
+            </label>
+            {erros.repsMax && (
+              <MensagemErro id={idDoErro("repsMax")}>{erros.repsMax}</MensagemErro>
+            )}
+          </div>
         </div>
       )}
 
-      {problema && <p className="text-xs" style={{ color: "var(--perigo-ink)" }}>{problema}</p>}
+      {erroServidor && <AvisoDeFormulario>{erroServidor}</AvisoDeFormulario>}
 
-      <button
-        className="btn btn-treino"
-        disabled={!!problema || salvando}
-        onClick={async () => {
-          setSalvando(true);
-          try {
-            await atualizarParametrosDoExercicio(exercicio.sessaoExercicioId, {
-              series: nSeries,
-              repsMin: porTempo ? null : nMin,
-              repsMax: porTempo ? null : nMax,
-              descansoSeg: nDescanso,
-            });
-            await onSalvo();
-          } catch (e) {
-            onErro(e instanceof Error ? e.message : "Não deu para salvar.");
-          } finally {
-            setSalvando(false);
-          }
-        }}
-      >
+      {/* Sem `disabled` por valor inválido — ver a regra em index.css. */}
+      <button className="btn btn-treino" disabled={salvando} onClick={() => void salvar()}>
         {salvando ? "Salvando…" : "Salvar"}
       </button>
     </div>
@@ -482,23 +547,22 @@ function ListaSubstitutos({
   exercicio,
   userId,
   onTrocado,
-  onErro,
 }: {
   exercicio: ExercicioDaSessao;
   userId: string;
-  onTrocado: () => Promise<void>;
-  onErro: (msg: string) => void;
+  onTrocado: (nomeNovo: string) => Promise<void>;
 }) {
   const [opcoes, setOpcoes] = useState<Substituto[] | null>(null);
   const [trocando, setTrocando] = useState<number | null>(null);
   const [verTodos, setVerTodos] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     let ativo = true;
     substitutosDoExercicio(exercicio.sessaoExercicioId)
       .then((s) => ativo && setOpcoes(s))
       .catch((e) => {
-        if (ativo) onErro(e instanceof Error ? e.message : "Não deu para buscar substitutos.");
+        if (ativo) toast.erro(e instanceof Error ? e.message : "Não deu para buscar substitutos.");
         if (ativo) setOpcoes([]);
       });
     return () => {
@@ -541,9 +605,9 @@ function ListaSubstitutos({
                 exercicio.exercicioId,
                 o.exercicio_id,
               );
-              await onTrocado();
+              await onTrocado(o.nome);
             } catch (e) {
-              onErro(e instanceof Error ? e.message : "Não deu para trocar.");
+              toast.erro(e instanceof Error ? e.message : "Não deu para trocar.");
             } finally {
               setTrocando(null);
             }

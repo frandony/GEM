@@ -20,7 +20,7 @@ import {
 import type { ExercicioDaSessao } from "./SessaoTreino";
 import { BarChart3, Dumbbell, Download, Play, Settings, Timer } from "lucide-react";
 import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
-import { Toast } from "../componentes/Toast";
+import { useToast } from "../lib/toast";
 
 /** "Francisco Vasconcelos" → "FV". Só letras — número ou emoji no nome
     (existe gente assim) não vira parte da inicial. */
@@ -46,7 +46,7 @@ export function Home() {
   const [resumo, setResumo] = useState<ResumoSemanal | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [exportando, setExportando] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
 
   async function carregar() {
     const p = await carregarPerfil(userId);
@@ -93,8 +93,12 @@ export function Home() {
       const dados = await exportarDadosDoUsuario(userId);
       const hoje = hojeNoFuso(perfil?.timezone ?? "America/Sao_Paulo");
       baixarComoJson(dados, `megs-digital-backup-${hoje}.json`);
+      // O download é silencioso em boa parte dos navegadores (vai direto
+      // pra pasta, sem diálogo) — sem isto, o toque no botão não produz
+      // nada visível dentro do app.
+      toast.sucesso("Backup baixado.");
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "Não deu para gerar o backup.");
+      toast.erro(e instanceof Error ? e.message : "Não deu para gerar o backup.");
     } finally {
       setExportando(false);
     }
@@ -317,8 +321,6 @@ export function Home() {
           </div>
         </div>
       </section>
-
-      <Toast mensagem={toast} onFechar={() => setToast(null)} />
 
       <div className="flex flex-col gap-3">
         <button className="btn btn-neutro flex items-center justify-center gap-2" onClick={() => void exportar()} disabled={exportando}>

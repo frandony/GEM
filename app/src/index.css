@@ -166,7 +166,26 @@
       background: var(--surface-hover);
     }
   }
+  /* O toque precisa responder ANTES de a navegação acontecer — sem isto,
+     card-link parecia inerte em celular (onde :hover não existe). */
+  a.card:active, button.card:active { transform: scale(0.99); }
   .card-alta { background: var(--surface-alta); }
+
+  /* ---- REGRA DE AFFORDANCE (vale para o app inteiro) -----------------
+     Nasceu de teste em produção: "cards com cara de clicável que não
+     fazem nada". O problema não era o CSS — era `<div className="card">`
+     usado tanto para contêiner quanto para destino.
+
+     1. Se toca, é <button>, <a> ou <Link>. NUNCA <div onClick>.
+     2. <div>/<section> com .card é contêiner INERTE: sem hover, sem
+        :active, sem cursor, sem chevron. (É o que as regras acima já
+        garantem — elas só valem para a.card/button.card. Não "consertar"
+        isso generalizando o seletor.)
+     3. Todo clicável mostra DOIS sinais: retorno tátil (:active) e
+        indicador de destino (ChevronRight, ou um verbo no texto).
+     4. Ação irreversível não mora no corpo de uma linha. Ou tem alvo
+        próprio (ver .subject-row__acao), ou tem caminho de volta.
+     5. Alvo mínimo de var(--toque-min). */
 
   /* Card com faixa de módulo à esquerda. Diz "isto é treino" ou "isto é
      estudo" sem gastar uma linha de texto — a home tem os dois lado a
@@ -192,6 +211,19 @@
     user-select: none;
   }
   .btn:active { transform: scale(0.97); }
+
+  /* `pointer-events: none` é o que torna `disabled` PERIGOSO como
+     feedback de validação: o toque não gera evento nenhum — sem :active,
+     sem :hover, sem foco, sem tooltip. Quem tenta enviar um formulário
+     incompleto recebe silêncio absoluto e conclui que o app quebrou.
+     Isso foi testado em produção e relatado exatamente assim.
+
+     REGRA: botão de submit NUNCA fica disabled por campo vazio ou
+     inválido. Fica habilitado, e o submit explica o que falta (ver
+     "Validação" abaixo). `disabled` aqui é só para:
+       - envio em andamento (evita duplo-submit; o rótulo já muda)
+       - stepper no limite do valor, com o número visível ao lado
+     Nos dois casos o motivo está na tela; na validação, não estaria. */
   .btn:disabled { opacity: 0.45; pointer-events: none; }
 
   .btn-treino { background: var(--treino); color: var(--bg); }
@@ -304,16 +336,21 @@
   }
 
   /* ---- Toast --------------------------------------------------------
-     Confirmação rápida (série concluída, pomodoro concluído). Sempre
-     verde/sucesso — é o único caso de uso hoje. Entra de cima, some
-     sozinha (ver componentes/Toast.tsx). */
+     Confirmação rápida de algo que a pessoa acabou de fazer. Entra de
+     cima, some sozinho (ver lib/toast.tsx e componentes/Toast.tsx).
+
+     Duas variantes: a cor não é decoração. O toast era verde fixo, e a
+     Home passou a mandar mensagem de ERRO por ele — falha vestida de
+     sucesso é pior que nenhuma mensagem. */
   .toast {
     position: fixed;
     top: calc(var(--safe-t) + var(--e-4));
     left: 50%;
     z-index: 100;
     display: flex; align-items: center; gap: var(--e-2);
-    background: var(--treino);
+    /* Margem lateral pra mensagem longa não encostar na borda da tela;
+       o translate do eixo X faz a centralização. */
+    max-width: min(28rem, calc(100vw - var(--e-8)));
     color: var(--bg);
     padding: var(--e-3) var(--e-5);
     border-radius: var(--r-md);
@@ -324,6 +361,9 @@
     transition: transform var(--d-mover) var(--ease-mover);
     pointer-events: none;
   }
+  .toast svg { flex-shrink: 0; }
+  .toast--ok   { background: var(--ok); }
+  .toast--erro { background: var(--perigo); }
   .toast--visivel { transform: translate(-50%, 0); }
 
   /* ---- Stepper (execução de treino) -------------------------------------
@@ -434,9 +474,66 @@
     transition: background var(--d-entrar) var(--ease-out),
                 border-color var(--d-entrar) var(--ease-out);
   }
-  .subject-row__caixa[aria-checked="true"] {
+  /* O estado marcado vem do <button> pai (que é quem carrega o
+     role="checkbox"), não da caixa — ela é só o desenho. */
+  .subject-row__acao[aria-checked="true"] .subject-row__caixa {
     background: var(--treino);
     border-color: var(--treino);
+  }
+
+  /* Alvo de toque da conclusão. Existe porque a linha inteira NÃO pode
+     ser o alvo: concluir é ação com consequência, e o corpo da linha é
+     onde o polegar cai por acidente ao rolar a tela.
+     A margem negativa dá os 48px de alvo sem empurrar o layout. */
+  .subject-row__acao {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: var(--toque-min); height: var(--toque-min);
+    margin-right: calc(var(--e-2) * -1);
+    border-radius: var(--r-md);
+    touch-action: manipulation;
+  }
+  .subject-row__acao:active { transform: scale(0.94); }
+
+  /* Destaque momentâneo da matéria recém-criada. Confirma "é esta aqui"
+     sem exigir que a pessoa procure numa lista. A regra global de
+     prefers-reduced-motion anula a animação — quem pediu menos movimento
+     ainda recebe o toast e a linha. */
+  .subject-row--nova {
+    border-radius: var(--r-md);
+    animation: destacar-linha 2.4s var(--ease-out) 1;
+  }
+  @keyframes destacar-linha {
+    from { background: var(--estudo-fraco); }
+    to   { background: transparent; }
+  }
+
+  /* ---- Faixa de 7 dias (membro do grupo) -----------------------------
+     Constância, não desempenho: mostra SE houve treino/estudo no dia, e
+     nunca carga ou nota. É o recorte que a RLS libera para o grupo. */
+  .dia-ponto {
+    display: flex; align-items: center; justify-content: center;
+    width: 1.375rem; height: 1.375rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--hairline-forte);
+    font-size: var(--t-micro);
+    font-weight: 500;
+    color: var(--ink-fraco);
+  }
+  .dia-ponto[data-treinou] {
+    background: var(--treino-fraco);
+    border-color: var(--treino);
+    color: var(--treino-ink);
+  }
+  .dia-ponto[data-estudou] {
+    border-color: var(--estudo);
+    color: var(--estudo-ink);
+  }
+  /* Fez os dois: o preenchimento conta o treino, a borda conta o estudo. */
+  .dia-ponto[data-treinou][data-estudou] {
+    background: var(--treino-fraco);
+    border-color: var(--estudo);
+    color: var(--treino-ink);
   }
 
   /* ---- Linha de exercício -----------------------------------------------
@@ -510,6 +607,68 @@
     text-align: center;
     min-height: 64px;
     padding-inline: var(--e-2);
+  }
+
+  /* ---- Validação e comunicação de estado ----------------------------
+     Antes disto o app tinha TRÊS convenções concorrentes (botão disabled
+     mudo, mensagem no fim do formulário, banner no topo da tela) e nenhum
+     estilo de campo inválido. Esta é a única daqui pra frente.
+
+     | Situação                                   | Ferramenta                          |
+     |--------------------------------------------|-------------------------------------|
+     | Entrada inválida                           | aria-invalid no campo + .msg-erro    |
+     | Falha de servidor, formulário aberto       | .aviso-form acima do botão          |
+     | Falha de ação sem formulário               | toast de erro                       |
+     | Escrita OK sem efeito visível              | toast de sucesso                    |
+     | Ausência de dado                           | .vazio (não é erro, não usa perigo) |
+
+     O gancho é `aria-invalid`, não uma classe: classe separada seria uma
+     segunda fonte de verdade, e o modo de falha clássico é ficar com uma
+     sem a outra — vermelho sem anúncio, ou anúncio sem vermelho. Com o
+     atributo, o leitor de tela e o olho leem o mesmo estado. */
+  .campo[aria-invalid="true"] {
+    border-color: var(--perigo);
+    background: var(--perigo-fraco);
+  }
+  /* Precisa vir DEPOIS de .campo:focus/:focus-visible: sem isto, focar o
+     campo inválido apagaria a borda vermelha justo quando a pessoa vai
+     corrigir. O anel de foco continua vindo do :focus-visible global. */
+  .campo[aria-invalid="true"]:focus,
+  .campo[aria-invalid="true"]:focus-visible {
+    border-color: var(--perigo);
+  }
+
+  /* Mensagem colada ao campo que falhou. Com ícone porque cor sozinha não
+     é mensagem — 8% dos homens não distingue o vermelho do cinza aqui. */
+  .msg-erro {
+    display: flex; align-items: flex-start; gap: var(--e-2);
+    margin-top: var(--e-2);
+    font-size: var(--t-sm);
+    color: var(--perigo-ink);
+  }
+  .msg-erro svg { flex-shrink: 0; margin-top: 2px; }
+
+  /* Erro de servidor com o formulário aberto. Vai IMEDIATAMENTE ACIMA do
+     botão de submit: o polegar já está lá, o topo da tela não — era esse
+     o problema do banner no topo, que aparecia fora da viewport. */
+  .aviso-form {
+    display: flex; align-items: flex-start; gap: var(--e-3);
+    padding: var(--e-3) var(--e-4);
+    border: 1px solid var(--perigo);
+    border-radius: var(--r-md);
+    background: var(--perigo-fraco);
+    color: var(--perigo-ink);
+    font-size: var(--t-sm);
+  }
+  .aviso-form svg { flex-shrink: 0; margin-top: 2px; }
+
+  /* Dica PERMANENTE de formato — não é erro, não usa --perigo, não tem
+     role. Usa --ink-terciario (50%) e não --ink-fraco (30%), que é token
+     de placeholder/desabilitado e ficava ilegível no fundo escuro. */
+  .dica-campo {
+    margin-top: var(--e-1);
+    font-size: var(--t-sm);
+    color: var(--ink-terciario);
   }
 
   /* ---- Barra de navegação inferior ---------------------------------

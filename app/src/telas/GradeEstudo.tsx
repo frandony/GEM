@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { AvisoDeFormulario } from "../componentes/MensagemErro";
 import {
   adicionarSlot,
   carregarGrade,
@@ -33,6 +35,7 @@ export function GradeEstudo() {
     diaLeve: null,
   });
   const [erro, setErro] = useState<string | null>(null);
+  const toast = useToast();
 
   const [diaNovo, setDiaNovo] = useState(1); // segunda, o mais comum
   const [horaNova, setHoraNova] = useState("19:00");
@@ -57,7 +60,11 @@ export function GradeEstudo() {
     try {
       await adicionarSlot(userId, { diaSemana: diaNovo, hora: horaNova, duracaoMin: duracaoNova });
       await carregar();
+      toast.sucesso(`Horário de ${DIAS[diaNovo]} às ${horaNova} adicionado.`);
     } catch (e) {
+      // Fica no `.aviso-form` do card de adicionar, não em toast: o erro
+      // típico aqui é "já existe horário nesse dia e hora", que é sobre o
+      // formulário aberto e precisa ficar visível enquanto ela corrige.
       setErro(e instanceof Error ? e.message : "Não deu para adicionar o horário.");
     } finally {
       setAdicionando(false);
@@ -68,8 +75,9 @@ export function GradeEstudo() {
     setSlots((atual) => atual.filter((s) => s.id !== slotId)); // otimista
     try {
       await removerSlot(slotId);
+      toast.sucesso("Horário removido.");
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não deu para remover.");
+      toast.erro(e instanceof Error ? e.message : "Não deu para remover o horário.");
       await carregar(); // desfaz o otimismo se falhou
     }
   }
@@ -79,8 +87,11 @@ export function GradeEstudo() {
     setLimites(novo); // otimista — o stepper precisa responder na hora
     try {
       await salvarLimites(userId, novo);
+      // Sem toast de sucesso de propósito: o número no stepper já mudou na
+      // tela, e um toast a cada toque no +/- viraria ruído.
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não deu para salvar os limites.");
+      toast.erro(e instanceof Error ? e.message : "Não deu para salvar os limites.");
+      await carregar(); // o número na tela precisa voltar ao que está gravado
     }
   }
 
@@ -106,12 +117,6 @@ export function GradeEstudo() {
         pra montar o plano — é a partir daqui que a distribuição decide onde cada
         tópico cabe.
       </p>
-
-      {erro && (
-        <p className="text-sm mb-4" style={{ color: "var(--perigo-ink)" }}>
-          {erro}
-        </p>
-      )}
 
       <span className="rotulo-secao text-estudo-ink mb-2 block">Seus horários</span>
       {slots.length === 0 ? (
@@ -190,6 +195,10 @@ export function GradeEstudo() {
             </div>
           </div>
         </div>
+        {/* Colado ao botão. Antes ficava no topo da tela, acima da lista
+            de horários — em celular, fora da viewport de quem tinha
+            acabado de tocar aqui embaixo. */}
+        {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
         <button className="btn btn-estudo btn-bloco" onClick={() => void aoAdicionar()} disabled={adicionando}>
           {adicionando ? "Adicionando…" : "+ Adicionar horário"}
         </button>
