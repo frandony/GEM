@@ -4,6 +4,7 @@ import { enfileirar, novoId } from "../lib/fila";
 import { notificarFimDoTimer } from "../lib/notificacaoTimer";
 import { explicarSugestao, sugestaoDeCarga, type Sugestao } from "../lib/progressao";
 import { IndicadorPendencia } from "../componentes/IndicadorPendencia";
+import { Voltar } from "../componentes/Voltar";
 import { useToast } from "../lib/toast";
 
 /* =====================================================================
@@ -216,9 +217,24 @@ export function SessaoTreino({
       {/* ---- Cabeçalho: onde estou ---------------------------------- */}
       <header className="mb-1">
         <div className="flex items-center justify-between mb-1">
-          <span className="flex items-center text-sm text-ink-muted">
-            <ChevronLeft size={16} /> Treino {letra}
-          </span>
+          {/* O chevron sugeria "voltar" mas era um <span> sem onClick —
+              não fazia nada. Não existe rota própria pra "voltar" aqui
+              (a sessão não tem tela dela mesma, vive dentro de Treino.tsx),
+              então é exatamente o caso que o componente Voltar já cobre
+              com sua variante onClick: "voltar" desfaz estado local. A
+              única saída real de uma sessão em andamento é finalizar mais
+              cedo — reusa o mesmo diálogo de confirmação do botão ao lado,
+              não inventa um segundo caminho de sair sem confirmar. */}
+          {aoAbandonar ? (
+            <Voltar
+              rotulo={`Treino ${letra}`}
+              onClick={() => setConfirmandoFimAntecipado(true)}
+            />
+          ) : (
+            <span className="flex items-center text-sm text-ink-muted">
+              <ChevronLeft size={16} /> Treino {letra}
+            </span>
+          )}
           <div className="flex items-center gap-3 sessao-topo-acoes">
             <div className="text-sm text-ink-muted num">
               {indice + 1}/{exercicios.length}
@@ -228,7 +244,7 @@ export function SessaoTreino({
                 className="btn btn-neutro"
                 onClick={() => setConfirmandoFimAntecipado(true)}
               >
-                Finalizar agora
+                Finalizar treino
               </button>
             )}
           </div>
