@@ -67,19 +67,26 @@ function duracaoAlvoSeg(metodo: MetodoDeFoco, bloco: BlocoEstudo | null): number
 }
 
 /* ---------------------------------------------------------------------
-   Faixa "próximos dias" — janela rolante (hoje + 6 seguintes), não a
-   semana de calendário que a faixa da Home usa: aqui o objetivo é "o que
-   vem a seguir", não "a semana do streak". Constantes e helpers próprios
-   desta tela, de propósito — mesmo raciocínio de `data-tem-horario` não
-   reusar `data-estudou` em GradeEstudo: evita acoplar Estudo à Home.
+   Faixa "próximos dias" — janela ROLANTE E CENTRADA em hoje (3 dias
+   passados + hoje + 3 seguintes), não a semana de calendário fixa que a
+   faixa da Home usa: aqui o objetivo é navegar pra trás e pra frente a
+   partir de hoje, e hoje sempre fica no meio — a janela inteira anda um
+   dia por dia conforme o tempo passa. Constantes e helpers próprios desta
+   tela, de propósito — mesmo raciocínio de `data-tem-horario` não reusar
+   `data-estudou` em GradeEstudo: evita acoplar Estudo à Home.
    --------------------------------------------------------------------- */
 const DIAS_NA_FAIXA = 7;
 const DIAS_LETRA = ["D", "S", "T", "Q", "Q", "S", "S"];
 const FORMATO_DIA_SEMANA = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
 
-function proximosDias(hojeISO: string, quantos: number): string[] {
+/** `quantos` dias com `hoje` no meio (arredondando pra baixo o lado de
+    trás quando `quantos` é par). Com `DIAS_NA_FAIXA = 7`: 3 antes, hoje,
+    3 depois. */
+function diasDaFaixa(hojeISO: string, quantos: number): string[] {
+  const antes = Math.floor((quantos - 1) / 2);
   const datas: string[] = [];
   const cursor = new Date(`${hojeISO}T00:00:00Z`);
+  cursor.setUTCDate(cursor.getUTCDate() - antes);
   for (let i = 0; i < quantos; i++) {
     datas.push(cursor.toISOString().slice(0, 10));
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -87,13 +94,16 @@ function proximosDias(hojeISO: string, quantos: number): string[] {
   return datas;
 }
 
-/** "hoje" / "amanhã" / "sáb, 22/08" — usado no rótulo da seção e no
-    estado vazio, sempre no meio de frase ("Blocos de X", "para X"). */
+/** "ontem" / "hoje" / "amanhã" / "sáb, 22/08" — usado no rótulo da seção
+    e no estado vazio, sempre no meio de frase ("Blocos de X", "para X"). */
 function rotuloDoDia(dataISO: string, hojeISO: string): string {
   if (dataISO === hojeISO) return "hoje";
   const amanha = new Date(`${hojeISO}T00:00:00Z`);
   amanha.setUTCDate(amanha.getUTCDate() + 1);
   if (dataISO === amanha.toISOString().slice(0, 10)) return "amanhã";
+  const ontem = new Date(`${hojeISO}T00:00:00Z`);
+  ontem.setUTCDate(ontem.getUTCDate() - 1);
+  if (dataISO === ontem.toISOString().slice(0, 10)) return "ontem";
   const d = new Date(`${dataISO}T12:00:00`);
   const semana = FORMATO_DIA_SEMANA.format(d).replace(".", "");
   const dia = dataISO.split("-").reverse().slice(0, 2).join("/");
@@ -200,7 +210,7 @@ export function Estudo() {
       const perfil = await carregarPerfil(userId);
       const tz = perfil?.timezone ?? "America/Sao_Paulo";
       const hoje = hojeNoFuso(tz);
-      const janela = proximosDias(hoje, DIAS_NA_FAIXA);
+      const janela = diasDaFaixa(hoje, DIAS_NA_FAIXA);
       const [ms, bs] = await Promise.all([
         // `...ParaMontagem` e não `carregarMaterias`: traz tópicos e eventos
         // no mesmo round-trip, que é o que a lista de matérias mostra. As
@@ -355,7 +365,7 @@ export function Estudo() {
     if (doDia) doDia.push(b);
     else blocosPorDia.set(b.data, [b]);
   }
-  const dias = proximosDias(hojeISO, DIAS_NA_FAIXA);
+  const dias = diasDaFaixa(hojeISO, DIAS_NA_FAIXA);
   const blocosDoDia = blocosPorDia.get(diaSelecionado) ?? [];
   const pendentes = blocosDoDia.filter((b) => b.status === "pendente");
   const feitos = blocosDoDia.filter((b) => b.status !== "pendente");
@@ -497,10 +507,10 @@ export function Estudo() {
         )}
       </div>
 
-      {/* Faixa dos próximos dias — mesmo esqueleto visual da faixa da
+      {/* Faixa de dias, hoje no meio — mesmo esqueleto visual da faixa da
           semana na Início (letra + círculo), semântica própria: mostra o
-          que vem no plano de estudo, não o streak. Tocar num dia troca a
-          lista abaixo. */}
+          plano de estudo (passado e futuro), não o streak. Tocar num dia
+          troca a lista abaixo. */}
       <FaixaDeDias
         dias={dias}
         blocosPorDia={blocosPorDia}
@@ -592,7 +602,7 @@ export function Estudo() {
 }
 
 /* ---------------------------------------------------------------------
-   Faixa "próximos dias".
+   Faixa de dias, hoje no meio.
    ---------------------------------------------------------------------
    Cada coluna é um botão de verdade (não uma div decorativa) — a linha
    inteira alterna o dia selecionado, mesmo alvo de toque generoso que o

@@ -876,13 +876,14 @@
     border-style: dashed;
   }
 
-  /* ---- Faixa "próximos dias" (Estudo) ---------------------------------
+  /* ---- Faixa de dias, hoje no meio (Estudo) ---------------------------
      Prima da faixa da semana na Início: mesmo esqueleto (letra + círculo
-     maior), mas janela ROLANTE (hoje + 6 seguintes) em vez da semana de
-     calendário, e sem chrome de card pelo mesmo motivo — nasce como
-     continuação do cabeçalho, não mais um card na pilha. Atributos
-     próprios (não reusam data-tem-horario/data-estudou), mesmo raciocínio
-     do bloco acima: evita acoplar o visual desta tela ao das outras. */
+     maior), mas janela ROLANTE E CENTRADA em hoje (passado e futuro) em
+     vez da semana de calendário fixa, e sem chrome de card pelo mesmo
+     motivo — nasce como continuação do cabeçalho, não mais um card na
+     pilha. Atributos próprios (não reusam data-tem-horario/data-estudou),
+     mesmo raciocínio do bloco acima: evita acoplar o visual desta tela ao
+     das outras. */
   .faixa-dias-secao {
     padding-bottom: var(--e-4);
     border-bottom: 1px solid var(--hairline);
