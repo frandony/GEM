@@ -99,13 +99,18 @@ export interface PlanoGerado {
 /**
  * As 12 checagens do Prompt 1.
  *
- * Bloqueantes (1-8) impedem a gravação. Avisos (9-12) não impedem, mas entram
- * no retry — é a chance barata de melhorar volume e ênfase antes de aceitar.
+ * Bloqueantes (1-8, e 12 desde 2026-08-16) impedem a gravação. Avisos
+ * (9-11) não impedem, mas entram no retry — é a chance barata de
+ * melhorar volume e ênfase antes de aceitar.
  *
  * As checagens 1 (parse/schema) e 6 (reps XOR tempo, parcialmente) já são
  * garantidas pelo `output_config.format` da API. Continuam aqui porque o
  * schema não expressa a regra CRUZADA: qual campo é obrigatório depende de
  * `medida` no catálogo, que o schema não conhece.
+ *
+ * A 12 (proporção de comum=3) virou bloqueante depois de relato de
+ * treino com exercícios raros demais — antes só entrava como aviso e o
+ * modelo podia ignorar sem consequência nenhuma.
  */
 export function validarPlano(
   plano: PlanoGerado,
@@ -333,14 +338,17 @@ export function validarPlano(
     }
   }
 
-  // --- 12. menos de 20% dos exercícios com comum=3 (aviso) -------------
+  // --- 12. menos de 20% dos exercícios com comum=3 (bloqueante) --------
+  // Promovido de aviso pra erro: como aviso, o modelo podia ignorar a
+  // regra do prompt sem consequência — o plano era gravado mesmo assim.
   const todos = plano.sessoes.flatMap((s) => s.exercicios);
   const raros = todos.filter(
     (e) => (catalogo.porId.get(e.exercicio_id)?.comum ?? 1) === 3,
   ).length;
   if (todos.length > 0 && raros / todos.length > 0.2) {
-    avisos.push(
-      `${raros} de ${todos.length} exercícios são comum=3 — use mais exercícios comuns (comum=1)`,
+    erros.push(
+      `${raros} de ${todos.length} exercícios são comum=3 (raros) — troque por exercícios comum=1 ` +
+        `(os mais populares) até ficar no máximo 20%`,
     );
   }
 

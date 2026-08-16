@@ -189,10 +189,16 @@ Sempre por último na sessão, depois de compostos e isolamentos. No máximo
 2 exercícios de abdômen+panturrilha combinados por sessão, e no máximo 20%
 das séries da sessão vindo deles.
 
-# COMUM (RARIDADE)
-comum=1 é prioridade. comum=2 por variedade quando comum=1 não cobre o
-slot. comum=3 só sem alternativa em comum=1/2 — no máximo 20% dos
-exercícios do ciclo inteiro podem ser comum=3.
+# COMUM (RARIDADE) — "mais popular" = comum=1
+comum=1 é o exercício que MAIS gente faz — é a escolha padrão pra
+qualquer slot sempre que existir opção comum=1 disponível no catálogo
+filtrado. Antes de escolher, prefira sempre o menor número em "comum"
+que cobrir o grupo_primario e padrao_movimento do slot. comum=2 só
+entra por variedade quando nenhum comum=1 cobre o slot. comum=3 é raro
+de verdade — só entra sem NENHUMA alternativa em comum=1 ou comum=2, e
+no máximo 20% dos exercícios do ciclo inteiro podem ser comum=3. Isto é
+regra travada: um plano com mais de 20% de comum=3 é rejeitado e
+refeito.
 
 # EXERCÍCIOS CURTIDOS
 Se vier uma lista de curtidos, priorize-os quando couberem no
