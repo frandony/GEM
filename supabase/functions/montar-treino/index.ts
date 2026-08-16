@@ -9,6 +9,7 @@ import {
   gerarComValidacao,
   ProvedorIndisponivel,
   RecusaDoModelo,
+  RespostaTruncada,
 } from "../_shared/llm.ts";
 import {
   type PlanoGerado,
@@ -429,26 +430,51 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const resultado = await gerarComValidacao<PlanoGerado>(
-      {
-        tarefa: "montar-treino",
-        system: SYSTEM_REGRAS,
-        systemCacheavel: catalogoComoTabela(catalogo),
-        userPrompt: linhas.join("\n"),
-        // Montar um plano é a decisão mais importante do onboarding e roda
-        // uma vez só. Vale o esforço alto.
-        esforco: "xhigh",
-        maxTokens: 16000,
-        schema: SCHEMA as unknown as Record<string, unknown>,
-        prazoFinal,
-      },
-      (plano) =>
-        validarPlano(plano, catalogo, {
-          divisao: corpo.divisao,
-          enfase: corpo.enfase,
-          objetivo: perfil.objetivo,
-        }),
-    );
+    // Montar um plano é a decisão mais importante do onboarding e roda uma
+    // vez só — vale o esforço alto. Mas "xhigh" gasta tokens de PENSAMENTO
+    // do mesmo orçamento de `maxTokens` que a resposta: se o catálogo for
+    // grande ou a combinação de regras for difícil de satisfazer, o modelo
+    // pode ficar sem tokens pra escrever o JSON (mesma causa raiz do
+    // truncamento que já aconteceu na Fase B do estudo). Uma tentativa a
+    // menos de esforço é melhor que perder a geração inteira pro fallback.
+    const opcoesMontarTreino = {
+      tarefa: "montar-treino",
+      system: SYSTEM_REGRAS,
+      systemCacheavel: catalogoComoTabela(catalogo),
+      userPrompt: linhas.join("\n"),
+      esforco: "xhigh" as const,
+      maxTokens: 16000,
+      schema: SCHEMA as unknown as Record<string, unknown>,
+      prazoFinal,
+    };
+    const validar = (plano: PlanoGerado) =>
+      validarPlano(plano, catalogo, {
+        divisao: corpo.divisao,
+        enfase: corpo.enfase,
+        objetivo: perfil.objetivo,
+      });
+
+    let resultado;
+    try {
+      resultado = await gerarComValidacao<PlanoGerado>(opcoesMontarTreino, validar);
+    } catch (e) {
+      if (!(e instanceof RespostaTruncada)) throw e;
+
+      // Só repete se sobrar tempo de verdade — sem isso a segunda tentativa
+      // morreria no prazo e viraria ProvedorIndisponivel (503 "não consegui
+      // falar com a IA" depois de ~100s, quando na verdade a IA respondeu,
+      // só não coube).
+      if (Date.now() + 25_000 > prazoFinal) {
+        console.warn("montar-treino: resposta truncada e sem tempo de repetir");
+        throw e;
+      }
+
+      console.warn("montar-treino: resposta truncada — repetindo com esforço menor");
+      resultado = await gerarComValidacao<PlanoGerado>(
+        { ...opcoesMontarTreino, esforco: "high" },
+        validar,
+      );
+    }
 
     const salvo = await persistir(supabase, corpo, resultado.dados, false);
 
