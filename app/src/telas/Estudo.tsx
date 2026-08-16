@@ -505,10 +505,9 @@ export function Estudo() {
    inteira alterna o dia selecionado, mesmo alvo de toque generoso que o
    resto do app usa para ações de um toque só.
 
-   O círculo mostra o dia do mês por padrão e troca para a CONTAGEM de
-   blocos assim que ela existe — mesma lógica que a faixa da Início troca
-   o número pela letra da sessão quando houve treino: a informação mais
-   útil substitui a menos útil assim que ela existe.
+   O círculo sempre mostra o dia do mês — quem avisa "tem bloco aqui" é a
+   borda azul (data-tem-blocos), não o número. A contagem de blocos entra
+   só no aria-label, para quem usa leitor de tela.
    --------------------------------------------------------------------- */
 function FaixaDeDias({
   dias,
@@ -555,7 +554,7 @@ function FaixaDeDias({
                 data-todos-concluidos={todosConcluidos || undefined}
                 data-selecionado={data === diaSelecionado || undefined}
               >
-                {temBlocos ? doDia.length : numero}
+                {numero}
               </span>
             </button>
           );
