@@ -28,6 +28,7 @@ import type { ExercicioDaSessao } from "./SessaoTreino";
 import { BarChart3, Dumbbell, Flame, Play, Settings, Timer } from "lucide-react";
 import { resumoDaSessao } from "../lib/treino";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
+import { Avatar } from "../componentes/Avatar";
 
 /** Verde = o de agora, azul = o seguinte, roxo = o terceiro. Mesma
     gramática de cor do resto do app, e o mesmo desenho pedido lá no
@@ -218,16 +219,6 @@ function FaixaDaSemana({
   );
 }
 
-/** "Francisco Vasconcelos" → "FV". Só letras — número ou emoji no nome
-    (existe gente assim) não vira parte da inicial. */
-function iniciais(nome: string): string {
-  const letras = nome
-    .split(/\s+/)
-    .map((p) => p.match(/\p{L}/u)?.[0] ?? "")
-    .filter(Boolean);
-  return ((letras[0] ?? "") + (letras[letras.length - 1] ?? "")).toUpperCase() || "?";
-}
-
 export function Home() {
   const { sessao } = useAuth();
   const userId = sessao!.user.id;
@@ -403,8 +394,8 @@ export function Home() {
           <div className="text-sm text-ink-muted">Olá,</div>
           <h1 className="h1">{perfil.nome}</h1>
         </div>
-        <Link to="/conta" className="avatar" aria-label="Configurações da conta">
-          {iniciais(perfil.nome)}
+        <Link to="/conta" aria-label="Configurações da conta">
+          <Avatar nome={perfil.nome} fotoUrl={perfil.foto_url} />
         </Link>
       </header>
 

@@ -8,9 +8,11 @@ import { useValidacao } from "../lib/formulario";
 import { Voltar } from "../componentes/Voltar";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import { MensagemErro } from "../componentes/MensagemErro";
+import { Avatar } from "../componentes/Avatar";
 import { atualizarNome, carregarPerfil, hojeNoFuso, type Perfil } from "../lib/dados";
 import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
 import { excluirContaPropria } from "../lib/excluirConta";
+import { atualizarFotoPerfil, removerFotoPerfil } from "../lib/fotoPerfil";
 
 /**
  * Tela de conta — reúne o que antes vivia solto: "Exportar meus dados" e
@@ -32,6 +34,7 @@ export function Conta() {
   const [nome, setNome] = useState("");
   const [salvandoNome, setSalvandoNome] = useState(false);
   const nomeValidacao = useValidacao<"nome">();
+  const [processandoFoto, setProcessandoFoto] = useState(false);
 
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -60,6 +63,32 @@ export function Conta() {
     void carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  async function aoEscolherFoto(arquivo: File) {
+    setProcessandoFoto(true);
+    try {
+      const url = await atualizarFotoPerfil(userId, arquivo);
+      setPerfil((atual) => (atual ? { ...atual, foto_url: url } : atual));
+      toast.sucesso("Foto atualizada.");
+    } catch (e) {
+      toast.erro(e instanceof Error ? e.message : "Não deu para enviar a foto.");
+    } finally {
+      setProcessandoFoto(false);
+    }
+  }
+
+  async function removerFoto() {
+    setProcessandoFoto(true);
+    try {
+      await removerFotoPerfil(userId);
+      setPerfil((atual) => (atual ? { ...atual, foto_url: null } : atual));
+      toast.sucesso("Foto removida.");
+    } catch (e) {
+      toast.erro(e instanceof Error ? e.message : "Não deu para remover a foto.");
+    } finally {
+      setProcessandoFoto(false);
+    }
+  }
 
   async function salvarNome(e: FormEvent) {
     e.preventDefault();
@@ -173,6 +202,35 @@ export function Conta() {
       {/* ---- Perfil --------------------------------------------------- */}
       <span className="rotulo-secao text-ink-muted mb-2 block">Perfil</span>
       <form onSubmit={(e) => void salvarNome(e)} className="card mb-6 flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-2">
+          <Avatar nome={perfil?.nome ?? nome} fotoUrl={perfil?.foto_url ?? null} tamanhoRem={5} />
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-estudo-ink underline" style={{ cursor: "pointer" }}>
+              {processandoFoto ? "Enviando…" : "Trocar foto"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="sr-only"
+                disabled={processandoFoto}
+                onChange={(e) => {
+                  const arquivo = e.target.files?.[0];
+                  if (arquivo) void aoEscolherFoto(arquivo);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {perfil?.foto_url && (
+              <button
+                type="button"
+                className="text-xs text-ink-muted underline"
+                onClick={() => void removerFoto()}
+                disabled={processandoFoto}
+              >
+                Remover foto
+              </button>
+            )}
+          </div>
+        </div>
         <div>
           <label>
             <div className="text-sm text-ink-muted mb-1">Nome</div>
