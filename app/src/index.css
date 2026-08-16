@@ -148,6 +148,22 @@
     }
   }
 
+  /* ---- Duas colunas independentes no desktop --------------------------
+     "Adicionar horário" e "Limites diários" são dois cards autocontidos,
+     hoje empilhados mesmo com a folga de largura que .tela ganha em lg
+     (56rem) — fica só esticado com espaço morto. Mesmo breakpoint único
+     que .tela/.nav já usam; não introduz um segundo ponto de quebra. */
+  @media (min-width: 64rem) {
+    .grade-colunas {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .grade-colunas > * {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
   /* ---- Card ---------------------------------------------------------
      Superfície translúcida sobre o fundo, não um tom sólido — resolve
      "cards pesados demais" do redesign (P02) sem inventar uma cor nova.
@@ -319,6 +335,43 @@
   .chip-atencao { background: var(--atencao-fraco); color: var(--atencao-ink); }
   .chip-treino  { background: var(--treino-fraco);  color: var(--treino-ink); }
   .chip-estudo  { background: var(--estudo-fraco);  color: var(--estudo-ink); }
+
+  /* ---- Grade de seleção de dia (grid de 7) ----------------------------
+     Substitui flex-wrap nos dois seletores de dia da Grade de Estudo: 7 é
+     primo, então flex-wrap sempre sobra 1-2 chips numa segunda linha com
+     borda direita irregular. Grid fixo garante alinhamento em qualquer
+     largura — mesma gramática de .faixa-semana, mas para botões de
+     seleção em vez de colunas dia-letra+círculo. */
+  .grade-dias {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--e-2);
+  }
+  .grade-dias .chip {
+    justify-content: center;
+    min-height: var(--toque-min);
+  }
+  /* Chip sozinho, linha inteira — "Nenhum" no seletor de dia leve. Mesmo
+     alvo de toque que .grade-dias aplica aos chips de dia, pra não ficar
+     menor que os irmãos logo abaixo. */
+  .chip-bloco {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    min-height: var(--toque-min);
+  }
+  /* Reset de fieldset — os dois seletores de dia da Grade de Estudo viram
+     <fieldset> pra agrupar os chips pra quem usa leitor de tela. Sem
+     isto, a borda/padding padrão do navegador brigaria com o .card por
+     fora. min-width:0 evita o fieldset estourar um card estreito — o
+     min-width:min-content padrão do navegador não respeita isso sozinho. */
+  .fieldset-reset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .fieldset-reset legend { padding: 0; }
 
   /* ---- Badge ----------------------------------------------------------
      Uso: STATUS/CONTAGEM informativa dentro de um card — "5 exercícios",
@@ -713,6 +766,27 @@
   .dia-ponto[data-futuro] {
     opacity: 0.4;
     border-style: dashed;
+  }
+
+  /* ---- Estados extras de dia-ponto (Grade de Estudo) ------------------
+     Reusa o círculo, mas o significado aqui é diferente do da Início: não
+     é "estudou" (já aconteceu), é "tem horário reservado" (vai acontecer).
+     Atributo próprio, não data-estudou — evita acoplar o visual das duas
+     telas por acidente. */
+  .dia-ponto[data-tem-horario] {
+    border-color: var(--estudo);
+    color: var(--estudo-ink);
+  }
+  /* Dia leve: nunca recebe bloco automático. Tracejado por cima de
+     qualquer outro estado — pode coexistir com data-tem-horario se a
+     pessoa adicionar um horário manual num dia marcado como leve. */
+  .dia-ponto[data-leve] {
+    border-style: dashed;
+  }
+  .grade-resumo {
+    padding-bottom: var(--e-4);
+    margin-bottom: var(--e-1);
+    border-bottom: 1px solid var(--hairline);
   }
 
   /* ---- Streak ao lado da faixa --------------------------------------- */

@@ -148,6 +148,47 @@ export function GradeEstudo() {
         </div>
       ) : (
         <div className="card mb-6">
+          {/* Resumo semanal — mesma gramática visual da faixa da Início
+              (.faixa-semana/.dia-coluna/.dia-ponto), reaproveitada aqui
+              pra a tela finalmente PARECER uma grade, não só se chamar
+              assim. É só informativo: tocar num dia não faz nada — a
+              lista abaixo, que precisa continuar permitindo excluir,
+              já resolve a parte interativa. */}
+          <div className="grade-resumo">
+            <div className="faixa-semana">
+              {DIAS.map((rotulo, i) => {
+                const doDia = slots.filter((s) => s.diaSemana === i);
+                const minutos = doDia.reduce((acc, s) => acc + s.duracaoMin, 0);
+                const leve = limites.diaLeve === i;
+                const estado =
+                  doDia.length > 0
+                    ? `${doDia.length} horário${doDia.length > 1 ? "s" : ""}, ${minutos} min`
+                    : "sem horário";
+                const descricao = `${rotulo}: ${estado}${leve ? " · dia leve" : ""}`;
+                return (
+                  <div
+                    key={i}
+                    className="dia-coluna"
+                    role="group"
+                    aria-label={descricao}
+                    title={descricao}
+                  >
+                    <span className="dia-coluna__letra" aria-hidden="true">
+                      {rotulo}
+                    </span>
+                    <span
+                      className="dia-ponto num"
+                      aria-hidden="true"
+                      data-tem-horario={doDia.length > 0 || undefined}
+                      data-leve={leve || undefined}
+                    >
+                      {doDia.length > 0 ? doDia.length : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           {slots.map((s) => (
             <div key={s.id} className="exercise-row">
               <div className="exercise-row__texto">
@@ -156,7 +197,6 @@ export function GradeEstudo() {
               </div>
               <button
                 className="exercise-row__acao"
-                style={{ opacity: 0.6 }}
                 onClick={() => void aoRemover(s.id)}
                 aria-label={`Remover horário de ${DIAS[s.diaSemana]} às ${s.hora}`}
               >
@@ -167,139 +207,161 @@ export function GradeEstudo() {
         </div>
       )}
 
-      <div className="card mb-6 flex flex-col gap-4">
-        <span className="text-sm text-ink-muted">Adicionar horário</span>
-        <div className="flex gap-2 flex-wrap">
-          {DIAS.map((rotulo, i) => (
-            <button
-              key={i}
-              type="button"
-              className={i === diaNovo ? "chip chip-estudo" : "chip"}
-              style={{ minHeight: "var(--toque-min)", paddingInline: "var(--e-4)" }}
-              onClick={() => setDiaNovo(i)}
-            >
-              {rotulo}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-3 items-end">
-          <label className="flex-1">
-            <div className="text-xs text-ink-muted mb-1">Horário</div>
-            <input
-              className="campo"
-              type="time"
-              value={horaNova}
-              onChange={(e) => setHoraNova(e.target.value)}
-            />
-          </label>
-          <div className="flex-1">
-            <div className="text-xs text-ink-muted mb-1">Duração</div>
-            <div className="stepper">
-              <button
-                type="button"
-                className="stepper-btn"
-                style={{ width: "2.25rem", height: "2.25rem" }}
-                onClick={() => setDuracaoNova((d) => Math.max(15, d - 15))}
-              >
-                −
-              </button>
-              <div className="stepper-valor num" style={{ fontSize: "var(--t-lg)", minWidth: "3.5rem" }}>
-                {duracaoNova}
-                <span className="unidade">min</span>
+      {/* "Adicionar horário" e "Limites diários" — dois cards autocontidos,
+          lado a lado a partir de 1024px (ver .grade-colunas), empilhados
+          no celular. Cada um mantém seu próprio rótulo de seção acima do
+          card, pro topo das duas colunas alinhar no desktop. */}
+      <div className="flex flex-col gap-6 grade-colunas mb-6">
+        <div>
+          <span className="rotulo-secao text-ink-muted mb-2 block">Adicionar horário</span>
+          <div className="card flex flex-col gap-4">
+            <fieldset className="fieldset-reset">
+              <legend className="text-xs text-ink-muted mb-1">Dia da semana</legend>
+              <div className="grade-dias">
+                {DIAS.map((rotulo, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={i === diaNovo ? "chip chip-estudo" : "chip"}
+                    aria-pressed={i === diaNovo}
+                    onClick={() => setDiaNovo(i)}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
               </div>
+            </fieldset>
+
+            {/* Empilhado, não em duas colunas flex — era aqui que
+                "Horário" e "Duração" colidiam em telas estreitas. Cheio
+                de largura em qualquer tamanho, sem risco de colisão. */}
+            <label className="block">
+              <div className="text-xs text-ink-muted mb-1">Horário</div>
+              <input
+                className="campo"
+                type="time"
+                value={horaNova}
+                onChange={(e) => setHoraNova(e.target.value)}
+              />
+            </label>
+            <div>
+              <div className="text-xs text-ink-muted mb-1">Duração</div>
+              <div className="stepper">
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  aria-label="Diminuir duração"
+                  onClick={() => setDuracaoNova((d) => Math.max(15, d - 15))}
+                >
+                  −
+                </button>
+                <div className="stepper-valor num" aria-live="polite">
+                  {duracaoNova}
+                  <span className="unidade">min</span>
+                </div>
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  aria-label="Aumentar duração"
+                  onClick={() => setDuracaoNova((d) => Math.min(240, d + 15))}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Colado ao botão. Antes ficava no topo da tela, acima da lista
+                de horários — em celular, fora da viewport de quem tinha
+                acabado de tocar aqui embaixo. */}
+            {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
+            <button className="btn btn-estudo btn-bloco" onClick={() => void aoAdicionar()} disabled={adicionando}>
+              {adicionando ? "Adicionando…" : "+ Adicionar horário"}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <span className="rotulo-secao text-ink-muted mb-2 block">Limites diários</span>
+          <div className="card flex flex-col gap-5">
+            <div>
+              <div className="text-sm text-ink-muted mb-2">Máximo de blocos por dia</div>
+              <div className="stepper">
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  aria-label="Diminuir máximo de blocos por dia"
+                  onClick={() => void atualizarLimites({ maxBlocosDia: Math.max(1, limites.maxBlocosDia - 1) })}
+                  disabled={limites.maxBlocosDia <= 1}
+                >
+                  −
+                </button>
+                <div className="stepper-valor num" aria-live="polite">{limites.maxBlocosDia}</div>
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  aria-label="Aumentar máximo de blocos por dia"
+                  onClick={() => void atualizarLimites({ maxBlocosDia: Math.min(6, limites.maxBlocosDia + 1) })}
+                  disabled={limites.maxBlocosDia >= 6}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-ink-muted mb-2">Máximo de minutos por dia</div>
+              <div className="stepper">
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  aria-label="Diminuir máximo de minutos por dia"
+                  onClick={() => void atualizarLimites({ maxMinutosDia: Math.max(30, limites.maxMinutosDia - 15) })}
+                  disabled={limites.maxMinutosDia <= 30}
+                >
+                  −
+                </button>
+                <div className="stepper-valor num" aria-live="polite">
+                  {limites.maxMinutosDia}
+                  <span className="unidade">min</span>
+                </div>
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  aria-label="Aumentar máximo de minutos por dia"
+                  onClick={() => void atualizarLimites({ maxMinutosDia: Math.min(600, limites.maxMinutosDia + 15) })}
+                  disabled={limites.maxMinutosDia >= 600}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <fieldset className="fieldset-reset">
+              <legend className="text-sm text-ink-muted mb-2">
+                Dia leve <span className="text-ink-terciario">(nunca recebe bloco — opcional)</span>
+              </legend>
               <button
                 type="button"
-                className="stepper-btn"
-                style={{ width: "2.25rem", height: "2.25rem" }}
-                onClick={() => setDuracaoNova((d) => Math.min(240, d + 15))}
+                className={limites.diaLeve == null ? "chip chip-estudo chip-bloco" : "chip chip-bloco"}
+                aria-pressed={limites.diaLeve == null}
+                onClick={() => void atualizarLimites({ diaLeve: null })}
               >
-                +
+                Nenhum
               </button>
-            </div>
-          </div>
-        </div>
-        {/* Colado ao botão. Antes ficava no topo da tela, acima da lista
-            de horários — em celular, fora da viewport de quem tinha
-            acabado de tocar aqui embaixo. */}
-        {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
-        <button className="btn btn-estudo btn-bloco" onClick={() => void aoAdicionar()} disabled={adicionando}>
-          {adicionando ? "Adicionando…" : "+ Adicionar horário"}
-        </button>
-      </div>
-
-      <span className="rotulo-secao text-ink-muted mb-2 block">Limites diários</span>
-      <div className="card flex flex-col gap-5">
-        <div>
-          <div className="text-sm text-ink-muted mb-2">Máximo de blocos por dia</div>
-          <div className="stepper">
-            <button
-              type="button"
-              className="stepper-btn"
-              onClick={() => void atualizarLimites({ maxBlocosDia: Math.max(1, limites.maxBlocosDia - 1) })}
-              disabled={limites.maxBlocosDia <= 1}
-            >
-              −
-            </button>
-            <div className="stepper-valor num">{limites.maxBlocosDia}</div>
-            <button
-              type="button"
-              className="stepper-btn"
-              onClick={() => void atualizarLimites({ maxBlocosDia: Math.min(6, limites.maxBlocosDia + 1) })}
-              disabled={limites.maxBlocosDia >= 6}
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="text-sm text-ink-muted mb-2">Máximo de minutos por dia</div>
-          <div className="stepper">
-            <button
-              type="button"
-              className="stepper-btn"
-              onClick={() => void atualizarLimites({ maxMinutosDia: Math.max(30, limites.maxMinutosDia - 15) })}
-              disabled={limites.maxMinutosDia <= 30}
-            >
-              −
-            </button>
-            <div className="stepper-valor num">
-              {limites.maxMinutosDia}
-              <span className="unidade">min</span>
-            </div>
-            <button
-              type="button"
-              className="stepper-btn"
-              onClick={() => void atualizarLimites({ maxMinutosDia: Math.min(600, limites.maxMinutosDia + 15) })}
-              disabled={limites.maxMinutosDia >= 600}
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="text-sm text-ink-muted mb-2">
-            Dia leve <span className="text-ink-terciario">(nunca recebe bloco — opcional)</span>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              className={limites.diaLeve == null ? "chip chip-estudo" : "chip"}
-              onClick={() => void atualizarLimites({ diaLeve: null })}
-            >
-              Nenhum
-            </button>
-            {DIAS.map((rotulo, i) => (
-              <button
-                key={i}
-                type="button"
-                className={limites.diaLeve === i ? "chip chip-estudo" : "chip"}
-                onClick={() => void atualizarLimites({ diaLeve: i })}
-              >
-                {rotulo}
-              </button>
-            ))}
+              <div className="grade-dias mt-2">
+                {DIAS.map((rotulo, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={limites.diaLeve === i ? "chip chip-estudo" : "chip"}
+                    aria-pressed={limites.diaLeve === i}
+                    onClick={() => void atualizarLimites({ diaLeve: i })}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
           </div>
         </div>
       </div>
