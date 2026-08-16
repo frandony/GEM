@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import { Dumbbell, Flame, History, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
 import { AvisoDeFormulario } from "../componentes/MensagemErro";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import { VerTudo } from "../componentes/VerTudo";
@@ -58,6 +59,7 @@ const FORMATO_DIA = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "s
 export function Treino() {
   const { sessao } = useAuth();
   const userId = sessao!.user.id;
+  const toast = useToast();
   const [estado, setEstado] = useState<Estado>({ fase: "carregando" });
   const [erro, setErro] = useState<string | null>(null);
   const [extras, setExtras] = useState<Extras>({ resumo: null, plano: null, ultimos: [] });
@@ -164,9 +166,14 @@ export function Treino() {
           void finalizarTreinoSessao(estado.treinoSessaoId).finally(() => void carregar());
         }}
         aoAbandonar={(exercicioAtualId) => {
-          void abandonarTreinoSessao(estado.treinoSessaoId, exercicioAtualId).finally(
-            () => void carregar(),
-          );
+          // Sem `.catch()`, uma falha aqui (rede, RPC) virava rejeição sem
+          // dono: a tela só recarregava em silêncio e devolvia a pessoa pro
+          // MESMO treino "em andamento" — parecia que o botão não fez nada.
+          void abandonarTreinoSessao(estado.treinoSessaoId, exercicioAtualId)
+            .catch((e) => {
+              toast.erro(e instanceof Error ? e.message : "Não deu para abandonar o treino.");
+            })
+            .finally(() => void carregar());
         }}
       />
     );

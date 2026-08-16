@@ -92,6 +92,13 @@ export function SessaoTreino({
   const [carga, setCarga] = useState(0);
   const [reps, setReps] = useState(0);
   const [descansando, setDescansando] = useState<number | null>(null);
+  // Existe só pra FORÇAR um re-render de verdade a cada tique do timer —
+  // `setDescansando((d) => d)` parecia fazer isso, mas não fazia: o React
+  // compara o valor novo com o antigo por `Object.is` antes de repintar, e
+  // um número igual ao anterior sempre bate, então o setter virava um
+  // no-op silencioso. O relógio ficava congelado na tela o descanso
+  // inteiro e pulava direto pro fim sem nunca ter contado nada.
+  const [, forcarRepintura] = useState(0);
   const toast = useToast();
   // Abandonar descarta a sessão inteira e é irreversível. Um toque só,
   // num link pequeno ao lado do contador, é fácil demais de acertar sem
@@ -131,7 +138,7 @@ export function SessaoTreino({
         setDescansando(null);
         notificarFimDoTimer();
       } else {
-        setDescansando((d) => d); // força re-render
+        forcarRepintura((n) => n + 1);
       }
     }, 250);
     return () => clearInterval(tique);
