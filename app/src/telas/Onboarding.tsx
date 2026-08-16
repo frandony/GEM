@@ -60,6 +60,7 @@ export function Onboarding() {
   const [condicoesSaude, setCondicoesSaude] = useState<CondicaoSaude[]>([]);
 
   const [objetivo, setObjetivo] = useState<Objetivo>("hipertrofia");
+  const [intensidade, setIntensidade] = useState<NivelSubjetivo>("moderado");
 
   const [tempoSessao, setTempoSessao] = useState(60);
   const [horarioPreferido, setHorarioPreferido] = useState<Horario | null>(null);
@@ -115,6 +116,7 @@ export function Onboarding() {
         lesoes,
         condicoes_saude: condicoesSaude,
         objetivo,
+        intensidade,
         tempo_sessao_min: tempoSessao,
         horario_preferido: horarioPreferido,
         acesso_equipamento: acessoEquipamento,
@@ -312,6 +314,16 @@ export function Onboarding() {
               ["condicionamento", "Condicionamento"],
               ["saude_geral", "Saúde geral"],
               ["reabilitacao", "Reabilitação"],
+            ]}
+          />
+          <Selecao
+            legend="Intensidade do treino"
+            valor={intensidade}
+            onChange={setIntensidade}
+            opcoes={[
+              ["baixo", "Baixa"],
+              ["moderado", "Moderada"],
+              ["alto", "Alta"],
             ]}
           />
         </Secao>

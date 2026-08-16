@@ -30,6 +30,8 @@ export type Objetivo =
   | "saude_geral"
   | "reabilitacao";
 
+export type Intensidade = "baixo" | "moderado" | "alto";
+
 export interface PerfilTreino {
   idade: number | null;
   nivel_declarado: NivelExercicio;
@@ -40,6 +42,9 @@ export interface PerfilTreino {
   acesso_equipamento: AcessoEquipamento;
   sono: "bom" | "regular" | "ruim" | null;
   estresse: "baixo" | "moderado" | "alto" | null;
+  /** Quão forte a pessoa quer treinar DENTRO da faixa que `objetivo` já
+      define — ver a seção INTENSIDADE do prompt em montar-treino. */
+  intensidade: Intensidade;
 }
 
 const ORDEM_NIVEL: Record<NivelExercicio, number> = {

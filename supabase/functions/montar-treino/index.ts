@@ -152,6 +152,20 @@ JSON por causa disso.
 Sem "objetivo" no user prompt (chamada antiga), use a linha "hipertrofia" —
 é o comportamento anterior a esta tabela existir.
 
+# INTENSIDADE — ONDE MIRAR DENTRO DA FAIXA, NÃO MUDA A FAIXA
+"intensidade" (vem no user prompt: baixo, moderado ou alto) diz o quanto a
+pessoa quer se desafiar DENTRO da faixa que "objetivo" já define acima —
+não troca a faixa, não muda a estrutura da sessão, nunca ultrapassa os
+limites que a tabela de objetivo já fixa.
+- intensidade="alto": para cada exercício, mire na PONTA SUPERIOR da faixa
+  de séries e do RPE alvo do objetivo, e no lado mais CURTO do intervalo
+  de descanso.
+- intensidade="baixo": mire na ponta inferior de séries e RPE, e no lado
+  mais LONGO do intervalo de descanso.
+- intensidade="moderado", ou sem "intensidade" no user prompt (chamada
+  antiga): mire no meio da faixa — é o comportamento de antes desta
+  pergunta existir, sem viés pra nenhum lado.
+
 # FAIXAS COMPLEMENTARES — não variam por objetivo
 - Abdômen/panturrilha (complemento): 2 a 4 séries; 10 a 20 reps se
   medida="reps", 20 a 60s se medida="tempo"; 30 a 60s de descanso
@@ -324,6 +338,7 @@ const PERFIL_PADRAO: PerfilTreino = {
   acesso_equipamento: "academia_completa",
   sono: null,
   estresse: null,
+  intensidade: "moderado",
 };
 
 /**
@@ -339,7 +354,7 @@ async function carregarCatalogoDoAluno(
   const { data } = await supabase
     .from("perfil_treino")
     .select(
-      "idade,nivel_declarado,tempo_parado,lesoes,condicoes_saude,objetivo,acesso_equipamento,sono,estresse",
+      "idade,nivel_declarado,tempo_parado,lesoes,condicoes_saude,objetivo,acesso_equipamento,sono,estresse,intensidade",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -414,6 +429,7 @@ Deno.serve(async (req: Request) => {
       `divisao: ${corpo.divisao}`,
       `enfase: ${corpo.enfase}`,
       `objetivo: ${perfil.objetivo}`,
+      `intensidade: ${perfil.intensidade}`,
       `modo: ${modo}`,
     ];
 

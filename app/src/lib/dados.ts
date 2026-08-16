@@ -149,13 +149,16 @@ export interface PerfilTreino {
   sono: Qualidade | null;
   estresse: NivelSubjetivo | null;
   dieta: Dieta | null;
+  /** Quão forte a pessoa quer treinar DENTRO da faixa que `objetivo` já
+      define — não é opcional como `estresse`, sempre tem valor. */
+  intensidade: NivelSubjetivo;
 }
 
 export async function carregarPerfilTreino(userId: string): Promise<PerfilTreino | null> {
   const { data, error } = await supabase
     .from("perfil_treino")
     .select(
-      "idade,sexo,peso_kg,altura_cm,nivel_declarado,ja_treinou,tempo_parado,experiencia,lesoes,condicoes_saude,objetivo,tempo_sessao_min,horario_preferido,acesso_equipamento,trabalho,sono,estresse,dieta",
+      "idade,sexo,peso_kg,altura_cm,nivel_declarado,ja_treinou,tempo_parado,experiencia,lesoes,condicoes_saude,objetivo,tempo_sessao_min,horario_preferido,acesso_equipamento,trabalho,sono,estresse,dieta,intensidade",
     )
     .eq("user_id", userId)
     .maybeSingle();
