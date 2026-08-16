@@ -46,7 +46,7 @@ file_size_limit = "50MiB"
 
 [storage.buckets.avatares]
 public = true
-file_size_limit = "2MiB"
+file_size_limit = "5MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
 
 [auth]
