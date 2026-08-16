@@ -164,6 +164,21 @@
     }
   }
 
+  /* ---- Repetições e Peso lado a lado no desktop -----------------------
+     Mesmo breakpoint único de .grade-colunas, classe própria — evita
+     acoplar o visual das duas telas por acidente (mesmo motivo de
+     data-tem-horario não reusar data-estudou). */
+  @media (min-width: 64rem) {
+    .serie-colunas {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .serie-colunas > * {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
   /* ---- Card ---------------------------------------------------------
      Superfície translúcida sobre o fundo, não um tom sólido — resolve
      "cards pesados demais" do redesign (P02) sem inventar uma cor nova.
@@ -293,6 +308,23 @@
   }
   .ver-tudo svg { flex-shrink: 0; }
   .ver-tudo:active { opacity: 0.6; }
+
+  /* ---- Link "abandonar" (execução de treino) --------------------------
+     Mais generoso que .voltar/.ver-tudo (2rem): aqui é uma AÇÃO — abre
+     confirmação — não navegação pura. Ainda assim menor que o
+     --toque-min de 48px: o diálogo de confirmação já é a rede de
+     segurança contra toque acidental, então não é a decisão primária da
+     tela. Mesmo precedente de .barra-atualizacao .btn. */
+  .link-abandonar {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding-inline: var(--e-2);
+    font-size: var(--t-xs);
+    color: var(--ink-muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 
   /* ---- Excluir item de lista densa (tópico) --------------------------
      Menor e mais discreto que qualquer `.btn`: numa lista de 10 tópicos,
@@ -515,6 +547,34 @@
     font-weight: 400;
     color: var(--ink-terciario);
     margin-left: var(--e-1);
+  }
+
+  /* ---- Caixa de série individual (execução de treino) --------------------
+     Estado por atributo, mesmo padrão de .dia-ponto/.campo[aria-invalid]:
+     data-feita e aria-current="step" são a única fonte de verdade. "Feita"
+     e "atual" competem pelo MESMO verde (--treino/--ok convergem de
+     propósito) — a diferença vem de preenchimento + borda + peso, não de
+     cor: atual ganha preenchimento leve E borda de 2px (halo, "em foco");
+     feita fica só com preenchimento e sem borda ("resolvido", quieto). */
+  .serie-caixa {
+    flex: 1;
+    padding-block: var(--e-2);
+    border-radius: var(--r-md);
+    border: 1px solid var(--hairline);
+    text-align: center;
+    font-size: var(--t-sm);
+    color: var(--ink-fraco);
+  }
+  .serie-caixa[data-feita] {
+    background: var(--ok-fraco);
+    border-color: transparent;
+    color: var(--ok-ink);
+  }
+  .serie-caixa[aria-current="step"] {
+    background: var(--treino-fraco);
+    border: 2px solid var(--treino);
+    color: var(--treino-ink);
+    font-weight: 500;
   }
 
   /* ---- Carrossel da fila de treino ----------------------------------

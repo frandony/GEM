@@ -58,6 +58,24 @@ interface SerieFeita {
   duracaoSeg: number | null;
 }
 
+/** A palavra "atual" vai no TEXTO do rótulo, não só no `aria-current` —
+    suporte de leitor de tela pro token "step" varia entre eles, então não
+    dá pra confiar só nisso. */
+function rotuloSerieBox(
+  numero: number,
+  feita: SerieFeita | undefined,
+  agora: boolean,
+  porTempo: boolean,
+): string {
+  if (feita) {
+    if (porTempo) return `Série ${numero} concluída, ${feita.duracaoSeg} segundos`;
+    const reps = feita.reps != null ? `${feita.reps} repetições` : "sem repetições registradas";
+    const carga = feita.cargaKg ? ` com ${feita.cargaKg} kg` : "";
+    return `Série ${numero} concluída, ${reps}${carga}`;
+  }
+  return agora ? `Série ${numero}, atual` : `Série ${numero}`;
+}
+
 export function SessaoTreino({
   treinoSessaoId,
   letra,
@@ -200,7 +218,7 @@ export function SessaoTreino({
             </div>
             {aoAbandonar && (
               <button
-                className="text-xs text-ink-muted underline"
+                className="link-abandonar"
                 onClick={() => setConfirmandoAbandono(true)}
               >
                 Abandonar
@@ -241,14 +259,12 @@ export function SessaoTreino({
         </div>
       )}
 
-      {!descansando && !terminouExercicio && (
-        <div className="text-center my-5">
-          <div className="display text-6xl num">{proximaSerie}<span className="text-ink-terciario">/{atual.series}</span></div>
-          <span className="rotulo-secao text-ink-muted">série atual</span>
-        </div>
-      )}
-
-      {/* ---- Séries: o que já foi ----------------------------------- */}
+      {/* ---- Séries: onde estou e o que já foi -----------------------
+          Única referência visual de posição na tela — o subtítulo do
+          cabeçalho complementa (mostra o alvo AO VIVO que vai ser
+          gravado), mas não repete "série N de M" num bloco gigante à
+          parte: essa fileira já mostra a mesma posição, e ainda mostra
+          o que cada série já feita realmente registrou. */}
       <div className="flex gap-2 my-5" role="list" aria-label="Séries">
         {Array.from({ length: atual.series }, (_, i) => {
           const feita = jaFeitas[i];
@@ -257,14 +273,10 @@ export function SessaoTreino({
             <div
               key={i}
               role="listitem"
-              className={[
-                "flex-1 rounded-md py-2 text-center num text-sm border",
-                feita
-                  ? "bg-ok-fraco text-ok-ink border-transparent"
-                  : agora
-                    ? "border-treino text-treino-ink"
-                    : "border-hairline text-ink-fraco",
-              ].join(" ")}
+              className="serie-caixa num"
+              data-feita={!!feita || undefined}
+              aria-current={agora ? "step" : undefined}
+              aria-label={rotuloSerieBox(i + 1, feita, agora, porTempo)}
             >
               {feita
                 ? porTempo
@@ -313,8 +325,8 @@ export function SessaoTreino({
               Por tempo: {atual.duracaoSeg}s nesta série.
             </p>
           ) : (
-            <>
-              <div className="mb-4">
+            <div className="flex flex-col gap-4 serie-colunas">
+              <div>
                 <div className="text-sm text-ink-muted mb-2">
                   Repetições <span className="text-ink-terciario">({atual.repsMin}–{atual.repsMax})</span>
                 </div>
@@ -328,7 +340,7 @@ export function SessaoTreino({
                   >
                     −
                   </button>
-                  <div className="stepper-valor num">{reps}</div>
+                  <div className="stepper-valor num" aria-live="polite">{reps}</div>
                   <button
                     type="button"
                     className="stepper-btn"
@@ -340,7 +352,7 @@ export function SessaoTreino({
                 </div>
               </div>
 
-              <div className="mb-2">
+              <div>
                 <div className="text-sm text-ink-muted mb-2">
                   Peso{atual.unilateral && <span className="text-ink-terciario"> · por lado</span>}
                 </div>
@@ -354,7 +366,7 @@ export function SessaoTreino({
                   >
                     −
                   </button>
-                  <div className="stepper-valor num">
+                  <div className="stepper-valor num" aria-live="polite">
                     {carga}<span className="unidade">kg</span>
                   </div>
                   <button
@@ -367,7 +379,7 @@ export function SessaoTreino({
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* Explica de onde veio o número. Sem isso a sugestão parece
