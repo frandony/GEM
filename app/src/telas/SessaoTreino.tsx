@@ -100,10 +100,10 @@ export function SessaoTreino({
   // inteiro e pulava direto pro fim sem nunca ter contado nada.
   const [, forcarRepintura] = useState(0);
   const toast = useToast();
-  // Abandonar descarta a sessão inteira e é irreversível. Um toque só,
-  // num link pequeno ao lado do contador, é fácil demais de acertar sem
-  // querer com o polegar.
-  const [confirmandoAbandono, setConfirmandoAbandono] = useState(false);
+  // Finalizar mais cedo é irreversível (a sessão se encerra por aqui). Um
+  // toque só, sem confirmação, é fácil demais de acertar sem querer com o
+  // polegar — daí o diálogo abaixo.
+  const [confirmandoFimAntecipado, setConfirmandoFimAntecipado] = useState(false);
 
   const atual = exercicios[indice];
   const jaFeitas = atual ? (feitas[atual.sessaoExercicioId] ?? []) : [];
@@ -219,16 +219,16 @@ export function SessaoTreino({
           <span className="flex items-center text-sm text-ink-muted">
             <ChevronLeft size={16} /> Treino {letra}
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sessao-topo-acoes">
             <div className="text-sm text-ink-muted num">
               {indice + 1}/{exercicios.length}
             </div>
             {aoAbandonar && (
               <button
-                className="link-abandonar"
-                onClick={() => setConfirmandoAbandono(true)}
+                className="btn btn-neutro"
+                onClick={() => setConfirmandoFimAntecipado(true)}
               >
-                Abandonar
+                Finalizar agora
               </button>
             )}
           </div>
@@ -243,23 +243,23 @@ export function SessaoTreino({
 
       <IndicadorPendencia />
 
-      {confirmandoAbandono && aoAbandonar && (
-        <div className="card mt-4" role="alertdialog" aria-label="Confirmar abandono">
-          <p className="mb-1">Abandonar este treino?</p>
+      {confirmandoFimAntecipado && aoAbandonar && (
+        <div className="card mt-4" role="alertdialog" aria-label="Finalizar o treino agora">
+          <p className="mb-1">Finalizar o treino agora?</p>
           <p className="text-sm text-ink-muted mb-4">
             {/* Diz o que sobrevive: as séries já registradas foram para a fila
-                e não somem. O que se perde é a sessão em si. */}
-            As séries que você já registrou ficam salvas. A sessão é encerrada
-            como abandonada e o treino {letra} continua sendo o próximo.
+                e não somem. O que se perde é o resto do treino planejado. */}
+            As séries que você já registrou ficam salvas. O treino {letra}
+            continua sendo o próximo da fila.
           </p>
           <div className="flex gap-2">
             <button
-              className="btn btn-perigo"
+              className="btn btn-treino"
               onClick={() => aoAbandonar(atual.exercicioId)}
             >
-              Sim, abandonar
+              Sim, finalizar
             </button>
-            <button className="btn btn-neutro" onClick={() => setConfirmandoAbandono(false)}>
+            <button className="btn btn-neutro" onClick={() => setConfirmandoFimAntecipado(false)}>
               Continuar treinando
             </button>
           </div>

@@ -309,21 +309,18 @@
   .ver-tudo svg { flex-shrink: 0; }
   .ver-tudo:active { opacity: 0.6; }
 
-  /* ---- Link "abandonar" (execução de treino) --------------------------
-     Mais generoso que .voltar/.ver-tudo (2rem): aqui é uma AÇÃO — abre
-     confirmação — não navegação pura. Ainda assim menor que o
-     --toque-min de 48px: o diálogo de confirmação já é a rede de
-     segurança contra toque acidental, então não é a decisão primária da
-     tela. Mesmo precedente de .barra-atualizacao .btn. */
-  .link-abandonar {
-    display: inline-flex;
-    align-items: center;
+  /* ---- Ações do cabeçalho (execução de treino) -------------------------
+     O botão de finalizar mais cedo precisa ser um .btn de VERDADE — mesma
+     linguagem visual do resto do site, não um link sublinhado à parte —
+     mas no tamanho padrão de 48px não cabe ao lado do contador de
+     exercícios nessa faixa estreita do cabeçalho. Mesmo precedente de
+     .barra-atualizacao .btn: menor, mas ainda acima do mínimo confortável,
+     porque aqui também não é a decisão primária da tela — a decisão
+     primária é "concluir série", lá embaixo. */
+  .sessao-topo-acoes .btn {
     min-height: 2.25rem;
-    padding-inline: var(--e-2);
-    font-size: var(--t-xs);
-    color: var(--ink-muted);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    padding-inline: var(--e-4);
+    font-size: var(--t-sm);
   }
 
   /* ---- Excluir item de lista densa (tópico) --------------------------
