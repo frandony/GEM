@@ -25,10 +25,8 @@ import {
   type SessaoDoResumo,
 } from "../lib/dados";
 import type { ExercicioDaSessao } from "./SessaoTreino";
-import { BarChart3, Dumbbell, Download, Flame, Play, Settings, Timer } from "lucide-react";
-import { baixarComoJson, exportarDadosDoUsuario } from "../lib/exportarDados";
+import { BarChart3, Dumbbell, Flame, Play, Settings, Timer } from "lucide-react";
 import { resumoDaSessao } from "../lib/treino";
-import { useToast } from "../lib/toast";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 
 /** Verde = o de agora, azul = o seguinte, roxo = o terceiro. Mesma
@@ -231,7 +229,7 @@ function iniciais(nome: string): string {
 }
 
 export function Home() {
-  const { sessao, sair } = useAuth();
+  const { sessao } = useAuth();
   const userId = sessao!.user.id;
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -245,8 +243,6 @@ export function Home() {
   const [hojeISO, setHojeISO] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [falhou, setFalhou] = useState<string | null>(null);
-  const [exportando, setExportando] = useState(false);
-  const toast = useToast();
 
   // Fila de treino do carrossel: as sessões na ordem da rotação, já
   // giradas para começar na próxima.
@@ -348,7 +344,7 @@ export function Home() {
     } finally {
       // No `finally`, sempre. Antes o `return` do perfil nulo pulava esta
       // linha e a tela ficava presa no skeleton PARA SEMPRE — sem
-      // mensagem, sem retry, e sem o botão de exportar que vive no rodapé.
+      // mensagem nem retry.
       setCarregando(false);
     }
   }
@@ -357,23 +353,6 @@ export function Home() {
     void carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
-
-  async function exportar() {
-    setExportando(true);
-    try {
-      const dados = await exportarDadosDoUsuario(userId);
-      const hoje = hojeNoFuso(perfil?.timezone ?? "America/Sao_Paulo");
-      baixarComoJson(dados, `megs-digital-backup-${hoje}.json`);
-      // O download é silencioso em boa parte dos navegadores (vai direto
-      // pra pasta, sem diálogo) — sem isto, o toque no botão não produz
-      // nada visível dentro do app.
-      toast.sucesso("Backup baixado.");
-    } catch (e) {
-      toast.erro(e instanceof Error ? e.message : "Não deu para gerar o backup.");
-    } finally {
-      setExportando(false);
-    }
-  }
 
   if (carregando) {
     return (
@@ -424,7 +403,9 @@ export function Home() {
           <div className="text-sm text-ink-muted">Olá,</div>
           <h1 className="h1">{perfil.nome}</h1>
         </div>
-        <div className="avatar">{iniciais(perfil.nome)}</div>
+        <Link to="/conta" className="avatar" aria-label="Configurações da conta">
+          {iniciais(perfil.nome)}
+        </Link>
       </header>
 
       {diasDaSemana.length > 0 && (
@@ -585,9 +566,10 @@ export function Home() {
       )}
 
       {/* ---- Ações rápidas ---------------------------------------------
-          Evolução e Configurar não têm tela própria ainda — ficam
-          visualmente presentes (o mockup pede) mas inertes, em vez de
-          linkar pra uma rota que não existe. */}
+          Evolução não tem tela própria ainda — fica visualmente presente
+          (o mockup pede) mas inerte, em vez de linkar pra uma rota que
+          não existe. Configurar ganhou tela (/conta) e virou link de
+          verdade. */}
       <section className="mb-8">
         <span className="rotulo-secao text-ink-muted mb-2 block">Ações rápidas</span>
         <div className="grid grid-cols-2 gap-3">
@@ -618,27 +600,17 @@ export function Home() {
               <div className="action-tile__sub">Em breve</div>
             </div>
           </div>
-          <div className="action-tile opacity-50">
+          <Link to="/conta" className="action-tile">
             <span className="action-tile__icone">
               <Settings size={20} />
             </span>
             <div>
               <div className="action-tile__label">Configurar</div>
-              <div className="action-tile__sub">Em breve</div>
+              <div className="action-tile__sub">Perfil e segurança</div>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
-
-      <div className="flex flex-col gap-3">
-        <button className="btn btn-neutro flex items-center justify-center gap-2" onClick={() => void exportar()} disabled={exportando}>
-          <Download size={16} />
-          {exportando ? "Gerando backup…" : "Exportar meus dados"}
-        </button>
-        <button className="btn btn-neutro" onClick={() => void sair()}>
-          Sair
-        </button>
-      </div>
     </div>
   );
 }

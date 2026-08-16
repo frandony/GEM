@@ -19,7 +19,10 @@ export function clienteDoUsuario(req: Request): SupabaseClient {
 
 /**
  * Cliente com service_role: FURA A RLS. Usar apenas onde a função age em nome
- * do sistema, não do usuário — hoje só na drenagem da fila de push.
+ * do sistema, não do usuário, OU precisa de um privilégio que a chave anônima
+ * não tem (ex: `auth.admin.*`) — hoje a drenagem da fila de push e
+ * `excluir-conta` (que ainda assim só apaga o PRÓPRIO usuário, resolvido pelo
+ * JWT antes de este cliente entrar em cena — ver excluir-conta/index.ts).
  */
 export function clienteDeServico(): SupabaseClient {
   return createClient(

@@ -15,6 +15,7 @@ import { GradeEstudo } from "./telas/GradeEstudo";
 import { MontarPlanoEstudo } from "./telas/MontarPlanoEstudo";
 import { Grupo } from "./telas/Grupo";
 import { DetalheGrupo } from "./telas/DetalheGrupo";
+import { Conta } from "./telas/Conta";
 
 /** Só entra quem tem sessão. Sem isso, qualquer rota do app é pública. */
 function Protegido() {
@@ -104,6 +105,7 @@ export function App() {
               <Route path="/estudo/montar" element={<MontarPlanoEstudo />} />
               <Route path="/grupo" element={<Grupo />} />
               <Route path="/grupo/:id" element={<DetalheGrupo />} />
+              <Route path="/conta" element={<Conta />} />
             </Route>
           </Route>
 

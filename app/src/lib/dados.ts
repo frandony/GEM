@@ -50,6 +50,14 @@ export async function carregarPerfil(userId: string): Promise<Perfil | null> {
   return data;
 }
 
+/** Único campo de perfil editável pela tela de Conta hoje — fuso horário
+    não tem seletor em lugar nenhum do app, e e-mail é `auth.users`, não
+    `profiles` (troca-se por `supabase.auth.updateUser`, não por aqui). */
+export async function atualizarNome(userId: string, nome: string): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ nome }).eq("id", userId);
+  if (error) throw new Error(`não deu para salvar o nome: ${error.message}`);
+}
+
 /** Data de hoje no fuso do usuário — nunca `new Date().toISOString()`, que é UTC. */
 export function hojeNoFuso(timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
