@@ -173,7 +173,7 @@ function FaixaDaSemana({
   streak: number | null;
 }) {
   return (
-    <section className="card mb-6 flex items-center gap-2">
+    <section className="faixa-semana-secao mb-6">
       <div className="streak-chama" data-aceso={(streak ?? 0) > 0 || undefined}>
         <span className="streak-chama__valor">
           <Flame size={16} />

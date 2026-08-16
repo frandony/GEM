@@ -782,6 +782,22 @@
     color: var(--treino-ink);
   }
 
+  /* ---- Seção da faixa da semana (Início) ------------------------------
+     NÃO é `.card`: a faixa vinha com fundo translúcido + borda + cantos
+     arredondados como qualquer outro card da tela, e ficava visivelmente
+     "uma caixa de semana" logo abaixo do "Olá, Nome" — que é puro fundo,
+     sem moldura nenhuma. Sem fundo/borda própria, ela lê como CONTINUAÇÃO
+     do cabeçalho, não como mais um card na pilha. O filete embaixo é a
+     única separação do carrossel de treino que vem a seguir — presença
+     mínima, só o suficiente pra marcar onde a zona de identidade acaba. */
+  .faixa-semana-secao {
+    display: flex;
+    align-items: center;
+    gap: var(--e-2);
+    padding-bottom: var(--e-4);
+    border-bottom: 1px solid var(--hairline);
+  }
+
   /* ---- Faixa da SEMANA (Início) --------------------------------------
      Prima da faixa de 7 dias acima, com duas diferenças de propósito:
      é a semana de calendário (segunda→domingo, a mesma que o streak
