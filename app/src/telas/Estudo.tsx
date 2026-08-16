@@ -31,7 +31,7 @@ import {
 import {
   arquivarMateria,
   arquivarTopico,
-  carregarBlocosDoDia,
+  carregarBlocosDoIntervalo,
   carregarMateriasParaMontagem,
   carregarPerfil,
   corDaDisciplina,
@@ -57,6 +57,40 @@ const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
 
 const DURACAO_POMODORO = 25 * 60;
 
+/* ---------------------------------------------------------------------
+   Faixa "próximos dias" — janela rolante (hoje + 6 seguintes), não a
+   semana de calendário que a faixa da Home usa: aqui o objetivo é "o que
+   vem a seguir", não "a semana do streak". Constantes e helpers próprios
+   desta tela, de propósito — mesmo raciocínio de `data-tem-horario` não
+   reusar `data-estudou` em GradeEstudo: evita acoplar Estudo à Home.
+   --------------------------------------------------------------------- */
+const DIAS_NA_FAIXA = 7;
+const DIAS_LETRA = ["D", "S", "T", "Q", "Q", "S", "S"];
+const FORMATO_DIA_SEMANA = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+
+function proximosDias(hojeISO: string, quantos: number): string[] {
+  const datas: string[] = [];
+  const cursor = new Date(`${hojeISO}T00:00:00Z`);
+  for (let i = 0; i < quantos; i++) {
+    datas.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return datas;
+}
+
+/** "hoje" / "amanhã" / "sáb, 22/08" — usado no rótulo da seção e no
+    estado vazio, sempre no meio de frase ("Blocos de X", "para X"). */
+function rotuloDoDia(dataISO: string, hojeISO: string): string {
+  if (dataISO === hojeISO) return "hoje";
+  const amanha = new Date(`${hojeISO}T00:00:00Z`);
+  amanha.setUTCDate(amanha.getUTCDate() + 1);
+  if (dataISO === amanha.toISOString().slice(0, 10)) return "amanhã";
+  const d = new Date(`${dataISO}T12:00:00`);
+  const semana = FORMATO_DIA_SEMANA.format(d).replace(".", "");
+  const dia = dataISO.split("-").reverse().slice(0, 2).join("/");
+  return `${semana}, ${dia}`;
+}
+
 /** Os action-tiles da tela herdam a cor do módulo (azul de estudo) em vez
     do verde padrão do token — é o que amarra as ações à identidade da aba. */
 const CORES_ESTUDO = {
@@ -70,7 +104,12 @@ export function Estudo() {
 
   const [carregando, setCarregando] = useState(true);
   const [materias, setMaterias] = useState<MateriaParaMontagem[]>([]);
+  // Guarda a janela inteira de `DIAS_NA_FAIXA` dias, não só hoje — a faixa
+  // abaixo precisa ver todo mundo de uma vez para pintar cada coluna sem
+  // uma consulta por dia.
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
+  const [hojeISO, setHojeISO] = useState("");
+  const [diaSelecionado, setDiaSelecionado] = useState("");
   const [criando, setCriando] = useState(false);
   const [falhou, setFalhou] = useState<string | null>(null);
   // Guarda qual matéria acabou de nascer, só para destacá-la na lista.
@@ -116,16 +155,23 @@ export function Estudo() {
     try {
       const perfil = await carregarPerfil(userId);
       const tz = perfil?.timezone ?? "America/Sao_Paulo";
+      const hoje = hojeNoFuso(tz);
+      const janela = proximosDias(hoje, DIAS_NA_FAIXA);
       const [ms, bs] = await Promise.all([
         // `...ParaMontagem` e não `carregarMaterias`: traz tópicos e eventos
         // no mesmo round-trip, que é o que a lista de matérias mostra. As
         // duas consultas filtram e ordenam igual, então a cor de cada
         // disciplina (que sai da posição na lista) não muda.
         carregarMateriasParaMontagem(userId),
-        carregarBlocosDoDia(userId, hojeNoFuso(tz)),
+        carregarBlocosDoIntervalo(userId, janela[0]!, janela[janela.length - 1]!),
       ]);
       setMaterias(ms);
       setBlocos(bs);
+      setHojeISO(hoje);
+      // Só inicializa na primeira carga — um recarregamento por outro
+      // motivo (criar matéria, tentar de novo) não deve arrancar a pessoa
+      // do dia que ela escolheu ver.
+      setDiaSelecionado((atual) => atual || hoje);
     } catch (e) {
       // O estado vazio desta tela AFIRMA que você não tem matéria nenhuma
       // e esconde Pomodoro, plano e blocos junto. Cair nele por causa de
@@ -257,8 +303,18 @@ export function Estudo() {
     );
   }
 
-  const pendentes = blocos.filter((b) => b.status === "pendente");
-  const feitos = blocos.filter((b) => b.status !== "pendente");
+  // Agrupada uma vez por render — a faixa pinta cada coluna a partir dela,
+  // e a lista abaixo filtra pelo dia selecionado em vez de assumir hoje.
+  const blocosPorDia = new Map<string, BlocoEstudo[]>();
+  for (const b of blocos) {
+    const doDia = blocosPorDia.get(b.data);
+    if (doDia) doDia.push(b);
+    else blocosPorDia.set(b.data, [b]);
+  }
+  const dias = proximosDias(hojeISO, DIAS_NA_FAIXA);
+  const blocosDoDia = blocosPorDia.get(diaSelecionado) ?? [];
+  const pendentes = blocosDoDia.filter((b) => b.status === "pendente");
+  const feitos = blocosDoDia.filter((b) => b.status !== "pendente");
   const minutos = Math.floor(restante / 60);
   const segundos = restante % 60;
 
@@ -349,13 +405,27 @@ export function Estudo() {
         </div>
       </div>
 
+      {/* Faixa dos próximos dias — mesmo esqueleto visual da faixa da
+          semana na Início (letra + círculo), semântica própria: mostra o
+          que vem no plano de estudo, não o streak. Tocar num dia troca a
+          lista abaixo. */}
+      <FaixaDeDias
+        dias={dias}
+        blocosPorDia={blocosPorDia}
+        diaSelecionado={diaSelecionado}
+        hojeISO={hojeISO}
+        onSelecionar={setDiaSelecionado}
+      />
+
       {/* Este rótulo dizia "Disciplinas" e listava BLOCOS — era a origem
           do "criei uma matéria e ela não aparece em lugar nenhum": o único
           lugar que parecia listar matérias listava outra coisa. */}
-      <span className="rotulo-secao text-ink-muted mb-2 block">Blocos de hoje</span>
-      {blocos.length === 0 ? (
+      <span className="rotulo-secao text-ink-muted mb-2 block">
+        Blocos de {rotuloDoDia(diaSelecionado, hojeISO)}
+      </span>
+      {blocosDoDia.length === 0 ? (
         <div className="vazio mb-6">
-          <p>Nenhum bloco planejado para hoje.</p>
+          <p>Nenhum bloco planejado para {rotuloDoDia(diaSelecionado, hojeISO)}.</p>
           <p className="text-sm text-ink-terciario">
             Os blocos nascem do plano — é ele que distribui seus tópicos nos horários da grade.
           </p>
@@ -425,6 +495,73 @@ export function Estudo() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------
+   Faixa "próximos dias".
+   ---------------------------------------------------------------------
+   Cada coluna é um botão de verdade (não uma div decorativa) — a linha
+   inteira alterna o dia selecionado, mesmo alvo de toque generoso que o
+   resto do app usa para ações de um toque só.
+
+   O círculo mostra o dia do mês por padrão e troca para a CONTAGEM de
+   blocos assim que ela existe — mesma lógica que a faixa da Início troca
+   o número pela letra da sessão quando houve treino: a informação mais
+   útil substitui a menos útil assim que ela existe.
+   --------------------------------------------------------------------- */
+function FaixaDeDias({
+  dias,
+  blocosPorDia,
+  diaSelecionado,
+  hojeISO,
+  onSelecionar,
+}: {
+  dias: string[];
+  blocosPorDia: Map<string, BlocoEstudo[]>;
+  diaSelecionado: string;
+  hojeISO: string;
+  onSelecionar: (data: string) => void;
+}) {
+  return (
+    <section className="faixa-dias-secao mb-6">
+      <div className="faixa-dias">
+        {dias.map((data) => {
+          const doDia = blocosPorDia.get(data) ?? [];
+          const numero = Number(data.slice(8, 10));
+          const temBlocos = doDia.length > 0;
+          const todosConcluidos = temBlocos && doDia.every((b) => b.status !== "pendente");
+          const rotulo = rotuloDoDia(data, hojeISO);
+          return (
+            <button
+              key={data}
+              type="button"
+              className="dia-coluna"
+              onClick={() => onSelecionar(data)}
+              aria-pressed={data === diaSelecionado}
+              aria-label={
+                temBlocos
+                  ? `${rotulo}, ${doDia.length} ${doDia.length === 1 ? "bloco" : "blocos"}${todosConcluidos ? ", concluído" : ""}`
+                  : `${rotulo}, sem blocos`
+              }
+            >
+              <span className="dia-coluna__letra" aria-hidden>
+                {DIAS_LETRA[new Date(`${data}T12:00:00`).getDay()]}
+              </span>
+              <span
+                className="dia-ponto num"
+                aria-hidden
+                data-tem-blocos={temBlocos || undefined}
+                data-todos-concluidos={todosConcluidos || undefined}
+                data-selecionado={data === diaSelecionado || undefined}
+              >
+                {temBlocos ? doDia.length : numero}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

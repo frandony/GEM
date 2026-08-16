@@ -830,6 +830,29 @@ export async function carregarBlocosDoDia(userId: string, data: string): Promise
 }
 
 /**
+ * Mesma consulta que `carregarBlocosDoDia`, mas num intervalo — usada pela
+ * faixa "próximos dias" da tela de Estudo, que precisa ver a janela
+ * inteira de uma vez para pintar cada coluna sem uma consulta por dia.
+ * Mesma doutrina de erro: lança, não devolve vazio.
+ */
+export async function carregarBlocosDoIntervalo(
+  userId: string,
+  de: string,
+  ate: string,
+): Promise<BlocoEstudo[]> {
+  const { data: blocos, error } = await supabase
+    .from("blocos")
+    .select("id,materia_id,topico_id,data,hora,duracao_min,tipo,titulo,status")
+    .eq("user_id", userId)
+    .gte("data", de)
+    .lte("data", ate)
+    .order("data", { ascending: true })
+    .order("hora", { ascending: true });
+  if (error) throw new Error(`não deu para carregar seus próximos blocos: ${error.message}`);
+  return blocos;
+}
+
+/**
  * Marca (ou desmarca) um bloco. `"pendente"` existe para o desfazer: sem
  * ele, tocar sem querer no bloco de estudo era irreversível pela UI —
  * e a linha inteira era o alvo do toque.

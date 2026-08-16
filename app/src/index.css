@@ -856,6 +856,44 @@
   .dia-ponto[data-leve] {
     border-style: dashed;
   }
+
+  /* ---- Faixa "próximos dias" (Estudo) ---------------------------------
+     Prima da faixa da semana na Início: mesmo esqueleto (letra + círculo
+     maior), mas janela ROLANTE (hoje + 6 seguintes) em vez da semana de
+     calendário, e sem chrome de card pelo mesmo motivo — nasce como
+     continuação do cabeçalho, não mais um card na pilha. Atributos
+     próprios (não reusam data-tem-horario/data-estudou), mesmo raciocínio
+     do bloco acima: evita acoplar o visual desta tela ao das outras. */
+  .faixa-dias-secao {
+    padding-bottom: var(--e-4);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .faixa-dias {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--e-1);
+  }
+  .faixa-dias .dia-ponto {
+    width: 1.875rem; height: 1.875rem;
+    font-size: var(--t-xs);
+  }
+  /* Tem bloco agendado — vai acontecer, ainda não aconteceu. */
+  .dia-ponto[data-tem-blocos] {
+    border-color: var(--estudo);
+    color: var(--estudo-ink);
+  }
+  /* Todo bloco do dia já foi concluído — preenchido e sem borda, mesmo
+     tratamento "resolvido, quieto" de .serie-caixa[data-feita]. */
+  .dia-ponto[data-todos-concluidos] {
+    background: var(--estudo-fraco);
+    border-color: transparent;
+    color: var(--estudo-ink);
+  }
+  /* Qual dia está sendo VISTO nesta faixa — não é "hoje" (que fica fixo no
+     calendário): começa em hoje, mas acompanha o toque. */
+  .dia-ponto[data-selecionado] {
+    box-shadow: 0 0 0 2px var(--estudo);
+  }
   .grade-resumo {
     padding-bottom: var(--e-4);
     margin-bottom: var(--e-1);
