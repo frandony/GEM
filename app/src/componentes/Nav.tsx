@@ -6,7 +6,7 @@ const ITENS: { para: string; rotulo: string; Icone: ComponentType<{ size?: numbe
   { para: "/", rotulo: "Início", Icone: Home },
   { para: "/treino", rotulo: "Treino", Icone: Dumbbell },
   { para: "/estudo", rotulo: "Estudo", Icone: BookOpen },
-  { para: "/grupo", rotulo: "Grupo", Icone: Users },
+  { para: "/grupo", rotulo: "Social", Icone: Users },
 ];
 
 export function Nav() {
