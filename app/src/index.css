@@ -259,6 +259,7 @@
 
   .btn-treino { background: var(--treino); color: var(--bg); }
   .btn-estudo { background: var(--estudo); color: var(--ink); }
+  .btn-social { background: var(--social); color: var(--ink); }
   .btn-neutro {
     background: transparent; color: var(--ink);
     border: 1px solid var(--hairline-forte);
@@ -383,6 +384,7 @@
   .chip-atencao { background: var(--atencao-fraco); color: var(--atencao-ink); }
   .chip-treino  { background: var(--treino-fraco);  color: var(--treino-ink); }
   .chip-estudo  { background: var(--estudo-fraco);  color: var(--estudo-ink); }
+  .chip-social  { background: var(--social-fraco);  color: var(--social-ink); }
 
   /* ---- Grade de seleção de dia (grid de 7) ----------------------------
      Substitui flex-wrap nos dois seletores de dia da Grade de Estudo: 7 é
@@ -436,6 +438,7 @@
   .badge-atencao { background: var(--atencao-fraco); color: var(--atencao-ink); }
   .badge-treino  { background: var(--treino-fraco);  color: var(--treino-ink); }
   .badge-estudo  { background: var(--estudo-fraco);  color: var(--estudo-ink); }
+  .badge-social  { background: var(--social-fraco);  color: var(--social-ink); }
 
   /* ---- Avatar ---------------------------------------------------------
      Iniciais sobre gradiente do acento — usa a cor do módulo em contexto
@@ -771,6 +774,56 @@
   @keyframes destacar-linha {
     from { box-shadow: 0 0 0 2px var(--estudo); }
     to   { box-shadow: 0 0 0 2px transparent; }
+  }
+
+  /* ---- Feed do grupo (Social) ------------------------------------------
+     Post é `.card` puro (reaproveitado, sem wrapper novo) — só a foto e a
+     fileira de reação precisam de regra própria. */
+  .post-foto {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--r-md);
+    object-fit: cover;
+    background: var(--surface-alta);
+  }
+  .post-reacoes {
+    display: flex;
+    gap: var(--e-2);
+  }
+  /* Mesmo footprint de .bloco-estudar (Estudo) — ação secundária
+     repetida numa linha, não o alvo cheio de --toque-min. Reação
+     marcada preenche; sem contador em lugar nenhum, de propósito. */
+  .post-reacao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--r-pill);
+    background: var(--surface-alta);
+    font-size: 1rem;
+    touch-action: manipulation;
+  }
+  .post-reacao:active { transform: scale(0.94); }
+  .post-reacao[aria-pressed="true"] {
+    background: var(--social-fraco);
+    box-shadow: 0 0 0 1.5px var(--social);
+  }
+  /* Mesmo footprint de .topico-excluir (Estudo) — igual nível de risco
+     de "excluir tópico": ação leve, sem confirmação de dois passos. */
+  .post-excluir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--r-sm);
+    color: var(--ink-fraco);
+  }
+  .post-excluir:active { color: var(--perigo-ink); background: var(--perigo-fraco); }
+  @media (hover: hover) {
+    .post-excluir:hover { color: var(--perigo-ink); background: var(--perigo-fraco); }
   }
 
   /* ---- Faixa de 7 dias (membro do grupo) -----------------------------

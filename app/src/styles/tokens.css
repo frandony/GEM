@@ -58,6 +58,15 @@
   --roxo:          #af52de;
   --roxo-fraco:    rgba(175,82,222,0.12);
 
+  /* Identidade do módulo Social (feed do grupo, 2026-08-16) — mesmo roxo
+     de --roxo acima, promovido ao mesmo tratamento estrutural de
+     --treino/--estudo (par -ink pra texto, -fraco pra preenchimento).
+     Não é cor nova: é a que já existia ganhando o papel de identidade de
+     módulo, documentado no artifact de visão do Social. */
+  --social:        #af52de;
+  --social-ink:    #cf8ce8;
+  --social-fraco:  rgba(175,82,222,0.16);
+
   /* Quinta cor, DERIVADA — o site não tem destrutivo porque portfólio
      não apaga nada. App apaga: abandonar treino, sair do grupo, excluir
      conta. Mantida na mesma família saturada-sobre-escuro, e afastada
@@ -191,6 +200,9 @@
   --color-perigo-fraco:  var(--perigo-fraco);
   --color-roxo:          var(--roxo);
   --color-roxo-fraco:    var(--roxo-fraco);
+  --color-social:        var(--social);
+  --color-social-ink:    var(--social-ink);
+  --color-social-fraco:  var(--social-fraco);
 
   --font-sans:    var(--fonte-ui);
   --font-mono:    var(--fonte-num);
