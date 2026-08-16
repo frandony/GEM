@@ -347,6 +347,25 @@
     .topico-excluir:hover { color: var(--perigo-ink); background: var(--perigo-fraco); }
   }
 
+  /* ---- Botão "Estudar" na linha de bloco (Estudo) ---------------------
+     Mesmo footprint compacto de .topico-excluir — a linha já tem duas
+     colunas fixas (barra de cor + checkbox de 48px), uma terceira do
+     mesmo tamanho apertaria demais em tela estreita. Cor do módulo
+     estudo, não o esquema neutro/perigo: aqui não é ação destrutiva. */
+  .bloco-estudar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--r-pill);
+    background: var(--estudo-fraco);
+    color: var(--estudo-ink);
+    touch-action: manipulation;
+  }
+  .bloco-estudar:active { transform: scale(0.94); }
+
   /* ---- Chip de estado ------------------------------------------------
      Uso: FILTRO/SELEÇÃO — as opções da Onboarding (divisão, ênfase,
      nível...), onde o alvo de toque conta mais que o formato. Pra

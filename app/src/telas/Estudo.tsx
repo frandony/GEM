@@ -57,6 +57,15 @@ const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
 
 const DURACAO_POMODORO = 25 * 60;
 
+type MetodoDeFoco = "pomodoro" | "simples";
+
+/** Pomodoro é sempre 25 min — é a definição da técnica. "Timer simples" é
+    quem usa a duração que a pessoa cadastrou no bloco (`duracao_min`),
+    sem os ciclos de pausa do Pomodoro. */
+function duracaoAlvoSeg(metodo: MetodoDeFoco, bloco: BlocoEstudo | null): number {
+  return metodo === "pomodoro" ? DURACAO_POMODORO : (bloco?.duracao_min ?? 0) * 60;
+}
+
 /* ---------------------------------------------------------------------
    Faixa "próximos dias" — janela rolante (hoje + 6 seguintes), não a
    semana de calendário que a faixa da Home usa: aqui o objetivo é "o que
@@ -119,12 +128,47 @@ export function Estudo() {
   const [materiaAberta, setMateriaAberta] = useState<string | null>(null);
   const toast = useToast();
 
-  // Timer Pomodoro — mesma lógica de relógio (Date.now(), não setInterval
+  // Timer de foco — mesma lógica de relógio (Date.now(), não setInterval
   // acumulado) do descanso em SessaoTreino.tsx, adaptada pra suportar
   // pausa: enquanto rodando, um efeito recalcula contra um alvo fixo;
   // ao pausar, `restante` já está congelado no último valor calculado.
   const [restante, setRestante] = useState(DURACAO_POMODORO);
   const [rodando, setRodando] = useState(false);
+  // Bloco sendo estudado agora — só o id, nunca uma cópia do objeto. O
+  // objeto de verdade sempre vem de `blocos`: se a pessoa concluir o
+  // bloco pelo checkbox enquanto o timer dele está aberto, uma cópia à
+  // parte ficaria desatualizada.
+  const [blocoEmFocoId, setBlocoEmFocoId] = useState<string | null>(null);
+  const [metodo, setMetodo] = useState<MetodoDeFoco>("pomodoro");
+  const blocoEmFoco = blocos.find((b) => b.id === blocoEmFocoId) ?? null;
+
+  /** Toque em "Estudar" num bloco — troca o alvo do timer e para uma
+      contagem que porventura já estivesse rodando contra outro bloco ou
+      outro método, pra nunca deixar o timer correndo contra o alvo errado. */
+  function iniciarFoco(bloco: BlocoEstudo) {
+    setBlocoEmFocoId(bloco.id);
+    setRodando(false);
+    setRestante(duracaoAlvoSeg(metodo, bloco));
+  }
+
+  function trocarMetodo(novo: MetodoDeFoco) {
+    setMetodo(novo);
+    setRodando(false);
+    if (blocoEmFoco) setRestante(duracaoAlvoSeg(novo, blocoEmFoco));
+  }
+
+  function encerrarFoco() {
+    setRodando(false);
+    setBlocoEmFocoId(null);
+  }
+
+  // Dá scroll no card do timer quando "Estudar" é tocado num bloco mais
+  // abaixo na lista, com o timer fora da tela — mesmo padrão do efeito de
+  // scroll do formulário de nova matéria, logo abaixo.
+  const timerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (blocoEmFocoId) timerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [blocoEmFocoId]);
 
   // O formulário de nova matéria abre no fim da página, embaixo da lista
   // de disciplinas — sem isso, o toque em "Nova matéria" não muda nada
@@ -142,7 +186,7 @@ export function Estudo() {
       setRestante(restam);
       if (restam <= 0) {
         setRodando(false);
-        toast.sucesso("Pomodoro concluído!");
+        toast.sucesso(blocoEmFoco ? `"${blocoEmFoco.titulo}" — tempo esgotado!` : "Tempo esgotado!");
         notificarFimDoTimer();
       }
     }, 250);
@@ -351,58 +395,106 @@ export function Estudo() {
         </Link>
       </div>
 
-      {/* ---- Timer Pomodoro ------------------------------------------- */}
-      <div className="card mb-6 flex flex-col items-center gap-4 py-6" style={{ borderRadius: "1.25rem" }}>
-        <div className="text-center">
-          <div className="display text-6xl num">
-            {String(minutos).padStart(2, "0")}:{String(segundos).padStart(2, "0")}
-          </div>
-          <span className="text-xs text-ink-terciario">Foco total · Pomodoro</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="stepper-btn"
-            style={{ borderRadius: "999px" }}
-            onClick={() => {
-              setRodando(false);
-              setRestante(DURACAO_POMODORO);
-            }}
-            aria-label="Reiniciar pomodoro"
-          >
-            <RotateCcw size={20} />
-          </button>
-          <button
-            type="button"
-            className="stepper-btn"
-            style={{
-              borderRadius: "999px",
-              width: "3.5rem",
-              height: "3.5rem",
-              background: "var(--treino)",
-              borderColor: "var(--treino)",
-              color: "var(--bg)",
-            }}
-            onClick={() => setRodando((r) => !r)}
-            disabled={restante <= 0}
-            aria-label={rodando ? "Pausar" : "Iniciar"}
-          >
-            {rodando ? <Pause size={22} /> : <Play size={22} />}
-          </button>
-          <button
-            type="button"
-            className="stepper-btn"
-            style={{ borderRadius: "999px" }}
-            onClick={() => {
-              setRodando(false);
-              setRestante(DURACAO_POMODORO);
-              toast.sucesso("Pomodoro reiniciado");
-            }}
-            aria-label="Pular pomodoro"
-          >
-            <SkipForward size={20} />
-          </button>
-        </div>
+      {/* ---- Timer de foco ---------------------------------------------
+          Sem bloco escolhido, é só um convite — não faz sentido mostrar
+          contagem ou controles pra nada. Escolher "Estudar" num bloco
+          abaixo é o que liga o timer de verdade, já na duração certa. */}
+      <div
+        ref={timerRef}
+        className="card mb-6 flex flex-col items-center gap-4 py-6"
+        style={{ borderRadius: "1.25rem", position: "relative" }}
+      >
+        {!blocoEmFoco ? (
+          <p className="text-sm text-ink-muted text-center py-2">
+            Escolha um bloco abaixo para começar a estudar.
+          </p>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="text-ink-muted shrink-0"
+              style={{ position: "absolute", top: "var(--e-3)", right: "var(--e-3)" }}
+              onClick={encerrarFoco}
+              aria-label="Encerrar foco"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="text-center">
+              <div className="text-sm text-ink-muted mb-1">{blocoEmFoco.titulo}</div>
+              <div className="display text-6xl num">
+                {String(minutos).padStart(2, "0")}:{String(segundos).padStart(2, "0")}
+              </div>
+              <span className="text-xs text-ink-terciario">
+                {metodo === "pomodoro"
+                  ? "Pomodoro · 25 min"
+                  : `Timer simples · ${blocoEmFoco.duracao_min} min`}
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={metodo === "pomodoro" ? "chip chip-estudo" : "chip"}
+                onClick={() => trocarMetodo("pomodoro")}
+              >
+                Pomodoro
+              </button>
+              <button
+                type="button"
+                className={metodo === "simples" ? "chip chip-estudo" : "chip"}
+                onClick={() => trocarMetodo("simples")}
+              >
+                Timer simples
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                className="stepper-btn"
+                style={{ borderRadius: "999px" }}
+                onClick={() => {
+                  setRodando(false);
+                  setRestante(duracaoAlvoSeg(metodo, blocoEmFoco));
+                }}
+                aria-label="Reiniciar"
+              >
+                <RotateCcw size={20} />
+              </button>
+              <button
+                type="button"
+                className="stepper-btn"
+                style={{
+                  borderRadius: "999px",
+                  width: "3.5rem",
+                  height: "3.5rem",
+                  background: "var(--treino)",
+                  borderColor: "var(--treino)",
+                  color: "var(--bg)",
+                }}
+                onClick={() => setRodando((r) => !r)}
+                disabled={restante <= 0}
+                aria-label={rodando ? "Pausar" : "Iniciar"}
+              >
+                {rodando ? <Pause size={22} /> : <Play size={22} />}
+              </button>
+              <button
+                type="button"
+                className="stepper-btn"
+                style={{ borderRadius: "999px" }}
+                onClick={() => {
+                  setRodando(false);
+                  setRestante(duracaoAlvoSeg(metodo, blocoEmFoco));
+                  toast.sucesso("Reiniciado");
+                }}
+                aria-label="Pular"
+              >
+                <SkipForward size={20} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Faixa dos próximos dias — mesmo esqueleto visual da faixa da
@@ -441,6 +533,7 @@ export function Estudo() {
               bloco={b}
               cor={corDaDisciplina(b.materia_id, materias)}
               onAlternar={() => void alternarBloco(b)}
+              onEstudar={() => iniciarFoco(b)}
             />
           ))}
         </div>
@@ -580,10 +673,12 @@ function LinhaDeBloco({
   bloco,
   cor,
   onAlternar,
+  onEstudar,
 }: {
   bloco: BlocoEstudo;
   cor: string;
   onAlternar: () => void;
+  onEstudar: () => void;
 }) {
   const concluido = bloco.status !== "pendente";
   return (
@@ -595,6 +690,18 @@ function LinhaDeBloco({
           {TIPO_ROTULO[bloco.tipo]} · {bloco.hora.slice(0, 5)} · {bloco.duracao_min} min
         </div>
       </div>
+      {/* Só em bloco pendente — não faz sentido estudar um já concluído
+          ou pulado. Liga o timer de cima já na duração deste bloco. */}
+      {!concluido && (
+        <button
+          type="button"
+          className="bloco-estudar"
+          onClick={onEstudar}
+          aria-label={`Estudar "${bloco.titulo}" agora`}
+        >
+          <Play size={12} />
+        </button>
+      )}
       {/* `role="checkbox"` no próprio <button>. Antes havia um
           <span role="checkbox"> DENTRO de um <button> — combinação que
           tecnologia assistiva não sabe anunciar. */}
