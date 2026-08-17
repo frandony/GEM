@@ -162,12 +162,12 @@ export function PerfilPublico() {
         <Avatar nome={dados.nome} fotoUrl={dados.fotoUrl} tamanhoRem={5} />
         <h1 className="h1 mt-3">{dados.nome}</h1>
         <div className="flex items-center gap-4 text-sm text-ink-muted mt-1">
-          <span>
+          <Link to={`/grupo/perfil/${userId}/seguidores`} className="stat-link">
             <span className="num text-ink">{dados.seguidores}</span> seguidores
-          </span>
-          <span>
+          </Link>
+          <Link to={`/grupo/perfil/${userId}/seguindo`} className="stat-link">
             <span className="num text-ink">{dados.seguindo}</span> seguindo
-          </span>
+          </Link>
         </div>
         {dados.souEu ? (
           <Link to="/conta" className="btn btn-neutro mt-4">

@@ -18,6 +18,7 @@ import { DetalheGrupo } from "./telas/DetalheGrupo";
 import { PessoasGrupo } from "./telas/PessoasGrupo";
 import { DescobrirPessoas } from "./telas/DescobrirPessoas";
 import { PerfilPublico } from "./telas/PerfilPublico";
+import { ListaDeConexoes } from "./telas/ListaDeConexoes";
 import { Conta } from "./telas/Conta";
 
 /** Só entra quem tem sessão. Sem isso, qualquer rota do app é pública. */
@@ -109,6 +110,14 @@ export function App() {
               <Route path="/grupo" element={<Social />} />
               <Route path="/grupo/descobrir" element={<DescobrirPessoas />} />
               <Route path="/grupo/perfil/:userId" element={<PerfilPublico />} />
+              <Route
+                path="/grupo/perfil/:userId/seguindo"
+                element={<ListaDeConexoes tipo="seguindo" />}
+              />
+              <Route
+                path="/grupo/perfil/:userId/seguidores"
+                element={<ListaDeConexoes tipo="seguidores" />}
+              />
               <Route path="/grupo/:id" element={<DetalheGrupo />} />
               <Route path="/grupo/:id/pessoas" element={<PessoasGrupo />} />
               <Route path="/conta" element={<Conta />} />

@@ -933,6 +933,11 @@
     align-items: center;
     text-align: center;
   }
+  /* Contadores de seguidores/seguindo são links (Preflight do Tailwind
+     zera cor/sublinhado de <a>, então sem isto ficariam indistinguíveis
+     de texto puro) — feedback tátil mínimo, sem chevron: é o mesmo
+     padrão universal de "número tocável" que Instagram/Twitter usam. */
+  .stat-link:active { opacity: 0.6; }
 
   /* ---- Faixa de 7 dias (membro do grupo) -----------------------------
      Constância, não desempenho: mostra SE houve treino/estudo no dia, e

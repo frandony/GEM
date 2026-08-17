@@ -220,14 +220,14 @@ export async function alternarCurtida(postId: string, userId: string, curtir: bo
   if (error) throw new Error(`não deu para descurtir: ${error.message}`);
 }
 
-export async function buscarPessoas(termo: string, meuId: string): Promise<PessoaPublica[]> {
-  const termoLimpo = termo.trim();
-  let consulta = supabase.from("profiles").select("id,nome,foto_url").neq("id", meuId).limit(20);
-  if (termoLimpo) consulta = consulta.ilike("nome", `%${termoLimpo}%`);
-  const { data: pessoas, error } = await consulta.order("nome");
-  if (error) throw new Error(`não deu para buscar pessoas: ${error.message}`);
-  if (!pessoas?.length) return [];
-
+/** Preenche `sigo` numa lista de pessoas já montada — passo repetido em
+    busca, "quem eu sigo" e "quem me segue" (nos três casos o botão de
+    seguir da linha precisa saber se EU (meuId) já sigo cada uma). */
+async function marcarSigo(
+  pessoas: Array<{ id: string; nome: string; fotoUrl: string | null }>,
+  meuId: string,
+): Promise<PessoaPublica[]> {
+  if (!pessoas.length) return [];
   const { data: seguindo } = await supabase
     .from("seguidores")
     .select("seguido_id")
@@ -237,13 +237,59 @@ export async function buscarPessoas(termo: string, meuId: string): Promise<Pesso
       pessoas.map((p) => p.id),
     );
   const idsQueSigo = new Set((seguindo ?? []).map((s) => s.seguido_id));
+  return pessoas.map((p) => ({ ...p, sigo: idsQueSigo.has(p.id) }));
+}
 
-  return pessoas.map((p) => ({
-    id: p.id,
-    nome: p.nome,
-    fotoUrl: p.foto_url,
-    sigo: idsQueSigo.has(p.id),
-  }));
+export async function buscarPessoas(termo: string, meuId: string): Promise<PessoaPublica[]> {
+  const termoLimpo = termo.trim();
+  let consulta = supabase.from("profiles").select("id,nome,foto_url").neq("id", meuId).limit(20);
+  if (termoLimpo) consulta = consulta.ilike("nome", `%${termoLimpo}%`);
+  const { data: pessoas, error } = await consulta.order("nome");
+  if (error) throw new Error(`não deu para buscar pessoas: ${error.message}`);
+  if (!pessoas?.length) return [];
+
+  return marcarSigo(
+    pessoas.map((p) => ({ id: p.id, nome: p.nome, fotoUrl: p.foto_url })),
+    meuId,
+  );
+}
+
+/** Pessoas que `userId` segue. `seguidores` tem DUAS fks pra profiles
+    (seguidor_id e seguido_id) — o embed exige hint explícito de qual
+    usar, senão o PostgREST recusa por ambiguidade (mesmo problema do
+    feed, causa diferente: aqui são duas fks na MESMA tabela pro MESMO
+    destino, lá eram duas tabelas apontando pro mesmo destino). */
+export async function carregarSeguindo(userId: string, meuId: string): Promise<PessoaPublica[]> {
+  const { data, error } = await supabase
+    .from("seguidores")
+    .select("seguido_id,profiles!seguidores_seguido_id_fkey(nome,foto_url)")
+    .eq("seguidor_id", userId)
+    .order("criado_em", { ascending: false })
+    .returns<Array<{ seguido_id: string; profiles: { nome: string; foto_url: string | null } | null }>>();
+  if (error) throw new Error(`não deu para carregar quem é seguido: ${error.message}`);
+  if (!data?.length) return [];
+
+  return marcarSigo(
+    data.map((l) => ({ id: l.seguido_id, nome: l.profiles?.nome ?? "Alguém", fotoUrl: l.profiles?.foto_url ?? null })),
+    meuId,
+  );
+}
+
+/** Pessoas que seguem `userId`. */
+export async function carregarSeguidores(userId: string, meuId: string): Promise<PessoaPublica[]> {
+  const { data, error } = await supabase
+    .from("seguidores")
+    .select("seguidor_id,profiles!seguidores_seguidor_id_fkey(nome,foto_url)")
+    .eq("seguido_id", userId)
+    .order("criado_em", { ascending: false })
+    .returns<Array<{ seguidor_id: string; profiles: { nome: string; foto_url: string | null } | null }>>();
+  if (error) throw new Error(`não deu para carregar seguidores: ${error.message}`);
+  if (!data?.length) return [];
+
+  return marcarSigo(
+    data.map((l) => ({ id: l.seguidor_id, nome: l.profiles?.nome ?? "Alguém", fotoUrl: l.profiles?.foto_url ?? null })),
+    meuId,
+  );
 }
 
 export async function seguir(seguidorId: string, seguidoId: string): Promise<void> {
