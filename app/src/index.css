@@ -826,6 +826,78 @@
     .post-excluir:hover { color: var(--perigo-ink); background: var(--perigo-fraco); }
   }
 
+  /* ---- Abas (Feed/Chat do grupo, Criar/Entrar em grupo) ---------------
+     Segmented control simples: fundo --surface-alta, aba selecionada
+     ganha --social-fraco + texto --social-ink. Mesmo raio de .campo. */
+  .tabs {
+    display: flex;
+    gap: var(--e-1);
+    background: var(--surface-alta);
+    border-radius: var(--r-md);
+    padding: var(--e-1);
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(var(--toque-min) - var(--e-2));
+    border-radius: calc(var(--r-md) - 2px);
+    font-size: var(--t-sm);
+    font-weight: 500;
+    color: var(--ink-muted);
+  }
+  .tab[aria-selected="true"] {
+    background: var(--social-fraco);
+    color: var(--social-ink);
+  }
+
+  /* ---- Chat do grupo ---------------------------------------------------
+     Bolha própria alinhada à direita (identidade social), de outro membro
+     à esquerda com o nome em cima — mesma lógica de "quem falou" que o
+     feed resolve com Avatar + nome, só que compacta pra caber várias
+     mensagens seguidas. */
+  .chat-lista {
+    display: flex;
+    flex-direction: column;
+    gap: var(--e-2);
+    margin-bottom: var(--e-4);
+  }
+  .chat-bolha {
+    align-self: flex-start;
+    max-width: 80%;
+    padding: var(--e-2) var(--e-3);
+    border-radius: var(--r-md);
+    background: var(--surface-alta);
+  }
+  .chat-bolha--eu {
+    align-self: flex-end;
+    background: var(--social-fraco);
+    color: var(--social-ink);
+  }
+  .chat-bolha__autor {
+    font-size: var(--t-xs);
+    font-weight: 500;
+    color: var(--ink-muted);
+    margin-bottom: 2px;
+  }
+  .chat-bolha__hora {
+    font-size: var(--t-micro);
+    color: var(--ink-terciario);
+  }
+  .chat-bolha--eu .chat-bolha__hora { color: inherit; opacity: 0.7; }
+  .chat-composer {
+    display: flex;
+    gap: var(--e-2);
+    align-items: center;
+  }
+  .chat-composer .campo { flex: 1; }
+  .chat-composer .btn {
+    width: var(--toque-min);
+    padding: 0;
+    justify-content: center;
+  }
+
   /* ---- Faixa de 7 dias (membro do grupo) -----------------------------
      Constância, não desempenho: mostra SE houve treino/estudo no dia, e
      nunca carga ou nota. É o recorte que a RLS libera para o grupo. */

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router";
-import { ChevronRight } from "lucide-react";
+import { Link, useNavigate } from "react-router";
+import { ChevronRight, Plus, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useValidacao } from "../lib/formulario";
 import { useToast } from "../lib/toast";
@@ -19,11 +19,13 @@ import {
 export function Grupo() {
   const { sessao } = useAuth();
   const userId = sessao!.user.id;
+  const navegar = useNavigate();
 
   const [carregando, setCarregando] = useState(true);
   const [grupos, setGrupos] = useState<GrupoTipo[]>([]);
   const [membrosPorGrupo, setMembrosPorGrupo] = useState<Record<string, MembroDoGrupo[]>>({});
   const [falhou, setFalhou] = useState<string | null>(null);
+  const [painelAberto, setPainelAberto] = useState<"criar" | "entrar" | null>(null);
 
   async function carregar() {
     setFalhou(null);
@@ -115,19 +117,70 @@ export function Grupo() {
         </div>
       )}
 
-      {/* O erro de cada formulário mora DENTRO dele agora (`.aviso-form`,
-          colado ao botão). O banner que ficava aqui, acima dos dois, era
-          longe demais da ação: em tela de celular ele nascia fora da
-          viewport de quem tinha acabado de tocar no botão. */}
-      <div className="flex flex-col gap-6">
-        <CriarGrupo onCriado={carregar} />
-        <EntrarGrupo onEntrou={carregar} />
-      </div>
+      {/* O "+" fica escondido até que a pessoa peça — os dois formulários
+          sempre visíveis competiam com a lista de grupos por atenção o
+          tempo todo, mesmo pra quem só veio ver o feed. Mesmo espírito do
+          toggle "Novo post" em DetalheGrupo.tsx: painel inline, sem modal
+          novo (não existe primitivo de modal/sheet no projeto). */}
+      {!painelAberto ? (
+        <button
+          type="button"
+          className="btn btn-social btn-bloco"
+          onClick={() => setPainelAberto("criar")}
+        >
+          <Plus size={18} /> Criar ou entrar em grupo
+        </button>
+      ) : (
+        <div className="card flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="h3">
+              {painelAberto === "criar" ? "Criar grupo" : "Entrar em grupo"}
+            </span>
+            <button
+              type="button"
+              className="text-ink-muted shrink-0"
+              onClick={() => setPainelAberto(null)}
+              aria-label="Fechar"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="tabs" role="tablist" aria-label="Criar ou entrar em grupo">
+            <button
+              type="button"
+              role="tab"
+              className="tab"
+              aria-selected={painelAberto === "criar"}
+              onClick={() => setPainelAberto("criar")}
+            >
+              Criar
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className="tab"
+              aria-selected={painelAberto === "entrar"}
+              onClick={() => setPainelAberto("entrar")}
+            >
+              Entrar
+            </button>
+          </div>
+
+          {/* O erro de cada formulário mora DENTRO dele (`.aviso-form`,
+              colado ao botão) — não um banner acima dos dois. */}
+          {painelAberto === "criar" ? (
+            <CriarGrupo onCriado={(g) => navegar(`/grupo/${g.id}/pessoas`)} />
+          ) : (
+            <EntrarGrupo onEntrou={(g) => navegar(`/grupo/${g.id}`)} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function CriarGrupo({ onCriado }: { onCriado: () => void | Promise<void> }) {
+function CriarGrupo({ onCriado }: { onCriado: (grupo: GrupoTipo) => void }) {
   const [nome, setNome] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
@@ -148,10 +201,10 @@ function CriarGrupo({ onCriado }: { onCriado: () => void | Promise<void> }) {
     }
     setEnviando(true);
     try {
-      await criarGrupo(nome.trim());
+      const grupo = await criarGrupo(nome.trim());
       setNome("");
       toast.sucesso("Grupo criado.");
-      await onCriado();
+      onCriado(grupo);
     } catch (e) {
       setErroServidor(e instanceof Error ? e.message : "Não deu para criar o grupo.");
     } finally {
@@ -184,7 +237,7 @@ function CriarGrupo({ onCriado }: { onCriado: () => void | Promise<void> }) {
   );
 }
 
-function EntrarGrupo({ onEntrou }: { onEntrou: () => void | Promise<void> }) {
+function EntrarGrupo({ onEntrou }: { onEntrou: (grupo: GrupoTipo) => void }) {
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
@@ -210,7 +263,7 @@ function EntrarGrupo({ onEntrou }: { onEntrou: () => void | Promise<void> }) {
       const grupo = await entrarNoGrupo(codigo.trim());
       setCodigo("");
       toast.sucesso(`Você entrou em "${grupo.nome}".`);
-      await onEntrou();
+      onEntrou(grupo);
     } catch (e) {
       setErroServidor(e instanceof Error ? e.message : "Código inválido.");
     } finally {
