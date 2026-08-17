@@ -107,7 +107,11 @@ export async function carregarFeedSocial(userId: string): Promise<PostSocial[]> 
 
   const { data, error } = await supabase
     .from("posts_perfil")
-    .select("id,autor_id,foto_path,texto,criado_em,profiles(nome,foto_url)")
+    // `curtidas_perfil` também referencia posts_perfil E profiles — sem o
+    // hint `!posts_perfil_autor_id_fkey`, o PostgREST enxerga dois
+    // caminhos possíveis até profiles (direto por autor_id, e indireto
+    // via curtidas_perfil) e recusa o embed por ambiguidade.
+    .select("id,autor_id,foto_path,texto,criado_em,profiles!posts_perfil_autor_id_fkey(nome,foto_url)")
     .in("autor_id", autores)
     .order("criado_em", { ascending: false })
     .returns<LinhaPost[]>();
@@ -120,7 +124,11 @@ export async function carregarFeedSocial(userId: string): Promise<PostSocial[]> 
 export async function carregarPostsDaPessoa(userId: string, meuId: string): Promise<PostSocial[]> {
   const { data, error } = await supabase
     .from("posts_perfil")
-    .select("id,autor_id,foto_path,texto,criado_em,profiles(nome,foto_url)")
+    // `curtidas_perfil` também referencia posts_perfil E profiles — sem o
+    // hint `!posts_perfil_autor_id_fkey`, o PostgREST enxerga dois
+    // caminhos possíveis até profiles (direto por autor_id, e indireto
+    // via curtidas_perfil) e recusa o embed por ambiguidade.
+    .select("id,autor_id,foto_path,texto,criado_em,profiles!posts_perfil_autor_id_fkey(nome,foto_url)")
     .eq("autor_id", userId)
     .order("criado_em", { ascending: false })
     .returns<LinhaPost[]>();
