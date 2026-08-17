@@ -5,7 +5,7 @@ import {
   PADROES_COMPOSTOS,
   regiaoDoGrupo,
 } from "../_shared/catalogo.ts";
-import type { Objetivo } from "../_shared/perfilTreino.ts";
+import type { Intensidade, Objetivo } from "../_shared/perfilTreino.ts";
 
 type TipoExercicio = "composto" | "isolamento" | "complemento";
 
@@ -74,6 +74,17 @@ function faixaDoTipo(tipo: TipoExercicio, objetivo: Objetivo): Faixa {
   return FAIXAS_POR_OBJETIVO[objetivo][tipo];
 }
 
+/** Espelha "FAIXAS COMPLEMENTARES" do prompt: quantos exercícios por
+    sessão, por intensidade. Antes era uma faixa fixa (4-7) igual pra
+    todo mundo; agora "quão puxado eu quero treinar" também decide
+    quantos exercícios entram, não só onde mirar dentro de séries/reps/
+    descanso. */
+const FAIXA_EXERCICIOS_POR_INTENSIDADE: Record<Intensidade, readonly [number, number]> = {
+  baixo: [4, 5],
+  moderado: [5, 6],
+  alto: [6, 7],
+};
+
 export interface ExercicioGerado {
   exercicio_id: number;
   nome: string;
@@ -99,27 +110,30 @@ export interface PlanoGerado {
 /**
  * As 12 checagens do Prompt 1.
  *
- * Bloqueantes (1-8, e 12 desde 2026-08-16) impedem a gravação. Avisos
- * (9-11) não impedem, mas entram no retry — é a chance barata de
- * melhorar volume e ênfase antes de aceitar.
+ * Bloqueantes (1-8, e 10 e 12 desde 2026-08-17) impedem a gravação.
+ * Avisos (9 e 11) não impedem, mas entram no retry — é a chance barata
+ * de melhorar volume e ênfase antes de aceitar.
  *
  * As checagens 1 (parse/schema) e 6 (reps XOR tempo, parcialmente) já são
  * garantidas pelo `output_config.format` da API. Continuam aqui porque o
  * schema não expressa a regra CRUZADA: qual campo é obrigatório depende de
  * `medida` no catálogo, que o schema não conhece.
  *
- * A 12 (proporção de comum=3) virou bloqueante depois de relato de
- * treino com exercícios raros demais — antes só entrava como aviso e o
- * modelo podia ignorar sem consequência nenhuma.
+ * A 12 (proporção de comum=3) e a 10 (exercícios por sessão, ligada à
+ * intensidade) viraram bloqueantes depois de relato de treino com
+ * exercícios raros demais / quantidade de exercícios não refletindo o
+ * que a pessoa pediu — antes as duas entravam só como aviso e o modelo
+ * podia ignorar sem consequência nenhuma.
  */
 export function validarPlano(
   plano: PlanoGerado,
   catalogo: Catalogo,
-  contexto: { divisao: string; enfase: string; objetivo?: Objetivo },
+  contexto: { divisao: string; enfase: string; objetivo?: Objetivo; intensidade?: Intensidade },
 ): { erros: string[]; avisos: string[] } {
   const erros: string[] = [];
   const avisos: string[] = [];
   const objetivo = contexto.objetivo ?? "hipertrofia";
+  const faixaExercicios = FAIXA_EXERCICIOS_POR_INTENSIDADE[contexto.intensidade ?? "moderado"];
 
   // --- 5. número e letras das sessões batem com a divisão ---------------
   const esperadas = LETRAS_POR_DIVISAO[contexto.divisao] ?? [];
@@ -252,10 +266,14 @@ export function validarPlano(
       );
     }
 
-    // --- 10. 4 a 7 exercícios por sessão (aviso) ------------------------
-    if (sessao.exercicios.length < 4 || sessao.exercicios.length > 7) {
-      avisos.push(
-        `${rotulo}: ${sessao.exercicios.length} exercícios — o alvo é entre 4 e 7`,
+    // --- 10. exercícios por sessão, faixa por intensidade (bloqueante) --
+    if (
+      sessao.exercicios.length < faixaExercicios[0] ||
+      sessao.exercicios.length > faixaExercicios[1]
+    ) {
+      erros.push(
+        `${rotulo}: ${sessao.exercicios.length} exercícios — intensidade ` +
+          `"${contexto.intensidade ?? "moderado"}" pede entre ${faixaExercicios[0]} e ${faixaExercicios[1]}`,
       );
     }
 

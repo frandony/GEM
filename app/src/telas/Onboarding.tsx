@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { LevantadorPixel } from "../componentes/CarregandoIA";
 import { montarTreino, type PedidoMontarTreino } from "../lib/montarTreino";
@@ -25,16 +25,18 @@ import {
 
 const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+/** Um passo por página em vez de ~20 campos numa rolagem só — o
+    formulário tem essa quantidade de campos porque idade, lesão,
+    condição de saúde e nível declarado filtram o catálogo ANTES do
+    prompt (ver supabase/functions/_shared/perfilTreino.ts), não porque
+    quisemos perguntar demais. Passo a passo é o que faz essa quantidade
+    parecer rápida em vez de uma prova. */
+const PASSOS = ["Sobre você", "Histórico", "Objetivo", "Rotina", "Estilo de vida"] as const;
+
 /**
  * Onboarding de treino. É uma chamada só, cara (a IA lê o catálogo
  * inteiro e valida regra por regra) — por isso a tela de espera é
  * honesta sobre o tempo em vez de um spinner mudo que parece travado.
- *
- * O formulário fica maior que o mínimo técnico porque idade, lesão,
- * condição de saúde e nível declarado filtram o catálogo ANTES do
- * prompt (ver supabase/functions/_shared/perfilTreino.ts) — sem isso a
- * IA não tem como saber que um iniciante não deveria receber
- * Levantamento terra.
  */
 export function Onboarding() {
   const { sessao } = useAuth();
@@ -76,6 +78,13 @@ export function Onboarding() {
   const [montando, setMontando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const toast = useToast();
+
+  const [passo, setPasso] = useState(0);
+  const ultimoPasso = passo === PASSOS.length - 1;
+  const topoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    topoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [passo]);
 
   function alternarDia(d: number) {
     setDiasLembrete((atual) =>
@@ -177,13 +186,27 @@ export function Onboarding() {
   }
 
   return (
-    <div className="tela">
+    <div className="tela" ref={topoRef}>
       <h1 className="h1 mb-1">Vamos montar seu treino</h1>
-      <p className="text-sm text-ink-muted mb-6">
+      <p className="text-sm text-ink-muted mb-4">
         Isso roda uma vez — dá para ajustar exercício por exercício depois.
       </p>
 
+      <div className="progress-bar-rotulo">
+        <span>
+          Passo {passo + 1} de {PASSOS.length}
+        </span>
+        <span>{PASSOS[passo]}</span>
+      </div>
+      <div
+        className="progress-bar mb-6"
+        style={{ "--progresso": (passo + 1) / PASSOS.length, "--progresso-cor": "var(--treino)" } as CSSProperties}
+      >
+        <span />
+      </div>
+
       <form onSubmit={aoSubmeter} className="flex flex-col gap-5">
+        {passo === 0 && (
         <Secao titulo="Dados básicos">
           <div className="flex gap-3">
             <label className="flex-1">
@@ -240,7 +263,9 @@ export function Onboarding() {
             ]}
           />
         </Secao>
+        )}
 
+        {passo === 1 && (
         <Secao titulo="Histórico">
           <fieldset>
             <legend className="text-sm text-ink-muted mb-2">Já treinou antes?</legend>
@@ -301,7 +326,9 @@ export function Onboarding() {
             ]}
           />
         </Secao>
+        )}
 
+        {passo === 2 && (
         <Secao titulo="Objetivo">
           <Selecao
             legend="O que você quer alcançar?"
@@ -327,7 +354,10 @@ export function Onboarding() {
             ]}
           />
         </Secao>
+        )}
 
+        {passo === 3 && (
+        <>
         <Secao titulo="Rotina">
           <fieldset>
             <legend className="text-sm text-ink-muted mb-2">Divisão</legend>
@@ -449,7 +479,10 @@ export function Onboarding() {
             ]}
           />
         </Secao>
+        </>
+        )}
 
+        {passo === 4 && (
         <Secao titulo="Estilo de vida">
           <Selecao
             legend="Trabalho (opcional)"
@@ -491,12 +524,39 @@ export function Onboarding() {
             ]}
           />
         </Secao>
+        )}
 
-        {erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
+        {ultimoPasso && erro && <AvisoDeFormulario>{erro}</AvisoDeFormulario>}
 
-        <button className="btn btn-treino btn-bloco" type="submit">
-          Montar treino
-        </button>
+        {/* Voltar nunca é type="submit" — só o botão do último passo é.
+            Como cada passo esconde os campos dos outros via className
+            condicional acima, o <form> só tem UM botão type="submit" no
+            DOM por vez (o dos passos anteriores nem está montado), então
+            Enter num campo de texto não dispara o envio antes da hora. */}
+        <div className="flex gap-2">
+          {passo > 0 && (
+            <button
+              type="button"
+              className="btn btn-neutro"
+              onClick={() => setPasso((p) => p - 1)}
+            >
+              Voltar
+            </button>
+          )}
+          {ultimoPasso ? (
+            <button className="btn btn-treino btn-bloco" type="submit">
+              Montar treino
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-treino btn-bloco"
+              onClick={() => setPasso((p) => p + 1)}
+            >
+              Continuar
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

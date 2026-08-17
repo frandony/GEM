@@ -119,17 +119,26 @@ lombar não entram nesta conta):
 Se ainda ficar fora da faixa depois de realocar sessões, ajuste séries
 dentro dos limites abaixo até fechar — antes de finalizar.
 
-# ÊNFASE SUPERIOR — SESSÕES DE PEITO E DE COSTAS GANHAM 7 EXERCÍCIOS
+# ÊNFASE SUPERIOR — SESSÕES DE PEITO E DE COSTAS GANHAM O TETO DA FAIXA DE INTENSIDADE
 Só quando enfase="superior" (nunca em "equilibrado" nem "inferior"): a
-sessão cujo grupo principal é peito usa EXATAMENTE 7 exercícios — 3 de
-peito, 2 de tríceps, 2 de ombro. A sessão cujo grupo principal é costas
-usa EXATAMENTE 7 — 3 de costas, 2 de bíceps, 2 de ombro. Isso substitui o
-alvo de 5-6 só para essas duas sessões; as outras do ciclo (pernas, ou
-qualquer sessão que combine outros grupos) continuam mirando 5-6.
+sessão cujo grupo principal é peito e a sessão cujo grupo principal é
+costas usam o TETO da faixa de exercícios da intensidade escolhida (ver
+INTENSIDADE e FAIXAS COMPLEMENTARES) — baixo: 5, moderado: 6, alto: 7 —
+em vez do meio da faixa que as outras sessões do ciclo miram.
+
+Peito continua sendo o grupo primário com mais exercícios da sessão dele;
+tríceps e ombro dividem o resto. No teto de 7 (intensidade "alto"): 3 de
+peito, 2 de tríceps, 2 de ombro. Ao mirar 6 ou 5, tire primeiro de ombro,
+depois de tríceps, mantendo peito com pelo menos 2. Mesma lógica
+espelhada pra costas, com bíceps no lugar de tríceps.
+
+Isso substitui o alvo geral da intensidade só para essas duas sessões; as
+outras do ciclo (pernas, ou qualquer sessão que combine outros grupos)
+continuam mirando o meio da faixa normal.
 Vale para ABC, ABCD e ABCDE, onde peito e costas têm sessão própria.
 Não vale para AB — lá peito e costas dividem uma única sessão "Superior"
-com o resto do corpo, então essa sessão segue o alvo geral de 5-6 (até o
-teto de 22 séries), sem a proporção fixa de 7.
+com o resto do corpo, então essa sessão segue o alvo geral da
+intensidade (até o teto de 22 séries), sem a proporção fixa.
 
 # OBJETIVO DO ALUNO — MUDA A FAIXA DE SÉRIES/REPS/DESCANSO, NÃO A ESTRUTURA
 "objetivo" (vem no user prompt) escolhe a LINHA da tabela abaixo. Estrutura
@@ -152,29 +161,40 @@ JSON por causa disso.
 Sem "objetivo" no user prompt (chamada antiga), use a linha "hipertrofia" —
 é o comportamento anterior a esta tabela existir.
 
-# INTENSIDADE — ONDE MIRAR DENTRO DA FAIXA, NÃO MUDA A FAIXA
-"intensidade" (vem no user prompt: baixo, moderado ou alto) diz o quanto a
-pessoa quer se desafiar DENTRO da faixa que "objetivo" já define acima —
-não troca a faixa, não muda a estrutura da sessão, nunca ultrapassa os
-limites que a tabela de objetivo já fixa.
-- intensidade="alto": para cada exercício, mire na PONTA SUPERIOR da faixa
-  de séries e do RPE alvo do objetivo, e no lado mais CURTO do intervalo
-  de descanso.
-- intensidade="baixo": mire na ponta inferior de séries e RPE, e no lado
-  mais LONGO do intervalo de descanso.
-- intensidade="moderado", ou sem "intensidade" no user prompt (chamada
-  antiga): mire no meio da faixa — é o comportamento de antes desta
-  pergunta existir, sem viés pra nenhum lado.
+# INTENSIDADE — ONDE MIRAR DENTRO DA FAIXA DE OBJETIVO, E QUANTOS EXERCÍCIOS POR SESSÃO
+"intensidade" (vem no user prompt: baixo, moderado ou alto) tem dois efeitos:
+
+1. Dentro da faixa de séries/reps/descanso que "objetivo" já define acima,
+   diz ONDE mirar — não troca a faixa em si, não muda a estrutura da
+   sessão, nunca ultrapassa os limites que a tabela de objetivo já fixa.
+   - intensidade="alto": para cada exercício, mire na PONTA SUPERIOR da
+     faixa de séries e do RPE alvo do objetivo, e no lado mais CURTO do
+     intervalo de descanso.
+   - intensidade="baixo": mire na ponta inferior de séries e RPE, e no
+     lado mais LONGO do intervalo de descanso.
+   - intensidade="moderado", ou sem "intensidade" no user prompt (chamada
+     antiga): mire no meio da faixa — é o comportamento de antes desta
+     pergunta existir, sem viés pra nenhum lado.
+
+2. Quantos exercícios cabem em cada sessão — isto SIM muda por
+   intensidade, ver "FAIXAS COMPLEMENTARES" abaixo. Regra travada: fora
+   da faixa de exercícios da intensidade escolhida, o plano é rejeitado
+   e refeito.
 
 # FAIXAS COMPLEMENTARES — não variam por objetivo
 - Abdômen/panturrilha (complemento): 2 a 4 séries; 10 a 20 reps se
   medida="reps", 20 a 60s se medida="tempo"; 30 a 60s de descanso
-- Sessão inteira: **mire em 5 a 6 exercícios** sempre que a distribuição de
-  grupos da sessão permitir — é o alvo, não o teto nem o piso. 4 exercícios
-  só quando a sessão tiver poucos grupos pra cobrir; 7 só quando o volume
-  ou o número de grupos secundários realmente exigir — ou quando for a
-  sessão de peito/costas sob ênfase "superior" (ver seção própria, sempre 7
-  nesse caso). Limite aceito: 4 a 7. Séries no total: 10 a 22
+- Sessão inteira: quantidade de exercícios segue a intensidade escolhida
+  (ver INTENSIDADE) — intensidade="baixo": 4 a 5 exercícios;
+  "moderado": 5 a 6; "alto": 6 a 7. Mire no MEIO da faixa da intensidade
+  sempre que a distribuição de grupos da sessão permitir — é o alvo, não
+  o teto nem o piso. A ponta de BAIXO da faixa só quando a sessão tiver
+  poucos grupos pra cobrir; a ponta de CIMA só quando o volume ou o
+  número de grupos secundários realmente exigir — ou quando for a sessão
+  de peito/costas sob ênfase "superior" (ver seção própria, sempre no
+  teto da faixa da intensidade nesse caso). Isto é regra travada: fora da
+  faixa da intensidade escolhida, o plano é rejeitado e refeito. Séries
+  no total: 10 a 22
 
 # MEDIDA DO EXERCÍCIO
 medida="reps" no catálogo → preencha reps_min e reps_max, duracao_seg nulo.
@@ -230,7 +250,8 @@ ciclo COMPLETO (existentes + novas), não só das sessões novas.
 1. Decida quantas sessões do ciclo vão pra cada lado (ver ÊNFASE)
 2. Grupos musculares desta sessão específica, pela distribuição acima
 3. Se o grupo principal é peito ou costas e enfase="superior": use a
-   composição fixa de 7 da seção ÊNFASE SUPERIOR em vez do passo 8 normal
+   composição no teto da intensidade da seção ÊNFASE SUPERIOR em vez do
+   passo 8 normal
 4. Compostos de peito/costas primeiro (maior carga/mais articulações),
    depois isolamentos de peito/costas, depois compostos de ombro/bíceps/
    tríceps, depois isolamentos de ombro/bíceps/tríceps — músculo grande
@@ -240,11 +261,12 @@ ciclo COMPLETO (existentes + novas), não só das sessões novas.
 6. Para cada slot: grupo_primario e padrao_movimento certos pro tipo,
    comum=1 antes de 2 antes de 3, sem repetir na sessão
 7. Séries/reps/descanso dentro da faixa do tipo
-8. Confira o total da sessão (10-22 séries, alvo de 5-6 exercícios, 4-7
-   como limite — ou 7 fixo se o passo 3 se aplicou) e ajuste
+8. Confira o total da sessão (10-22 séries, exercícios dentro da faixa da
+   intensidade escolhida — ou no teto dessa faixa se o passo 3 se
+   aplicou) e ajuste
 9. Gere até 3 substitutos de cada exercício, o quanto o catálogo permitir
-10. Confira a ênfase do ciclo completo e o limite de comum=3 antes de
-    devolver`;
+10. Confira a ênfase do ciclo completo, o limite de comum=3 e a faixa de
+    exercícios por sessão da intensidade antes de devolver`;
 
 // JSON Schema da saída. Sem minimum/maximum/minItems — não são suportados em
 // structured outputs; essas faixas são conferidas em validacao.ts.
@@ -474,6 +496,7 @@ Deno.serve(async (req: Request) => {
         divisao: corpo.divisao,
         enfase: corpo.enfase,
         objetivo: perfil.objetivo,
+        intensidade: perfil.intensidade,
       });
 
     let resultado;
