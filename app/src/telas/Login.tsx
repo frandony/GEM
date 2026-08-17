@@ -4,6 +4,23 @@ import { useValidacao } from "../lib/formulario";
 import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 import { Voltar } from "../componentes/Voltar";
 
+// Espelha a política de senha ligada no painel do Supabase (Authentication →
+// Policies), sincronizada de `supabase/config.toml` via `supabase config
+// push`: mínimo 8 caracteres, com minúscula, maiúscula e número — sem isso,
+// aumentar a exigência no servidor sem mudar aqui volta a deixar a pessoa
+// digitando uma senha "válida" que o servidor rejeita sem explicar por quê.
+const SENHA_MIN_CARACTERES = 8;
+const SENHA_DICA = "Pelo menos 8 caracteres, com letra maiúscula, minúscula e número.";
+
+function senhaAtendeRequisitos(senha: string): boolean {
+  return (
+    senha.length >= SENHA_MIN_CARACTERES &&
+    /[a-z]/.test(senha) &&
+    /[A-Z]/.test(senha) &&
+    /[0-9]/.test(senha)
+  );
+}
+
 export function Login() {
   const { entrar, criarConta, reenviarConfirmacao } = useAuth();
   const { campo, erros, idDoErro, limpar, limparTudo, validar } =
@@ -40,8 +57,11 @@ export function Login() {
       },
       {
         campo: "senha" as const,
-        valido: senha.length >= 6,
-        mensagem: "A senha precisa ter pelo menos 6 caracteres.",
+        // No login não faz sentido validar a força — a conta já existe com
+        // a senha que tem; só bloqueia campo vazio. A exigência de força só
+        // vale para conta NOVA.
+        valido: modo === "entrar" ? senha.length > 0 : senhaAtendeRequisitos(senha),
+        mensagem: modo === "entrar" ? "Digite sua senha." : SENHA_DICA,
       },
     ]);
     if (!ok) return;
@@ -167,7 +187,7 @@ export function Login() {
           {erros.senha ? (
             <MensagemErro id={idDoErro("senha")}>{erros.senha}</MensagemErro>
           ) : (
-            modo === "criar" && <p className="dica-campo">Pelo menos 6 caracteres.</p>
+            modo === "criar" && <p className="dica-campo">{SENHA_DICA}</p>
           )}
         </div>
 
@@ -212,7 +232,14 @@ export function Login() {
 function traduzirErro(msg: string): string {
   if (/invalid login credentials/i.test(msg)) return "E-mail ou senha incorretos.";
   if (/user already registered/i.test(msg)) return "Já existe uma conta com este e-mail.";
-  if (/password.*at least/i.test(msg)) return "A senha precisa de pelo menos 6 caracteres.";
+  // O servidor rejeita senha por dois motivos (curta demais, ou faltando
+  // maiúscula/minúscula/número) com mensagens em inglês diferentes — antes
+  // um regex só ("password.*at least") pegava as duas e sempre respondia
+  // "precisa de 6 caracteres", mesmo quando a senha já tinha caracteres
+  // suficientes e o problema de verdade era a composição. Mostrar a
+  // exigência completa nos dois casos poupa a pessoa de descobrir regra por
+  // regra, uma rejeição de cada vez.
+  if (/lowercase|uppercase|character of each|password.*at least/i.test(msg)) return SENHA_DICA;
   if (/email not confirmed/i.test(msg))
     return "Sua conta ainda não foi confirmada. Abra o link que enviamos por e-mail.";
   // O Supabase limita e-mails transacionais por hora. Sem esta tradução a
