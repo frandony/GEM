@@ -56,32 +56,27 @@ export function Grupo() {
 
   if (carregando) {
     return (
-      <div className="tela">
+      <>
         <div className="skeleton" style={{ height: "2.5rem", width: "8rem" }} />
         <div className="skeleton mt-4" style={{ height: "9rem" }} />
-      </div>
+      </>
     );
   }
 
   if (falhou) {
     return (
-      <div className="tela">
-        <h1 className="h1 mb-6">Grupo</h1>
-        <FalhaAoCarregar
-          mensagem={falhou}
-          onTentarDeNovo={() => {
-            setCarregando(true);
-            void carregar();
-          }}
-        />
-      </div>
+      <FalhaAoCarregar
+        mensagem={falhou}
+        onTentarDeNovo={() => {
+          setCarregando(true);
+          void carregar();
+        }}
+      />
     );
   }
 
   return (
-    <div className="tela">
-      <h1 className="h1 mb-6">Grupo</h1>
-
+    <>
       {grupos.length === 0 ? (
         <div className="vazio mb-6">
           <p>Você ainda não está em nenhum grupo.</p>
@@ -176,7 +171,7 @@ export function Grupo() {
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 

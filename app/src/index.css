@@ -898,6 +898,42 @@
     justify-content: center;
   }
 
+  /* ---- Feed público (Social) -------------------------------------------
+     Curtir é ação única (não é escolha entre reações como no feed do
+     grupo) — um coração que preenche, mesma lógica de estado de
+     .post-reacao[aria-pressed]. */
+  .curtir-botao {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--e-1);
+    color: var(--ink-muted);
+    touch-action: manipulation;
+  }
+  .curtir-botao:active { transform: scale(0.94); }
+  .curtir-botao[aria-pressed="true"] { color: var(--perigo-ink); }
+
+  /* Linha de pessoa em Descobrir — avatar + nome clicável + botão de
+     seguir, mesma grade usada em toda linha de lista do app. */
+  .pessoa-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--e-3);
+    padding: var(--e-3) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .pessoa-linha:last-child { border-bottom: none; }
+
+  /* Cabeçalho do perfil público — avatar grande centralizado, mesma
+     identidade visual do resto do app, sem capa/banner (não existe
+     conceito de "capa" em nenhuma outra tela). */
+  .perfil-cabecalho {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
   /* ---- Faixa de 7 dias (membro do grupo) -----------------------------
      Constância, não desempenho: mostra SE houve treino/estudo no dia, e
      nunca carga ou nota. É o recorte que a RLS libera para o grupo. */
