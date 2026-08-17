@@ -131,18 +131,20 @@ export function FeedSocial() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-2">
-        <span className="rotulo-secao text-ink-muted">Feed</span>
-        {!postando && (
-          <button
-            type="button"
-            className="text-xs text-social-ink underline"
-            onClick={() => setPostando(true)}
-          >
-            Postar
-          </button>
-        )}
-      </div>
+      {/* Barra de compor, não um link de texto perdido — é a ação
+          principal desta aba, não um extra secundário como "Novo post"
+          dentro de um grupo específico. Reaproveita a affordance de
+          button.card (hover/active já definidos) em vez de CSS novo. */}
+      {!postando && (
+        <button
+          type="button"
+          className="card flex items-center gap-3 mb-4 w-full text-left"
+          onClick={() => setPostando(true)}
+        >
+          <Avatar nome={meuNome} fotoUrl={meuFotoUrl} tamanhoRem={2.25} />
+          <span className="text-ink-muted">O que você quer contar?</span>
+        </button>
+      )}
 
       {postando && (
         <div ref={formRef} className="card mb-4 flex flex-col gap-3">

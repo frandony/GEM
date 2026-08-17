@@ -335,18 +335,16 @@ export function DetalheGrupo() {
 
       {aba === "feed" ? (
         <>
-          <div className="flex items-center justify-between mb-2">
-            <span className="rotulo-secao text-ink-muted">Feed</span>
-            {!criandoPost && (
-              <button
-                type="button"
-                className="text-xs text-social-ink underline"
-                onClick={() => setCriandoPost(true)}
-              >
-                Novo post
-              </button>
-            )}
-          </div>
+          {!criandoPost && (
+            <button
+              type="button"
+              className="card flex items-center gap-3 mb-4 w-full text-left"
+              onClick={() => setCriandoPost(true)}
+            >
+              <Avatar nome={meuNome} fotoUrl={meuFotoUrl} tamanhoRem={2.25} />
+              <span className="text-ink-muted">Novo post no grupo…</span>
+            </button>
+          )}
 
           {criandoPost && (
             <div ref={formPostRef} className="card mb-4 flex flex-col gap-3">
