@@ -49,8 +49,8 @@ export function Social() {
           <Link to="/grupo/descobrir" className="btn btn-neutro" aria-label="Descobrir pessoas">
             <Search size={16} /> Descobrir
           </Link>
-          <Link to={`/grupo/perfil/${userId}`} className="btn btn-neutro" aria-label="Meu perfil">
-            <Avatar nome={meuNome} fotoUrl={meuFotoUrl} tamanhoRem={1.5} /> Perfil
+          <Link to={`/grupo/perfil/${userId}`} aria-label="Meu perfil">
+            <Avatar nome={meuNome} fotoUrl={meuFotoUrl} tamanhoRem={2.5} />
           </Link>
         </div>
       </header>
