@@ -1003,6 +1003,20 @@ export interface EventoNovo {
   descricao: string | null;
 }
 
+/**
+ * Liga a flag que faz o card "Estudo de hoje" existir na Home.
+ *
+ * Chamada depois de criar a primeira matéria — sem isso a Home nem
+ * carrega blocos e matérias (`Home.tsx` só busca isso quando
+ * `usa_estudo`). O erro é só logado, não lançado: falhar em ligar uma
+ * flag de exibição não deve impedir a matéria (já gravada) de ser
+ * comemorada com o toast de sucesso.
+ */
+export async function ligarUsaEstudo(userId: string): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ usa_estudo: true }).eq("id", userId);
+  if (error) console.warn("não deu para ligar usa_estudo:", error.message);
+}
+
 export async function criarMateriaSimples(
   nome: string,
   topicos: Array<{ nome: string; dificuldade: "facil" | "medio" | "dificil" | null }>,

@@ -11,6 +11,8 @@ import { Treino } from "./telas/Treino";
 import { EditarPlano } from "./telas/EditarPlano";
 import { HistoricoTreinos } from "./telas/HistoricoTreinos";
 import { Estudo } from "./telas/Estudo";
+import { MateriasEstudo } from "./telas/MateriasEstudo";
+import { NovaMateria } from "./telas/NovaMateria";
 import { GradeEstudo } from "./telas/GradeEstudo";
 import { MontarPlanoEstudo } from "./telas/MontarPlanoEstudo";
 import { Social } from "./telas/Social";
@@ -105,6 +107,8 @@ export function App() {
               <Route path="/treino/plano" element={<EditarPlano />} />
               <Route path="/treino/historico" element={<HistoricoTreinos />} />
               <Route path="/estudo" element={<Estudo />} />
+              <Route path="/estudo/materias" element={<MateriasEstudo />} />
+              <Route path="/estudo/materias/nova" element={<NovaMateria />} />
               <Route path="/estudo/grade" element={<GradeEstudo />} />
               <Route path="/estudo/montar" element={<MontarPlanoEstudo />} />
               <Route path="/grupo" element={<Social />} />

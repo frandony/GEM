@@ -1,52 +1,20 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
-import {
-  Calendar,
-  CalendarClock,
-  Camera,
-  Check,
-  ChevronDown,
-  Pause,
-  Play,
-  RotateCcw,
-  SkipForward,
-  Sparkles,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { CalendarClock, Check, List, Pause, Play, RotateCcw, SkipForward, Sparkles, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { supabase } from "../lib/supabase";
 import { notificarFimDoTimer } from "../lib/notificacaoTimer";
-import { extrairTextoDoPdf } from "../lib/pdf";
-import { extrairTextoDaImagem } from "../lib/ocr";
 import {
-  extrairTopicosDoTexto,
-  gerarTopicosPeloNome,
-  type Contexto,
-  type DataExtraidaDoPdf,
-  type ExtracaoDeTopicos,
-  type OrigemDosTopicos,
-} from "../lib/extrairTopicos";
-import {
-  arquivarMateria,
-  arquivarTopico,
   carregarBlocosDoIntervalo,
   carregarMateriasParaMontagem,
   carregarPerfil,
   corDaDisciplina,
-  criarMateriaSimples,
   hojeNoFuso,
   marcarBloco,
   type BlocoEstudo,
-  type EventoNovo,
   type MateriaParaMontagem,
-  type TopicoParaMontagem,
 } from "../lib/dados";
 import { FalhaAoCarregar } from "../componentes/FalhaAoCarregar";
 import { useToast } from "../lib/toast";
-import { useValidacao } from "../lib/formulario";
-import { AvisoDeFormulario, MensagemErro } from "../componentes/MensagemErro";
 
 const TIPO_ROTULO: Record<BlocoEstudo["tipo"], string> = {
   leitura: "Leitura",
@@ -117,6 +85,14 @@ const CORES_ESTUDO = {
   "--tile-cor-fraca": "var(--estudo-fraco)",
 } as CSSProperties;
 
+/* =====================================================================
+   Estudo — "hoje": timer de foco, faixa de dias, blocos do dia
+   selecionado. Gestão de matérias (lista, tópicos, criação) mora em
+   MateriasEstudo.tsx/NovaMateria.tsx, uma navegação de distância pelo
+   botão "Matérias" no cabeçalho — antes vivia tudo aqui (1666 linhas,
+   de longe a maior tela do app), com "Nova matéria" empurrado pra fora
+   da primeira dobra assim que existiam algumas matérias cadastradas.
+   ===================================================================== */
 export function Estudo() {
   const { sessao } = useAuth();
   const userId = sessao!.user.id;
@@ -129,13 +105,7 @@ export function Estudo() {
   const [blocos, setBlocos] = useState<BlocoEstudo[]>([]);
   const [hojeISO, setHojeISO] = useState("");
   const [diaSelecionado, setDiaSelecionado] = useState("");
-  const [criando, setCriando] = useState(false);
   const [falhou, setFalhou] = useState<string | null>(null);
-  // Guarda qual matéria acabou de nascer, só para destacá-la na lista.
-  // Sem isso, "criei e não aconteceu nada" continuaria valendo mesmo com
-  // a lista existindo: ela entraria no meio de outras seis, sem aviso.
-  const [materiaNovaId, setMateriaNovaId] = useState<string | null>(null);
-  const [materiaAberta, setMateriaAberta] = useState<string | null>(null);
   const toast = useToast();
 
   // Timer de foco — mesma lógica de relógio (Date.now(), não setInterval
@@ -173,20 +143,11 @@ export function Estudo() {
   }
 
   // Dá scroll no card do timer quando "Estudar" é tocado num bloco mais
-  // abaixo na lista, com o timer fora da tela — mesmo padrão do efeito de
-  // scroll do formulário de nova matéria, logo abaixo.
+  // abaixo na lista, com o timer fora da tela.
   const timerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (blocoEmFocoId) timerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [blocoEmFocoId]);
-
-  // O formulário de nova matéria abre no fim da página, embaixo da lista
-  // de disciplinas — sem isso, o toque em "Nova matéria" não muda nada
-  // visível na tela (o card nasce fora da viewport).
-  const formNovaMateriaRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (criando) formNovaMateriaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [criando]);
 
   useEffect(() => {
     if (!rodando) return;
@@ -212,10 +173,10 @@ export function Estudo() {
       const hoje = hojeNoFuso(tz);
       const janela = diasDaFaixa(hoje, DIAS_NA_FAIXA);
       const [ms, bs] = await Promise.all([
-        // `...ParaMontagem` e não `carregarMaterias`: traz tópicos e eventos
-        // no mesmo round-trip, que é o que a lista de matérias mostra. As
-        // duas consultas filtram e ordenam igual, então a cor de cada
-        // disciplina (que sai da posição na lista) não muda.
+        // Precisa da lista de matérias pra colorir cada bloco por
+        // disciplina (corDaDisciplina) e pra saber se ainda não existe
+        // nenhuma — a gestão de tópicos/eventos em si mora em
+        // MateriasEstudo.tsx, que carrega os próprios dados.
         carregarMateriasParaMontagem(userId),
         carregarBlocosDoIntervalo(userId, janela[0]!, janela[janela.length - 1]!),
       ]);
@@ -223,13 +184,13 @@ export function Estudo() {
       setBlocos(bs);
       setHojeISO(hoje);
       // Só inicializa na primeira carga — um recarregamento por outro
-      // motivo (criar matéria, tentar de novo) não deve arrancar a pessoa
-      // do dia que ela escolheu ver.
+      // motivo (tentar de novo) não deve arrancar a pessoa do dia que
+      // ela escolheu ver.
       setDiaSelecionado((atual) => atual || hoje);
     } catch (e) {
       // O estado vazio desta tela AFIRMA que você não tem matéria nenhuma
-      // e esconde Pomodoro, plano e blocos junto. Cair nele por causa de
-      // uma consulta que falhou era o bug que fazia parecer que as
+      // e esconde Pomodoro e blocos junto. Cair nele por causa de uma
+      // consulta que falhou era o bug que fazia parecer que as
       // funcionalidades novas nem tinham sido implementadas.
       setFalhou(e instanceof Error ? e.message : "Não deu para carregar seu estudo.");
     } finally {
@@ -241,23 +202,6 @@ export function Estudo() {
     void carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
-
-  /**
-   * Liga a flag que faz o card "Estudo de hoje" existir na Home.
-   *
-   * Era chamada só no caminho do estado vazio. Quem criasse a primeira
-   * matéria pelo botão "Nova matéria" do fim da tela ficava com a flag
-   * falsa — e aí o Estudo sumia da Home, e a Home nem carregava blocos e
-   * matérias (`Home.tsx` só busca isso quando `usa_estudo`). O erro
-   * também não era conferido: o Supabase não lança sozinho.
-   */
-  async function ligarUsaEstudo() {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ usa_estudo: true })
-      .eq("id", userId);
-    if (error) console.warn("não deu para ligar usa_estudo:", error.message);
-  }
 
   /**
    * Marca ou desmarca um bloco. Otimista com rollback: a caixa responde
@@ -344,15 +288,9 @@ export function Estudo() {
           </ol>
         </div>
 
-        <NovaMateria
-          onCriada={async (_ids, nomes) => {
-            await ligarUsaEstudo();
-            toast.sucesso(
-              nomes.length === 1 ? `Matéria "${nomes[0]}" criada.` : `${nomes.length} matérias criadas.`,
-            );
-            await carregar();
-          }}
-        />
+        <Link className="btn btn-estudo btn-bloco" to="/estudo/materias/nova">
+          Cadastrar matéria
+        </Link>
       </div>
     );
   }
@@ -375,8 +313,15 @@ export function Estudo() {
   return (
     <div className="tela">
       <header className="mb-4">
-        <span className="text-sm text-ink-muted">Sessão de estudo</span>
-        <h1 className="h1">Estudo</h1>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <span className="text-sm text-ink-muted">Sessão de estudo</span>
+            <h1 className="h1">Estudo</h1>
+          </div>
+          <Link to="/estudo/materias" className="btn btn-neutro shrink-0">
+            <List size={16} /> Matérias
+          </Link>
+        </div>
       </header>
 
       {/* As duas ações da tela, lado a lado e do mesmo tamanho.
@@ -536,7 +481,7 @@ export function Estudo() {
           </Link>
         </div>
       ) : (
-        <div className="card mb-6">
+        <div className="card">
           {[...pendentes, ...feitos].map((b) => (
             <LinhaDeBloco
               key={b.id}
@@ -546,55 +491,6 @@ export function Estudo() {
               onEstudar={() => iniciarFoco(b)}
             />
           ))}
-        </div>
-      )}
-
-      {/* ---- Suas matérias --------------------------------------------
-          A seção que não existia. Sem ela, criar matéria era uma escrita
-          sem retorno: o dado ia pro banco e não tinha onde aparecer. */}
-      <span className="rotulo-secao text-ink-muted mb-2 block">Suas matérias</span>
-      <div className="flex flex-col gap-3 mb-6">
-        {materias.map((m) => (
-          <LinhaDeMateria
-            key={m.id}
-            materia={m}
-            cor={corDaDisciplina(m.id, materias)}
-            nova={m.id === materiaNovaId}
-            aberta={materiaAberta === m.id}
-            onAlternar={() => setMateriaAberta((atual) => (atual === m.id ? null : m.id))}
-            onExcluida={async () => {
-              toast.sucesso(`Matéria "${m.nome}" excluída.`);
-              setMateriaAberta(null);
-              await carregar();
-            }}
-            onTopicoExcluido={async (nomeTopico) => {
-              toast.sucesso(`Tópico "${nomeTopico}" excluído.`);
-              await carregar();
-            }}
-            onErro={(msg) => toast.erro(msg)}
-          />
-        ))}
-      </div>
-
-      {!criando ? (
-        <button className="btn btn-neutro" onClick={() => setCriando(true)}>
-          Nova matéria
-        </button>
-      ) : (
-        <div ref={formNovaMateriaRef}>
-          <NovaMateria
-            onCriada={async (ids, nomes) => {
-              setCriando(false);
-              setMateriaNovaId(ids[0] ?? null);
-              // Também aqui: era o caminho que esquecia a flag.
-              await ligarUsaEstudo();
-              toast.sucesso(
-                nomes.length === 1 ? `Matéria "${nomes[0]}" criada.` : `${nomes.length} matérias criadas.`,
-              );
-              await carregar();
-            }}
-            onCancelar={() => setCriando(false)}
-          />
         </div>
       )}
     </div>
@@ -728,938 +624,5 @@ function LinhaDeBloco({
         </span>
       </button>
     </div>
-  );
-}
-
-const DIFICULDADE_ROTULO = { facil: "fácil", medio: "médio", dificil: "difícil" } as const;
-
-/**
- * Matéria na lista: toca para ver os tópicos, e é lá dentro que mora o
- * excluir.
- *
- * A linha era propositalmente inerte porque não havia para onde levar.
- * Agora tem destino (a própria lista de tópicos), então passa a cumprir a
- * regra de affordance do index.css: é `<button>` de verdade e mostra o
- * chevron. O excluir fica DENTRO do painel aberto, não na linha fechada —
- * regra 4: ação com consequência não mora no corpo de uma linha que a
- * pessoa toca para navegar.
- */
-function LinhaDeMateria({
-  materia,
-  cor,
-  nova,
-  aberta,
-  onAlternar,
-  onExcluida,
-  onTopicoExcluido,
-  onErro,
-}: {
-  materia: MateriaParaMontagem;
-  cor: string;
-  nova: boolean;
-  aberta: boolean;
-  onAlternar: () => void;
-  onExcluida: () => void | Promise<void>;
-  onTopicoExcluido: (nomeTopico: string) => void | Promise<void>;
-  onErro: (msg: string) => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [confirmando, setConfirmando] = useState(false);
-  const [excluindo, setExcluindo] = useState(false);
-  // Id do tópico sendo excluído — não `boolean`, porque vários podem estar
-  // na lista ao mesmo tempo e só UM botão pode ficar "excluindo…" por vez.
-  const [excluindoTopico, setExcluindoTopico] = useState<string | null>(null);
-
-  /**
-   * Excluir tópico é ação LEVE de propósito, diferente da matéria: sem
-   * modal de confirmação em 2 passos. Numa lista de 10 tópicos, exigir
-   * confirmação pra cada um vira atrito que faz a pessoa desistir de
-   * arrumar a lista. O toast que confirma ("Tópico excluído") é o "OK,
-   * entendi" — se errar o dedo, a perda é um item numa lista, não uma
-   * matéria inteira com histórico.
-   */
-  async function excluirTopico(topico: TopicoParaMontagem) {
-    setExcluindoTopico(topico.id);
-    try {
-      await arquivarTopico(topico.id);
-      await onTopicoExcluido(topico.nome);
-    } catch (e) {
-      onErro(e instanceof Error ? e.message : "Não deu para excluir o tópico.");
-    } finally {
-      setExcluindoTopico(null);
-    }
-  }
-
-  useEffect(() => {
-    if (nova) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [nova]);
-
-  const total = materia.topicos.length;
-  // "Sem plano" responde exatamente à pergunta "criei a matéria, e agora?".
-  // `blocosEstimados` só é preenchido pela Fase A do montar-estudo.
-  const semPlano = total > 0 && materia.topicos.every((t) => t.blocosEstimados == null);
-  const proximoEvento = materia.eventos
-    .slice()
-    .sort((a, b) => a.data.localeCompare(b.data))[0];
-
-  async function excluir() {
-    setExcluindo(true);
-    try {
-      await arquivarMateria(materia.id);
-      await onExcluida();
-    } catch (e) {
-      onErro(e instanceof Error ? e.message : "Não deu para excluir a matéria.");
-      setExcluindo(false);
-    }
-  }
-
-  return (
-    <div
-      ref={ref}
-      className={nova ? "card subject-row--nova" : "card"}
-      style={{ padding: 0 }}
-    >
-      <button
-        type="button"
-        className="subject-row w-full text-left"
-        style={{ "--cor": cor, paddingInline: "var(--e-4)" } as CSSProperties}
-        onClick={onAlternar}
-        aria-expanded={aberta}
-      >
-        <span className="subject-row__cor" />
-        <div className="subject-row__texto">
-          <div className="h3">{materia.nome}</div>
-          <div className="text-xs text-ink-terciario">
-            {total} {total === 1 ? "tópico" : "tópicos"}
-            {proximoEvento &&
-              ` · ${proximoEvento.tipo === "prova" ? "prova" : "entrega"} em ${proximoEvento.data
-                .split("-")
-                .reverse()
-                .slice(0, 2)
-                .join("/")}`}
-          </div>
-        </div>
-        {semPlano ? (
-          <span className="badge badge-atencao shrink-0">sem plano</span>
-        ) : (
-          <span className="badge badge-estudo shrink-0">no plano</span>
-        )}
-        <ChevronDown
-          size={18}
-          className="text-ink-muted shrink-0"
-          style={{
-            transform: aberta ? "rotate(180deg)" : "none",
-            transition: "transform var(--d-entrar) var(--ease-out)",
-          }}
-        />
-      </button>
-
-      {aberta && (
-        <div style={{ padding: "0 var(--e-4) var(--e-4)" }}>
-          <div style={{ borderTop: "1px solid var(--hairline)", paddingTop: "var(--e-3)" }}>
-            {total === 0 ? (
-              <p className="text-sm text-ink-muted">Esta matéria não tem tópicos cadastrados.</p>
-            ) : (
-              <ol className="flex flex-col gap-2">
-                {materia.topicos.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2">
-                    <span className="text-xs text-ink-fraco num shrink-0" style={{ width: "1.5rem" }}>
-                      {t.ordem}.
-                    </span>
-                    <span className="text-sm flex-1">{t.nome}</span>
-                    {t.dificuldade && (
-                      <span className="badge shrink-0" style={{ background: "var(--surface-alta)" }}>
-                        {DIFICULDADE_ROTULO[t.dificuldade]}
-                      </span>
-                    )}
-                    {/* `compreendido` é tri-state e só desce por resposta do
-                        mini-questionário — `null` significa "ainda não
-                        respondeu", que não é o mesmo que "não entendeu". */}
-                    {t.compreendido === false && (
-                      <span className="badge badge-atencao shrink-0">revisar</span>
-                    )}
-                    <button
-                      type="button"
-                      className="topico-excluir"
-                      onClick={() => void excluirTopico(t)}
-                      disabled={excluindoTopico === t.id}
-                      aria-label={`Excluir tópico "${t.nome}"`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--hairline)", marginTop: "var(--e-4)", paddingTop: "var(--e-3)" }}>
-            {!confirmando ? (
-              <button className="btn btn-perigo" onClick={() => setConfirmando(true)}>
-                <Trash2 size={16} /> Excluir matéria
-              </button>
-            ) : (
-              <div role="alertdialog" aria-label="Confirmar exclusão da matéria">
-                <p className="mb-1">Excluir "{materia.nome}"?</p>
-                {/* Diz a verdade sobre o que sobrevive. É arquivamento
-                    (`ativa = false`), justamente para não destruir o que
-                    está listado abaixo — ver `arquivarMateria` em dados.ts. */}
-                <p className="text-sm text-ink-muted mb-4">
-                  Ela sai da sua lista e dos próximos planos. O que você já estudou continua
-                  contando no seu histórico e no resumo da semana.
-                </p>
-                <div className="flex gap-2">
-                  <button className="btn btn-perigo" onClick={() => void excluir()} disabled={excluindo}>
-                    {excluindo ? "Excluindo…" : "Sim, excluir"}
-                  </button>
-                  <button className="btn btn-neutro" onClick={() => setConfirmando(false)}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Um card da revisão multi-matéria — ver o comentário grande acima de
-    `aplicarExtracao`. Só o nome é editável; os tópicos ficam como a IA
-    devolveu, porque afinar tópico por tópico já existe DEPOIS de criada
-    (a lixeira em "Suas matérias") — reeditar aqui em cima de N cards
-    seria a mesma ferramenta duas vezes. */
-interface PropostaMateria {
-  nome: string;
-  incluir: boolean;
-  topicos: string[];
-  datas: DataExtraidaDoPdf[];
-}
-
-function NovaMateria({
-  onCriada,
-  onCancelar,
-}: {
-  /** Sempre listas, mesmo quando é uma matéria só — evita um segundo
-      formato de callback só pro caso raro de várias de uma vez. */
-  onCriada: (materiaIds: string[], nomes: string[]) => void | Promise<void>;
-  onCancelar?: () => void;
-}) {
-  const [nome, setNome] = useState("");
-  const [topicos, setTopicos] = useState(["", "", ""]);
-  const [eventos, setEventos] = useState<EventoNovo[]>([]);
-  const [tipoEventoNovo, setTipoEventoNovo] = useState<"prova" | "entrega">("prova");
-  const [dataEventoNovo, setDataEventoNovo] = useState("");
-  const [descEventoNovo, setDescEventoNovo] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [erroServidor, setErroServidor] = useState<string | null>(null);
-  const { campo, erros, errosSemCampo, idDoErro, limpar, validar } =
-    useValidacao<"nome" | "topico">();
-
-  // Modo só decide qual entrada de tópico aparece. `origemAtual` e
-  // `confiancaAtual` são o que de fato vai pro banco — ficam "manual"/
-  // "alta" até uma extração ter sucesso, e não voltam atrás só porque a
-  // pessoa reabriu o modo manual pra ajustar um tópico.
-  const [modo, setModo] = useState<"manual" | "pdf" | "ia">("manual");
-  const [origemAtual, setOrigemAtual] = useState<OrigemDosTopicos>("manual");
-  const [confiancaAtual, setConfiancaAtual] = useState<"alta" | "media" | "baixa">("alta");
-  // Contexto/curso/período valem pros DOIS caminhos de IA (documento e
-  // por nome) — o backend usa os dois pra "completar" tópicos que o
-  // documento não deixou explícitos, não só pro caminho sem documento.
-  const [contexto, setContexto] = useState<Contexto | null>(null);
-  const [curso, setCurso] = useState("");
-  const [periodo, setPeriodo] = useState<number | null>(null);
-  // Estado compartilhado pelos caminhos de IA (documento e por nome): o
-  // fluxo depois da resposta é o mesmo — revisar e salvar —, então
-  // duplicar seria só chance de os dois divergirem.
-  const [iaEstado, setIaEstado] = useState<"ocioso" | "lendo" | "analisando" | "erro">("ocioso");
-  const [iaErro, setIaErro] = useState<string | null>(null);
-  const [pdfNomeArquivo, setPdfNomeArquivo] = useState<string | null>(null);
-  const [iaAvisos, setIaAvisos] = useState<string[]>([]);
-  const [pdfDatas, setPdfDatas] = useState<DataExtraidaDoPdf[]>([]);
-  // `null` = modo de uma matéria só (o de sempre). Só o caminho de
-  // documento pode virar N matérias — "gerar pela IA" sempre devolve 1,
-  // o backend garante isso no prompt.
-  const [propostas, setPropostas] = useState<PropostaMateria[] | null>(null);
-
-  /** Ponto único onde uma extração vira estado do formulário. */
-  function aplicarExtracao(extracao: ExtracaoDeTopicos, vazioMsg: string) {
-    setOrigemAtual(extracao.origem);
-    setConfiancaAtual(extracao.confianca);
-
-    const semNada =
-      extracao.materias.length === 0 ||
-      (extracao.materias.length === 1 && extracao.materias[0]!.topicos.length === 0);
-    setIaAvisos(semNada ? [vazioMsg] : extracao.avisos);
-    setIaEstado("ocioso");
-
-    if (extracao.materias.length > 1) {
-      // Documento com várias disciplinas (grade curricular, por
-      // exemplo): cada uma vira um card revisável, todas pré-marcadas —
-      // a pessoa desmarca a que não quer, em vez de marcar uma por uma.
-      setPropostas(
-        extracao.materias.map((m) => ({
-          nome: m.nome,
-          incluir: true,
-          topicos: m.topicos.map((t) => t.nome),
-          datas: m.datasEncontradas,
-        })),
-      );
-      return;
-    }
-
-    // Caso comum: uma matéria só. Continua populando os campos de
-    // sempre — não vale complicar o caminho principal por causa do raro.
-    setPropostas(null);
-    const m = extracao.materias[0];
-    setTopicos(m && m.topicos.length > 0 ? m.topicos.map((t) => t.nome) : [""]);
-    if (!nome.trim() && m?.nome) setNome(m.nome);
-    setPdfDatas(m?.datasEncontradas ?? []);
-    limpar("topico");
-  }
-
-  async function aoEscolherPdf(arquivo: File) {
-    setPdfNomeArquivo(arquivo.name);
-    setIaErro(null);
-    setIaAvisos([]);
-    setPdfDatas([]);
-    setIaEstado("lendo");
-    try {
-      const texto = await extrairTextoDoPdf(arquivo);
-      setIaEstado("analisando");
-      aplicarExtracao(
-        await extrairTopicosDoTexto(texto, { curso, periodo, contexto }),
-        "Nenhum tópico identificado neste arquivo — digite manualmente abaixo.",
-      );
-    } catch (e) {
-      setIaErro(e instanceof Error ? e.message : "Não deu para ler o arquivo.");
-      setIaEstado("erro");
-    }
-  }
-
-  /** Mesmo pipeline do PDF a partir daqui — só a extração de texto muda
-      (OCR em vez de pdf.js). O resto (extrair-topicos, revisão, criação)
-      é idêntico, por isso os dois caem no mesmo `aplicarExtracao`. */
-  async function aoEscolherFoto(arquivo: File) {
-    setPdfNomeArquivo(arquivo.name || "Foto");
-    setIaErro(null);
-    setIaAvisos([]);
-    setPdfDatas([]);
-    setIaEstado("lendo");
-    try {
-      const texto = await extrairTextoDaImagem(arquivo);
-      setIaEstado("analisando");
-      aplicarExtracao(
-        await extrairTopicosDoTexto(texto, { curso, periodo, contexto }),
-        "Nenhum tópico identificado nesta foto — digite manualmente abaixo.",
-      );
-    } catch (e) {
-      setIaErro(e instanceof Error ? e.message : "Não deu para ler a foto.");
-      setIaEstado("erro");
-    }
-  }
-
-  /**
-   * Gera os tópicos só com o nome da matéria — sem documento nenhum.
-   * Usa o campo "Nome da matéria" lá de cima, então valida ele primeiro:
-   * sem isso, o toque no botão não faria nada e a pessoa não saberia por quê.
-   */
-  async function gerarPeloNome() {
-    setIaErro(null);
-    if (!validar([{ campo: "nome", valido: !!nome.trim(), mensagem: "Dê um nome à matéria primeiro." }])) {
-      return;
-    }
-    setIaAvisos([]);
-    setPdfDatas([]);
-    setIaEstado("analisando");
-    try {
-      aplicarExtracao(
-        await gerarTopicosPeloNome(nome.trim(), { curso, periodo, contexto }),
-        "A IA não conseguiu listar tópicos para essa matéria — digite manualmente abaixo.",
-      );
-    } catch (e) {
-      setIaErro(e instanceof Error ? e.message : "Não deu para gerar os tópicos.");
-      setIaEstado("erro");
-    }
-  }
-
-  function adicionarEvento() {
-    if (!dataEventoNovo) return;
-    setEventos((atual) => [
-      ...atual,
-      { tipo: tipoEventoNovo, data: dataEventoNovo, descricao: descEventoNovo.trim() || null },
-    ]);
-    setDataEventoNovo("");
-    setDescEventoNovo("");
-  }
-
-  /**
-   * Cria as matérias marcadas nos cards de revisão, uma chamada de RPC
-   * por matéria — não existe (nem deveria existir) uma versão em lote de
-   * `salvar_materia_com_topicos`: cada matéria é uma transação própria,
-   * e se uma falhar as outras não devem ficar reféns dela.
-   *
-   * Eventos (provas/entregas) ficam de fora aqui de propósito: em N
-   * matérias, a quem cada data pertence deixa de ser óbvio, e a UI
-   * compartilhada de eventos do formulário não faz sentido pra N
-   * matérias ao mesmo tempo. Fica pra v2 se aparecer pedido de verdade.
-   */
-  async function criarVarias(selecionadas: PropostaMateria[]) {
-    const criadasIds: string[] = [];
-    const criadasNomes: string[] = [];
-    const falhas: string[] = [];
-
-    for (const p of selecionadas) {
-      const nomesTopicos = p.topicos.map((t) => t.trim()).filter(Boolean);
-      try {
-        const id = await criarMateriaSimples(
-          p.nome.trim(),
-          nomesTopicos.map((n) => ({ nome: n, dificuldade: null })),
-          [],
-          origemAtual,
-          confiancaAtual,
-        );
-        criadasIds.push(id);
-        criadasNomes.push(p.nome.trim());
-      } catch (e) {
-        falhas.push(`${p.nome.trim()}: ${e instanceof Error ? e.message : "erro desconhecido"}`);
-      }
-    }
-
-    if (criadasIds.length > 0) await onCriada(criadasIds, criadasNomes);
-    if (falhas.length > 0) {
-      setErroServidor(
-        criadasIds.length > 0
-          ? `${criadasIds.length} criada(s). Não deu certo: ${falhas.join("; ")}`
-          : `Nenhuma matéria foi criada: ${falhas.join("; ")}`,
-      );
-    }
-  }
-
-  async function aoSubmeter(e: FormEvent) {
-    e.preventDefault();
-    setErroServidor(null);
-
-    if (propostas) {
-      const selecionadas = propostas.filter((p) => p.incluir && p.nome.trim());
-      if (selecionadas.length === 0) {
-        setErroServidor("Marque pelo menos uma matéria para criar.");
-        return;
-      }
-      setEnviando(true);
-      await criarVarias(selecionadas);
-      setEnviando(false);
-      return;
-    }
-
-    const nomesTopicos = topicos.map((t) => t.trim()).filter(Boolean);
-
-    // Duas regras separadas, não uma mensagem única no fim do formulário:
-    // o foco vai para o campo que de fato faltou. Quando o modo é PDF os
-    // inputs de tópico nem estão montados — aí o hook joga a mensagem em
-    // `errosSemCampo`, que sai no `.aviso-form` acima do botão.
-    const passou = validar([
-      { campo: "nome", valido: !!nome.trim(), mensagem: "Dê um nome à matéria." },
-      {
-        campo: "topico",
-        valido: nomesTopicos.length > 0,
-        mensagem: "Cadastre pelo menos um tópico.",
-      },
-    ]);
-    if (!passou) return;
-
-    setEnviando(true);
-    try {
-      const materiaId = await criarMateriaSimples(
-        nome.trim(),
-        nomesTopicos.map((n) => ({ nome: n, dificuldade: null })),
-        eventos,
-        origemAtual,
-        confiancaAtual,
-      );
-      await onCriada([materiaId], [nome.trim()]);
-    } catch (e) {
-      setErroServidor(e instanceof Error ? e.message : "Não deu para criar a matéria.");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  return (
-    <form onSubmit={aoSubmeter} className="card flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <span className="h2">Nova matéria</span>
-        {onCancelar && (
-          <button
-            type="button"
-            className="text-ink-muted shrink-0"
-            onClick={onCancelar}
-            aria-label="Cancelar"
-          >
-            <X size={20} />
-          </button>
-        )}
-      </div>
-
-      {/* Some quando a extração virou N matérias: cada card de baixo tem
-          seu próprio nome editável, um campo "Nome da matéria" no topo
-          ficaria sobrando e confuso ("nome de qual das cinco?"). */}
-      {!propostas && (
-        <div>
-          <label>
-            <div className="text-sm text-ink-muted mb-1">Nome da matéria</div>
-            <input
-              className="campo"
-              value={nome}
-              onChange={(e) => {
-                setNome(e.target.value);
-                limpar("nome");
-              }}
-              {...campo("nome")}
-            />
-          </label>
-          {erros.nome && <MensagemErro id={idDoErro("nome")}>{erros.nome}</MensagemErro>}
-        </div>
-      )}
-
-      <div>
-        <div className="text-sm text-ink-muted mb-1">Como cadastrar os tópicos</div>
-        <div className="flex gap-2 mb-3 flex-wrap">
-          <button
-            type="button"
-            className={modo === "manual" ? "chip chip-estudo" : "chip"}
-            onClick={() => setModo("manual")}
-          >
-            Digitar
-          </button>
-          <button
-            type="button"
-            className={modo === "pdf" ? "chip chip-estudo" : "chip"}
-            onClick={() => setModo("pdf")}
-          >
-            PDF ou foto
-          </button>
-          <button
-            type="button"
-            className={modo === "ia" ? "chip chip-estudo" : "chip"}
-            onClick={() => setModo("ia")}
-          >
-            Gerar pela IA
-          </button>
-        </div>
-
-        {/* Contexto/curso/período valem pros dois modos de IA — documento
-            E por nome —, então ficam num bloco só entre os chips de modo
-            e o painel específico, em vez de duplicados dentro de cada um. */}
-        {modo !== "manual" && (
-          <div className="flex flex-col gap-2 mb-3">
-            <div>
-              <div className="text-sm text-ink-muted mb-1">
-                O que você está estudando? <span className="text-ink-terciario">(opcional)</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {(
-                  [
-                    ["faculdade", "Faculdade"],
-                    ["enem", "ENEM"],
-                    ["concurso", "Concurso"],
-                  ] as const
-                ).map(([valor, rotulo]) => (
-                  <button
-                    key={valor}
-                    type="button"
-                    className={contexto === valor ? "chip chip-estudo" : "chip"}
-                    onClick={() => setContexto((atual) => (atual === valor ? null : valor))}
-                  >
-                    {rotulo}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ENEM não tem "curso" — a pergunta nem faz sentido pro exame.
-                Faculdade e concurso reaproveitam o MESMO campo `curso`, só
-                o rótulo/placeholder mudam: são a mesma pergunta ("em que
-                contexto calibrar os tópicos?"), não duas perguntas. */}
-            {contexto !== "enem" && (
-              <label>
-                <div className="text-sm text-ink-muted mb-1">
-                  {contexto === "concurso" ? "Concurso" : "Curso"}{" "}
-                  <span className="text-ink-terciario">(opcional, melhora o palpite)</span>
-                </div>
-                <input
-                  className="campo"
-                  placeholder={
-                    contexto === "concurso"
-                      ? "Receita Federal, TRF, Polícia Federal…"
-                      : "Engenharia de Software, Direito, Medicina…"
-                  }
-                  value={curso}
-                  onChange={(e) => setCurso(e.target.value)}
-                  maxLength={120}
-                />
-              </label>
-            )}
-
-            <div>
-              <div className="text-sm text-ink-muted mb-1">
-                Período <span className="text-ink-terciario">(opcional)</span>
-              </div>
-              {/* Chip, não <select>: um <select> customizado (appearance:none
-                  + seta própria) esbarrou num bug real do motor Chromium —
-                  o menu suspenso nativo é medido pela caixa inteira do
-                  campo, e cada opção virava um bloco enorme, lista quase
-                  em branco. Chip é o padrão que já funciona neste app
-                  (GradeEstudo usa o mesmo pros dias da semana) — sem
-                  depender de popup nenhum renderizado pelo SO. */}
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  type="button"
-                  className={periodo === null ? "chip chip-estudo" : "chip"}
-                  onClick={() => setPeriodo(null)}
-                >
-                  Não informar
-                </button>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={periodo === n ? "chip chip-estudo" : "chip"}
-                    onClick={() => setPeriodo(n)}
-                  >
-                    {n}º
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {modo === "ia" && (
-          <div className="flex flex-col gap-2 mb-3">
-            <p className="text-sm text-ink-muted">
-              Sem plano de ensino em mãos? A IA lista os tópicos que essa disciplina costuma
-              cobrir — você revisa e ajusta antes de salvar.
-            </p>
-            <button
-              type="button"
-              className="btn btn-neutro w-fit"
-              onClick={() => void gerarPeloNome()}
-              disabled={iaEstado === "analisando"}
-            >
-              <Sparkles size={16} />
-              {iaEstado === "analisando" ? "Gerando…" : "Gerar tópicos"}
-            </button>
-            {/* A confiança vem forçada como "baixa" pelo backend, e é
-                verdade: isto é palpite sobre a ementa típica, não a ementa
-                do SEU professor. */}
-            <p className="dica-campo">
-              A lista é um ponto de partida — confira com o plano de ensino da sua turma.
-            </p>
-
-            {iaEstado === "analisando" && (
-              <p className="text-sm text-ink-muted">
-                Consultando a IA — pode levar até um minuto.
-              </p>
-            )}
-            {iaEstado === "erro" && iaErro && <AvisoDeFormulario>{iaErro}</AvisoDeFormulario>}
-            {iaEstado === "ocioso" && origemAtual === "ia_nome_materia" && (
-              <div className="flex flex-col gap-1">
-                <span className="badge badge-estudo w-fit">
-                  {topicos.filter((t) => t.trim()).length} tópicos sugeridos — revise abaixo antes de salvar
-                </span>
-                {iaAvisos.map((a, i) => (
-                  <p key={i} className="text-xs text-ink-terciario">· {a}</p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {modo === "pdf" && (
-          <div className="flex flex-col gap-2 mb-3">
-            <p className="text-sm text-ink-muted">
-              PDF ou foto — os dois viram só texto antes de qualquer coisa sair do seu aparelho.
-              Um documento com várias disciplinas (grade curricular, por exemplo) vira uma matéria
-              por disciplina, pra você revisar e escolher quais criar.
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <label className="btn btn-neutro w-fit flex items-center gap-2" style={{ cursor: "pointer" }}>
-                <Upload size={16} />
-                {pdfNomeArquivo ? "Trocar arquivo" : "Escolher PDF"}
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0];
-                    if (arquivo) void aoEscolherPdf(arquivo);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {/* `capture="environment"` abre a câmera traseira direto no
-                  celular; no desktop cai de volta pro seletor de arquivo
-                  normal, sem quebrar nada. */}
-              <label className="btn btn-neutro w-fit flex items-center gap-2" style={{ cursor: "pointer" }}>
-                <Camera size={16} />
-                Tirar foto
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0];
-                    if (arquivo) void aoEscolherFoto(arquivo);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-            {pdfNomeArquivo && <p className="text-xs text-ink-terciario num">{pdfNomeArquivo}</p>}
-
-            {iaEstado === "lendo" && <p className="text-sm text-ink-muted">Lendo o documento…</p>}
-            {iaEstado === "analisando" && (
-              <p className="text-sm text-ink-muted">
-                A IA está identificando os tópicos — pode levar até um minuto.
-              </p>
-            )}
-            {iaEstado === "erro" && iaErro && (
-              <>
-                <AvisoDeFormulario>{iaErro}</AvisoDeFormulario>
-                {/* PDF escaneado ou foto ilegível é o caso que o backend
-                    rejeita por falta de texto — e até aqui a única saída
-                    oferecida era "digite manualmente", ou seja, 12 linhas
-                    na mão. Agora tem um caminho de verdade. */}
-                <button
-                  type="button"
-                  className="btn btn-neutro w-fit"
-                  onClick={() => {
-                    setModo("ia");
-                    setIaErro(null);
-                    setIaEstado("ocioso");
-                  }}
-                >
-                  <Sparkles size={16} /> Gerar pelo nome da matéria
-                </button>
-              </>
-            )}
-            {iaEstado === "ocioso" && origemAtual === "pdf" && propostas && (
-              <span className="badge badge-estudo w-fit">
-                {propostas.length} matérias encontradas — revise abaixo antes de criar
-              </span>
-            )}
-            {iaEstado === "ocioso" && origemAtual === "pdf" && !propostas && (
-              <div className="flex flex-col gap-1">
-                <span className="badge badge-estudo w-fit">
-                  {topicos.filter((t) => t.trim()).length} tópicos extraídos — revise abaixo antes de salvar
-                </span>
-                {confiancaAtual === "baixa" && (
-                  <p className="text-xs text-atencao-ink">Confiança baixa: confira cada tópico com atenção.</p>
-                )}
-                {iaAvisos.map((a, i) => (
-                  <p key={i} className="text-xs text-ink-terciario">· {a}</p>
-                ))}
-              </div>
-            )}
-
-            {pdfDatas.length > 0 && !propostas && (
-              <div className="mt-1">
-                <div className="text-sm text-ink-muted mb-1">Datas encontradas no documento</div>
-                <div className="flex flex-col gap-2">
-                  {pdfDatas.map((d, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded-md border border-hairline px-3 py-2">
-                      <Calendar size={16} className="text-ink-muted shrink-0" />
-                      <span className="text-sm flex-1">
-                        {d.tipo === "prova" ? "Prova" : "Entrega"} — "{d.dataTexto}"
-                        {d.descricao && ` · ${d.descricao}`}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-xs text-estudo-ink underline shrink-0"
-                        onClick={() => {
-                          setTipoEventoNovo(d.tipo);
-                          setDescEventoNovo(d.descricao ?? "");
-                        }}
-                      >
-                        Usar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-ink-terciario mt-1">
-                  O texto da data não é confiável — escolha a data certa embaixo antes de adicionar.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Revisão de várias matérias — um documento que virou N disciplinas.
-          Só o nome é editável aqui; ajuste fino de tópico por tópico já
-          existe DEPOIS de criada (a lixeira em "Suas matérias"), reeditar
-          em cima de N cards seria a mesma ferramenta duas vezes. */}
-      {propostas && (
-        <div className="flex flex-col gap-2">
-          {propostas.map((p, i) => (
-            <div key={i} className="rounded-md border border-hairline p-3">
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 shrink-0"
-                  checked={p.incluir}
-                  onChange={() =>
-                    setPropostas((atual) =>
-                      atual!.map((x, j) => (j === i ? { ...x, incluir: !x.incluir } : x)),
-                    )
-                  }
-                />
-                <div className="flex-1 min-w-0" style={{ opacity: p.incluir ? 1 : 0.5 }}>
-                  <input
-                    className="campo mb-1"
-                    value={p.nome}
-                    disabled={!p.incluir}
-                    onChange={(e) =>
-                      setPropostas((atual) =>
-                        atual!.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)),
-                      )
-                    }
-                  />
-                  <p className="text-xs text-ink-terciario">
-                    {p.topicos.length} {p.topicos.length === 1 ? "tópico" : "tópicos"}
-                    {p.topicos.length > 0 && `: ${p.topicos.join(" · ")}`}
-                  </p>
-                </div>
-              </label>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* A lista editável aparece no modo manual e sempre que já existe
-          resultado de IA para revisar (matéria única) — é ela a "tela de
-          revisão" que o backend pressupõe ao nunca gravar nada por conta
-          própria. Some quando virou revisão de VÁRIAS (`propostas`), que
-          tem a revisão própria acima. */}
-      {!propostas && (modo === "manual" || origemAtual !== "manual") && (
-      <div>
-        <div className="text-sm text-ink-muted mb-1">Tópicos</div>
-        {topicos.map((t, i) => (
-          <input
-            key={i}
-            className="campo mb-2"
-            placeholder={`Tópico ${i + 1}`}
-            value={t}
-            onChange={(e) => {
-              setTopicos((atual) => atual.map((x, j) => (j === i ? e.target.value : x)))
-              limpar("topico");
-            }}
-            /* Só o primeiro input recebe o gancho de validação: a regra é
-               "pelo menos um tópico", então é para ele que o foco vai. */
-            {...(i === 0 ? campo("topico") : {})}
-          />
-        ))}
-        {erros.topico && <MensagemErro id={idDoErro("topico")}>{erros.topico}</MensagemErro>}
-        <button
-          type="button"
-          className="btn btn-neutro"
-          onClick={() => setTopicos((atual) => [...atual, ""])}
-        >
-          + tópico
-        </button>
-      </div>
-      )}
-
-      {/* Some em modo várias matérias: a quem cada evento pertence deixa
-          de ser óbvio com N matérias na mesa — ver o comentário grande em
-          `criarVarias`. */}
-      {!propostas && (
-      <div>
-        <div className="text-sm text-ink-muted mb-1">
-          Provas e entregas <span className="text-ink-terciario">(opcional)</span>
-        </div>
-        {/* Prova cobre a matéria inteira automaticamente (a RPC liga todo
-            tópico já cadastrado a ela) — não precisa escolher quais. */}
-        {eventos.length > 0 && (
-          <div className="flex flex-col gap-2 mb-3">
-            {eventos.map((ev, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-md border border-hairline px-3 py-2">
-                <Calendar size={16} className="text-ink-muted shrink-0" />
-                <span className="text-sm flex-1">
-                  {ev.tipo === "prova" ? "Prova" : "Entrega"} em {ev.data.split("-").reverse().join("/")}
-                  {ev.descricao && ` — ${ev.descricao}`}
-                </span>
-                <button
-                  type="button"
-                  className="text-ink-muted shrink-0"
-                  onClick={() => setEventos((atual) => atual.filter((_, j) => j !== i))}
-                  aria-label="Remover evento"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2 mb-2">
-          <button
-            type="button"
-            className={tipoEventoNovo === "prova" ? "chip chip-estudo" : "chip"}
-            onClick={() => setTipoEventoNovo("prova")}
-          >
-            Prova
-          </button>
-          <button
-            type="button"
-            className={tipoEventoNovo === "entrega" ? "chip chip-estudo" : "chip"}
-            onClick={() => setTipoEventoNovo("entrega")}
-          >
-            Entrega
-          </button>
-        </div>
-        <div className="flex gap-2 mb-2">
-          <input
-            className="campo flex-1"
-            type="date"
-            value={dataEventoNovo}
-            onChange={(e) => setDataEventoNovo(e.target.value)}
-            aria-label="Data do evento"
-          />
-        </div>
-        <input
-          className="campo mb-2"
-          placeholder="Descrição (opcional)"
-          value={descEventoNovo}
-          onChange={(e) => setDescEventoNovo(e.target.value)}
-        />
-        <button type="button" className="btn btn-neutro" onClick={adicionarEvento} disabled={!dataEventoNovo}>
-          Adicionar evento
-        </button>
-      </div>
-      )}
-
-      {/* Colado ao botão de propósito — é onde o polegar já está. */}
-      {errosSemCampo.length > 0 && (
-        <AvisoDeFormulario>
-          {errosSemCampo.map((m, i) => (
-            <div key={i}>{m}</div>
-          ))}
-        </AvisoDeFormulario>
-      )}
-      {erroServidor && <AvisoDeFormulario>{erroServidor}</AvisoDeFormulario>}
-
-      <button className="btn btn-estudo btn-bloco" type="submit" disabled={enviando}>
-        {enviando
-          ? "Criando…"
-          : propostas
-            ? `Criar ${propostas.filter((p) => p.incluir).length} ${
-                propostas.filter((p) => p.incluir).length === 1 ? "matéria" : "matérias"
-              }`
-            : "Criar matéria"}
-      </button>
-    </form>
   );
 }
